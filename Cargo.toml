@@ -1,0 +1,7 @@
+[package]
+name = "hw"
+version = "0.1.0"
+authors = ["Gaz Liddon Retina <gaz@gazaxian.com>"]
+
+[dependencies]
+bitflags="*"
