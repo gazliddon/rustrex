@@ -2,7 +2,7 @@ use cpu::Cpu;
 use memmap::MemMap;
 use mem::MemoryIO;
 
-struct Machine {
+pub struct Machine {
     cpu : Cpu,
     mem : MemMap,
 }
@@ -20,6 +20,10 @@ impl Machine {
         }
     }
 
+    pub fn disassemble(&self, addr : u16 ) -> (u16, String) {
+        (addr, String::new())
+    }
+
     pub fn upload(&mut self, data : &[u8], _address : u16) -> u16 {
 
         use std::cmp::min;
@@ -28,12 +32,15 @@ impl Machine {
 
         let to_copy = min(max, data.len());
 
+        println!("copying {} bytes to {}", to_copy, _address);
+
         if to_copy > 0 {
-            let slice = &data[0..to_copy];
+            let slice = &data[0..(to_copy-1)];
+
             let mut dest = _address;
 
             for byte in slice {
-                self.mem.store_byte(dest, *byte);
+                self.mem.store_byte(dest as u16, *byte);
                 dest = dest + 1;
             }
 
@@ -52,8 +59,7 @@ impl Machine {
         let to_copy = min(max, size as usize);
 
         if to_copy > 0 {
-
-            for addr in uaddress..(uaddress+to_copy) {
+            for addr in uaddress..(uaddress+ (to_copy - 1)) {
                 data.push(self.mem.load_byte(addr as u16));
             }
         }

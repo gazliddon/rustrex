@@ -1,15 +1,11 @@
 use std::vec::Vec;
 
 pub trait MemoryIO {
-
+    fn is_in_range(&self, val : u16) -> bool;
     fn load_byte(&self, addr:u16) -> u8;
     fn load_word(&self, addr:u16) -> u16;
     fn store_byte(&mut self, addr:u16, val:u8);
     fn store_word(&mut self, addr:u16, val:u16);
-}
-
-pub trait Size {
-    fn is_in_range(&self, val : u16) -> bool;
 }
 
 pub struct Memory {
@@ -17,6 +13,7 @@ pub struct Memory {
     pub data : Vec<u8>,
     pub base : u16,
     pub size : u16,
+    pub last_mem : u16,
     pub name : &'static str
 }
 
@@ -26,23 +23,26 @@ impl Memory {
 
         let data = vec![0u8; size as usize];
 
+
+        let last_mem = (base as u32) + (size as u32) - 1;
+    
+
         Memory {
             size : size,
             base : base,
             read_only: read_only,
             data : data,
             name : name,
+            last_mem : last_mem as u16,
         }
     }
 }
 
-impl Size for Memory {
-    fn is_in_range(&self, val : u16) -> bool {
-        (val >= self.base) && (val < (self.base + self.size))
-    }
-}
-
 impl MemoryIO for Memory {
+    fn is_in_range(&self, val : u16) -> bool {
+        (val >= self.base) && (val <= self.last_mem)
+    }
+
     fn load_byte(&self, addr:u16) -> u8 {
         let idx = (addr - self.base) as usize;
         assert!(idx < self.size as usize);

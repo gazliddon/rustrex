@@ -12,18 +12,18 @@ pub enum FlagEffects {
     UNKNOWN
 }
 
-struct AddrMode {
+pub struct AddrMode {
     pub name : &'static str,
     pub fetch : fn(cpu : &mut Cpu, mem : &mut MemMap ) -> u16,
     pub store : fn(v : u16, cpu : &mut Cpu, mem : &mut MemMap ),
 }
 
-struct Op {
+pub struct Op {
     pub mnenomic : &'static str, 
     pub exec : fn( _a : u16, _b : u16, _c : u16, _cpu : &mut Cpu, _mem : &mut MemMap ) -> u16,
 }
 
-struct Ins {
+pub struct Ins {
     pub op : &'static Op,
     pub addr_mode : &'static AddrMode,
     pub op_code : u16,
@@ -33,10 +33,6 @@ struct Ins {
 
 
 impl Ins {
-
-    pub fn diassasemble(&self, _addr : u16, _cpu : &Cpu, _mem : &MemMap) -> String {
-        String::from("This doesn't work")
-    }
 
     pub fn exec(&self,  _cpu : &mut Cpu, _mem : &mut MemMap) -> u32 {
 
