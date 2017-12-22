@@ -4,21 +4,18 @@ use mem::Memory;
 
 // Genericise TODO
 
-fn as_word(lo : u8, hi : u8) -> u16 {
-    lo as u16 | (hi as u16) << 8
-}
-
-fn as_bytes(val : u16) -> (u8,u8) {
-    ( (val&0xff) as u8, (val>>8) as u8 )
-}
 
 pub struct MemMap {
     all_memory: Vec< Box<MemoryIO> >
 }
 
 impl MemoryIO for MemMap {
-    fn is_in_range(&self, val : u16) -> bool {
-        true
+    fn get_name(&self) -> String {
+        String::from("Entire Address Range")
+    }
+
+    fn get_range(&self) -> (u16, u16) {
+        (0, 0xffff)
     }
 
     fn load_byte(&self, addr:u16) -> u8 {
@@ -30,22 +27,12 @@ impl MemoryIO for MemMap {
         0
     }
 
-    fn load_word(&self, addr:u16) -> u16 {
-        as_word(self.load_byte(addr), self.load_byte(addr+1))
-    }
-
     fn store_byte(&mut self, addr:u16, val:u8) {
         for m in self.all_memory.iter_mut() {
             if m.is_in_range(addr) {
                 m.store_byte(addr, val)
             }
         }
-    }
-
-    fn store_word(&mut self, addr:u16, val:u16) {
-        let (lo,hi) = as_bytes(val);
-        self.store_byte(addr, lo);
-        self.store_byte(addr+1, hi);
     }
 }
 
@@ -69,6 +56,12 @@ impl MemMap {
         MemMap {
             all_memory : v
         }
+    }
+
+    pub fn dump(&self) {
+        for i in &self.all_memory {
+        }
+ 
     }
 }
 

@@ -22,28 +22,23 @@ impl Machine {
 
     pub fn disassemble(&self, addr : u16 ) -> (u16, String) {
         (addr, String::new())
+
     }
 
     pub fn upload(&mut self, data : &[u8], _address : u16) -> u16 {
 
         use std::cmp::min;
 
+
         let max = 0x10000 - ( _address as usize );
 
         let to_copy = min(max, data.len());
 
-        println!("copying {} bytes to {}", to_copy, _address);
+        println!("copying ${:04x} bytes to ${:04x}", to_copy, _address);
 
-        if to_copy > 0 {
-            let slice = &data[0..(to_copy-1)];
-
-            let mut dest = _address;
-
-            for byte in slice {
-                self.mem.store_byte(dest as u16, *byte);
-                dest = dest + 1;
-            }
-
+        for f in 0..to_copy {
+            let addr = ( _address as usize + f ) as u16;
+            self.mem.store_byte(addr, data[f]);
         }
 
         to_copy as u16
