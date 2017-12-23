@@ -1291,7 +1291,7 @@ fn get_ins_a10(op : u16) -> &'static Ins {
 
 
 pub fn get_ins(op : u16 ) -> &'static Ins {
-    match op & 0xff {
+    match op >> 8 {
         0x10 => get_ins_a10(op),
         0x11 => get_ins_a11(op),
         _ => &INS[op as usize],

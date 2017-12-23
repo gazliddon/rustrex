@@ -26,12 +26,12 @@ pub trait MemoryIO {
 
     fn store_word(&mut self, addr:u16, val:u16) {
         let (lo,hi) = as_bytes(val);
-        self.store_byte(addr, lo);
-        self.store_byte(addr+1, hi);
+        self.store_byte(addr, hi);
+        self.store_byte(addr+1, lo);
     }
 
     fn load_word(&self, addr:u16) -> u16 {
-        as_word(self.load_byte(addr), self.load_byte(addr+1))
+        as_word(self.load_byte(addr+1), self.load_byte(addr))
     }
 }
 
