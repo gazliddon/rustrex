@@ -3,6 +3,7 @@
 use cpu::Cpu;
 use memmap::MemMap;
 use mem::MemoryIO;
+use std::fmt;
 
 pub enum FlagEffects {
     UNAFFECTED,
@@ -12,9 +13,19 @@ pub enum FlagEffects {
     UNKNOWN
 }
 
+trait IAddrMode {
+    fn get_name(&self) -> &'static str {
+        "NO NAME"
+    }
+
+    fn fetch(&self, cpu : &Cpu, mem : &mut MemMap ) -> u16 ;
+}
+
+
 pub struct AddrMode {
     pub name : &'static str,
     pub fetch : fn(cpu : &mut Cpu, mem : &mut MemMap ) -> u16,
+
     pub store : fn(v : u16, cpu : &mut Cpu, mem : &mut MemMap ),
 }
 
@@ -23,6 +34,22 @@ pub struct Op {
     pub exec : fn( _a : u16, _b : u16, _c : u16, _cpu : &mut Cpu, _mem : &mut MemMap ) -> u16,
 }
 
+impl fmt::Debug for Op {
+
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", self.mnenomic)
+        }
+}
+
+impl fmt::Debug for AddrMode {
+
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+
+        write!(f, "{}", self.name)
+        }
+}
+
+#[derive(Debug)]
 pub struct Ins {
     pub op : &'static Op,
     pub addr_mode : &'static AddrMode,
@@ -30,7 +57,6 @@ pub struct Ins {
     pub cycles : u8,
     pub bytes : u8,
 }
-
 
 impl Ins {
 
@@ -55,6 +81,11 @@ pub fn default_fetch(_cpu : &mut Cpu, _mem : &mut MemMap ) -> u16 {
 pub fn default_store(_v : u16, _cpu : &mut Cpu, _mem : &mut MemMap ) {
 }
 
+pub fn direct_fetch(_cpu : &mut Cpu, _mem : &mut MemMap ) -> u16 {
+    let pc = _cpu.regs.pc;
+    _mem.load_word(pc + 1)
+}
+
 // Addressing modes
 static ILLEGAL_ADDR : AddrMode = AddrMode {
     name : "illegal",
@@ -64,7 +95,7 @@ static ILLEGAL_ADDR : AddrMode = AddrMode {
 
 static DIRECT : AddrMode = AddrMode {
     name : "DIRECT",
-    fetch : default_fetch,
+    fetch : direct_fetch,
     store : default_store,
 };
 
@@ -296,12 +327,12 @@ static ORCC : Op = Op {
     exec: default_exec,
 };
 
-static PAGE1 : Op = Op {
+static PAGE1_OP : Op = Op {
     mnenomic : "PAGE1",
     exec: default_exec,
 };
 
-static PAGE2 : Op = Op {
+static PAGE2_OP : Op = Op {
     mnenomic : "PAGE2",
     exec: default_exec,
 };
@@ -697,6 +728,134 @@ static STX : Op = Op {
     exec: default_exec,
 };
 
+static CMPD : Op = Op {
+    mnenomic: "CMPD",
+    exec: default_exec,
+};
+
+static CMPY : Op = Op {
+    mnenomic: "CMPY",
+    exec: default_exec,
+};
+
+static LBEQ : Op = Op {
+    mnenomic: "LBEQ",
+    exec: default_exec,
+};
+
+static LBGE : Op = Op {
+    mnenomic: "LBGE",
+    exec: default_exec,
+};
+
+static LBGT : Op = Op {
+    mnenomic: "LBGT",
+    exec: default_exec,
+};
+
+static LBHI : Op = Op {
+    mnenomic: "LBHI",
+    exec: default_exec,
+};
+
+static LBHS_LBCC : Op = Op {
+    mnenomic: "LBHS_LBCC",
+    exec: default_exec,
+};
+
+static LBLE : Op = Op {
+    mnenomic: "LBLE",
+    exec: default_exec,
+};
+
+static LBLO_LBCS : Op = Op {
+    mnenomic: "LBLO_LBCS",
+    exec: default_exec,
+};
+
+static LBLS : Op = Op {
+    mnenomic: "LBLS",
+    exec: default_exec,
+};
+
+static LBLT : Op = Op {
+    mnenomic: "LBLT",
+    exec: default_exec,
+};
+
+static LBMI : Op = Op {
+    mnenomic: "LBMI",
+    exec: default_exec,
+};
+
+static LBNE : Op = Op {
+    mnenomic: "LBNE",
+    exec: default_exec,
+};
+
+static LBPL : Op = Op {
+    mnenomic: "LBPL",
+    exec: default_exec,
+};
+
+static LBRN : Op = Op {
+    mnenomic: "LBRN",
+    exec: default_exec,
+};
+
+static LBVC : Op = Op {
+    mnenomic: "LBVC",
+    exec: default_exec,
+};
+
+static LBVS : Op = Op {
+    mnenomic: "LBVS",
+    exec: default_exec,
+};
+
+static LDS : Op = Op {
+    mnenomic: "LDS",
+    exec: default_exec,
+};
+
+static LDY : Op = Op {
+    mnenomic: "LDY",
+    exec: default_exec,
+};
+
+static STS : Op = Op {
+    mnenomic: "STS",
+    exec: default_exec,
+};
+
+static STY : Op = Op {
+    mnenomic: "STY",
+    exec: default_exec,
+};
+
+static SWI2 : Op = Op {
+    mnenomic: "SWI2",
+    exec: default_exec,
+};
+
+static SWI3 : Op = Op {
+    mnenomic: "SWI3",
+    exec: default_exec,
+};
+
+static CMPU : Op = Op {
+    mnenomic: "CMPU",
+    exec: default_exec,
+};
+
+static CMPS : Op = Op {
+    mnenomic: "CMPS",
+    exec: default_exec,
+};
+
+
+////////////////////////////////////////////////////////////////////////////////
+
 macro_rules! ins {
     ($op_code:expr, $op:ident, $am:ident, $cycles:expr, $bytes:expr) => ( Ins {
         op : &$op,
@@ -706,6 +865,60 @@ macro_rules! ins {
         bytes: $bytes,
     });
 }
+
+static PAGE1 : &'static [Ins] = &[
+    ins!( 0x1021, LBRN, RELATIVE, 5, 4 ),
+    ins!( 0x1022, LBHI, RELATIVE, 5, 4 ),
+    ins!( 0x1023, LBLS, RELATIVE, 5, 4 ),
+    ins!( 0x1024, LBHS_LBCC, RELATIVE, 5, 4 ),
+    ins!( 0x1025, LBLO_LBCS, RELATIVE, 5, 4 ),
+    ins!( 0x1026, LBNE, RELATIVE, 5, 4 ),
+    ins!( 0x1027, LBEQ, RELATIVE, 5, 4 ),
+    ins!( 0x1028, LBVC, RELATIVE, 5, 4 ),
+    ins!( 0x1029, LBVS, RELATIVE, 5, 4 ),
+    ins!( 0x102A, LBPL, RELATIVE, 5, 4 ),
+    ins!( 0x102B, LBMI, RELATIVE, 5, 4 ),
+    ins!( 0x102C, LBGE, RELATIVE, 5, 4 ),
+    ins!( 0x102D, LBLT, RELATIVE, 5, 4 ),
+    ins!( 0x102E, LBGT, RELATIVE, 5, 4 ),
+    ins!( 0x102F, LBLE, RELATIVE, 5, 4 ),
+    ins!( 0x103F, SWI2, INHERENT, 20, 2 ),
+    ins!( 0x1083, CMPD, IMMEDIATE, 5, 4 ),
+    ins!( 0x108C, CMPY, IMMEDIATE, 5, 4 ),
+    ins!( 0x108E, LDY, IMMEDIATE, 4, 4 ),
+    ins!( 0x1093, CMPD, DIRECT, 7, 3 ),
+    ins!( 0x109C, CMPY, DIRECT, 7, 3 ),
+    ins!( 0x109E, LDY, DIRECT, 6, 3 ),
+    ins!( 0x109F, STY, DIRECT, 6, 3 ),
+    ins!( 0x10A3, CMPD, INDEXED, 7, 3 ),
+    ins!( 0x10AC, CMPY, INDEXED, 7, 3 ),
+    ins!( 0x10AE, LDY, INDEXED, 6, 3 ),
+    ins!( 0x10AF, STY, INDEXED, 6, 3 ),
+    ins!( 0x10B3, CMPD, EXTENDED, 8, 4 ),
+    ins!( 0x10BC, CMPY, EXTENDED, 8, 4 ),
+    ins!( 0x10BE, LDY, EXTENDED, 7, 4 ),
+    ins!( 0x10BF, STY, EXTENDED, 7, 4 ),
+    ins!( 0x10CE, LDS, IMMEDIATE, 4, 4 ),
+    ins!( 0x10DE, LDS, DIRECT, 6, 3 ),
+    ins!( 0x10DF, STS, DIRECT, 6, 3 ),
+    ins!( 0x10EE, LDS, INDEXED, 6, 3 ),
+    ins!( 0x10EF, STS, INDEXED, 6, 3 ),
+    ins!( 0x10FE, LDS, EXTENDED, 7, 4 ),
+    ins!( 0x10FF, STS, EXTENDED, 7, 4 ),
+];
+
+static PAGE2 : &'static [Ins] = &[
+    ins!( 0x113F, SWI3, INHERENT     ,  20   ,   2   ),
+    ins!( 0x1183, CMPU, IMMEDIATE    ,   5   ,   4   ),
+    ins!( 0x118C, CMPS, IMMEDIATE    ,   5   ,   4   ),
+    ins!( 0x1193, CMPU, DIRECT       ,   7   ,   3   ),
+    ins!( 0x119C, CMPS, DIRECT       ,   7   ,   3   ),
+    ins!( 0x11A3, CMPU, INDEXED      ,   7   ,   3   ),
+    ins!( 0x11AC, CMPS, INDEXED      ,   7   ,   3   ),
+    ins!( 0x11B3, CMPU, EXTENDED     ,   8   ,   4   ),
+    ins!( 0x11BC, CMPS, EXTENDED     ,   8   ,   4   ),
+];
+
 
 static INS : &'static [Ins] = &[
     ins!(0x00, NEG, DIRECT, 6, 2 ),
@@ -724,8 +937,8 @@ static INS : &'static [Ins] = &[
     ins!(0x0D, TST, DIRECT, 6, 2 ),
     ins!(0x0E, JMP, DIRECT, 3, 2 ),
     ins!(0x0F, CLR, DIRECT, 6, 2 ),
-    ins!(0x10, PAGE1, VARIANT, 1, 1 ),
-    ins!(0x11, PAGE2, VARIANT, 1, 1 ),
+    ins!(0x10, PAGE1_OP, VARIANT, 1, 1 ),
+    ins!(0x11, PAGE2_OP, VARIANT, 1, 1 ),
     ins!(0x12, NOP, INHERENT, 2, 1 ),
     ins!(0x13, SYNC, INHERENT, 2, 1 ),
     ins!(0x14, ILLEGAL, ILLEGAL_ADDR, 1, 1 ),
@@ -965,4 +1178,123 @@ static INS : &'static [Ins] = &[
     ins!(0xFE, LDU, EXTENDED, 6, 3 ),
     ins!(0xFF, STU, EXTENDED, 6, 3 ),
     ];
+
+static SWI3_INS_INHERENT:    &'static Ins = &ins!( 0x113F, SWI3, INHERENT     ,  20   ,   2   );
+static CMPU_INS_IMMEDIATE:   &'static Ins = &ins!( 0x1183, CMPU, IMMEDIATE    ,   5   ,   4   );
+static CMPS_INS_IMMEDIATE:   &'static Ins = &ins!( 0x118C, CMPS, IMMEDIATE    ,   5   ,   4   );
+static CMPU_INS_DIRECT:      &'static Ins = &ins!( 0x1193, CMPU, DIRECT       ,   7   ,   3   );
+static CMPS_INS_DIRECT:      &'static Ins = &ins!( 0x119C, CMPS, DIRECT       ,   7   ,   3   );
+static CMPU_INS_INDEXED:     &'static Ins = &ins!( 0x11A3, CMPU, INDEXED      ,   7   ,   3   );
+static CMPS_INS_INDEXED:     &'static Ins = &ins!( 0x11AC, CMPS, INDEXED      ,   7   ,   3   );
+static CMPU_INS_EXTENDED:    &'static Ins = &ins!( 0x11B3, CMPU, EXTENDED     ,   8   ,   4   );
+static CMPS_INS_EXTENDED:    &'static Ins = &ins!( 0x11BC, CMPS, EXTENDED     ,   8   ,   4   );
+static ILLEGAL_A11:    &'static Ins = &ins!( 0x11BC, ILLEGAL, INHERENT     ,   1   ,   1   );
+
+fn get_ins_a11(op : u16) -> &'static Ins {
+    match op {
+        0x113F => SWI3_INS_INHERENT,
+        0x1183 => CMPU_INS_IMMEDIATE,
+        0x118C => CMPS_INS_IMMEDIATE,
+        0x1193 => CMPU_INS_DIRECT,
+        0x119C => CMPS_INS_DIRECT,
+        0x11A3 => CMPU_INS_INDEXED,
+        0x11AC => CMPS_INS_INDEXED,
+        0x11B3 => CMPU_INS_EXTENDED,
+        0x11BC => CMPS_INS_EXTENDED,
+        _ => ILLEGAL_A11,
+    }
+}
+
+static LBRN_RELATIVE: &'static Ins      =    &ins!( 0x1021, LBRN, RELATIVE, 5, 4 );
+static LBHI_RELATIVE: &'static Ins      =    &ins!( 0x1022, LBHI, RELATIVE, 5, 4 );
+static LBLS_RELATIVE: &'static Ins      =    &ins!( 0x1023, LBLS, RELATIVE, 5, 4 );
+static LBHS_LBCC_RELATIVE: &'static Ins =  &ins!( 0x1024, LBHS_LBCC, RELATIVE, 5, 4 );
+static LBLO_LBCS_RELATIVE: &'static Ins =  &ins!( 0x1025, LBLO_LBCS, RELATIVE, 5, 4 );
+static LBNE_RELATIVE: &'static Ins      =    &ins!( 0x1026, LBNE, RELATIVE, 5, 4 );
+static LBEQ_RELATIVE: &'static Ins      =    &ins!( 0x1027, LBEQ, RELATIVE, 5, 4 );
+static LBVC_RELATIVE: &'static Ins      =    &ins!( 0x1028, LBVC, RELATIVE, 5, 4 );
+static LBVS_RELATIVE: &'static Ins      =    &ins!( 0x1029, LBVS, RELATIVE, 5, 4 );
+static LBPL_RELATIVE: &'static Ins      =    &ins!( 0x102A, LBPL, RELATIVE, 5, 4 );
+static LBMI_RELATIVE: &'static Ins      =    &ins!( 0x102B, LBMI, RELATIVE, 5, 4 );
+static LBGE_RELATIVE: &'static Ins      =    &ins!( 0x102C, LBGE, RELATIVE, 5, 4 );
+static LBLT_RELATIVE: &'static Ins      =    &ins!( 0x102D, LBLT, RELATIVE, 5, 4 );
+static LBGT_RELATIVE: &'static Ins      =    &ins!( 0x102E, LBGT, RELATIVE, 5, 4 );
+static LBLE_RELATIVE: &'static Ins      =    &ins!( 0x102F, LBLE, RELATIVE, 5, 4 );
+static SWI2_INHERENT: &'static Ins      =    &ins!( 0x103F, SWI2, INHERENT, 20, 2 );
+static CMPD_IMMEDIATE: &'static Ins     =    &ins!( 0x1083, CMPD, IMMEDIATE, 5, 4 );
+static CMPY_IMMEDIATE: &'static Ins     =    &ins!( 0x108C, CMPY, IMMEDIATE, 5, 4 );
+static LDY_IMMEDIATE: &'static Ins      =    &ins!( 0x108E, LDY, IMMEDIATE, 4, 4 );
+static CMPD_DIRECT: &'static Ins        =    &ins!( 0x1093, CMPD, DIRECT, 7, 3 );
+static CMPY_DIRECT: &'static Ins        =    &ins!( 0x109C, CMPY, DIRECT, 7, 3 );
+static LDY_DIRECT: &'static Ins         =    &ins!( 0x109E, LDY, DIRECT, 6, 3 );
+static STY_DIRECT: &'static Ins         =    &ins!( 0x109F, STY, DIRECT, 6, 3 );
+static CMPD_INDEXED: &'static Ins       =    &ins!( 0x10A3, CMPD, INDEXED, 7, 3 );
+static CMPY_INDEXED: &'static Ins       =    &ins!( 0x10AC, CMPY, INDEXED, 7, 3 );
+static LDY_INDEXED: &'static Ins        =    &ins!( 0x10AE, LDY, INDEXED, 6, 3 );
+static STY_INDEXED: &'static Ins        =    &ins!( 0x10AF, STY, INDEXED, 6, 3 );
+static CMPD_EXTENDED: &'static Ins      =    &ins!( 0x10B3, CMPD, EXTENDED, 8, 4 );
+static CMPY_EXTENDED: &'static Ins      =    &ins!( 0x10BC, CMPY, EXTENDED, 8, 4 );
+static LDY_EXTENDED: &'static Ins       =    &ins!( 0x10BE, LDY, EXTENDED, 7, 4 );
+static STY_EXTENDED: &'static Ins       =    &ins!( 0x10BF, STY, EXTENDED, 7, 4 );
+static LDS_IMMEDIATE: &'static Ins      =    &ins!( 0x10CE, LDS, IMMEDIATE, 4, 4 );
+static LDS_DIRECT: &'static Ins         =    &ins!( 0x10DE, LDS, DIRECT, 6, 3 );
+static STS_DIRECT: &'static Ins         =    &ins!( 0x10DF, STS, DIRECT, 6, 3 );
+static LDS_INDEXED: &'static Ins        =    &ins!( 0x10EE, LDS, INDEXED, 6, 3 );
+static STS_INDEXED: &'static Ins        =    &ins!( 0x10EF, STS, INDEXED, 6, 3 );
+static LDS_EXTENDED: &'static Ins       =    &ins!( 0x10FE, LDS, EXTENDED, 7, 4 );
+static STS_EXTENDED: &'static Ins       =    &ins!( 0x10FF, STS, EXTENDED, 7, 4 );
+static ILLEGAL_A10:    &'static Ins = &ins!( 0x1000, ILLEGAL, INHERENT     ,   1   ,   1   );
+
+fn get_ins_a10(op : u16) -> &'static Ins {
+    match op {
+        0x1021=> LBRN_RELATIVE ,
+        0x1022=>  LBHI_RELATIVE ,
+        0x1023=>  LBLS_RELATIVE ,
+        0x1024=>  LBHS_LBCC_RELATIVE ,
+        0x1025=>  LBLO_LBCS_RELATIVE ,
+        0x1026=>  LBNE_RELATIVE ,
+        0x1027=>  LBEQ_RELATIVE ,
+        0x1028=>  LBVC_RELATIVE ,
+        0x1029=>  LBVS_RELATIVE ,
+        0x102A=>  LBPL_RELATIVE ,
+        0x102B=>  LBMI_RELATIVE ,
+        0x102C=>  LBGE_RELATIVE ,
+        0x102D=>  LBLT_RELATIVE ,
+        0x102E=>  LBGT_RELATIVE ,
+        0x102F=>  LBLE_RELATIVE ,
+        0x103F=>  SWI2_INHERENT ,
+        0x1083=>  CMPD_IMMEDIATE ,
+        0x108C=>  CMPY_IMMEDIATE ,
+        0x108E=>  LDY_IMMEDIATE ,
+        0x1093=>  CMPD_DIRECT ,
+        0x109C=>  CMPY_DIRECT ,
+        0x109E=>  LDY_DIRECT ,
+        0x109F=>  STY_DIRECT ,
+        0x10A3=>  CMPD_INDEXED ,
+        0x10AC=>  CMPY_INDEXED ,
+        0x10AE=>  LDY_INDEXED ,
+        0x10AF=>  STY_INDEXED ,
+        0x10B3=>  CMPD_EXTENDED ,
+        0x10BC=>  CMPY_EXTENDED ,
+        0x10BE=>  LDY_EXTENDED ,
+        0x10BF=>  STY_EXTENDED ,
+        0x10CE=>  LDS_IMMEDIATE ,
+        0x10DE=>  LDS_DIRECT ,
+        0x10DF=>  STS_DIRECT ,
+        0x10EE=>  LDS_INDEXED ,
+        0x10EF=>  STS_INDEXED ,
+        0x10FE=>  LDS_EXTENDED ,
+        0x10FF=>  STS_EXTENDED ,
+        _ => ILLEGAL_A10,
+    }
+}
+
+
+pub fn get_ins(op : u16 ) -> &'static Ins {
+    match op & 0xff {
+        0x10 => get_ins_a10(op),
+        0x11 => get_ins_a11(op),
+        _ => &INS[op as usize],
+    }
+}
 

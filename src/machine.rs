@@ -1,10 +1,21 @@
 use cpu::Cpu;
+use isa::Ins;
+use isa::get_ins;
 use memmap::MemMap;
 use mem::MemoryIO;
 
+use std;
+
+#[derive(Debug)]
 pub struct Machine {
-    cpu : Cpu,
-    mem : MemMap,
+    pub cpu : Cpu,
+    pub mem : MemMap,
+}
+
+fn to_mem_range( address : u16, size :u16 ) -> std::ops::Range<u16> {
+    use std::cmp::min;
+    let last_mem = address as u32 + size as u32;
+    (address .. min(0xffff, last_mem) as u16 )
 }
 
 impl Machine {
@@ -20,46 +31,48 @@ impl Machine {
         }
     }
 
+    pub fn fetch_instruction(&self, addr : u16 )  -> &'static Ins {
+        let mut op_code = self.mem.load_byte(addr) as u16;
+
+        op_code = match op_code {
+            0x10 => self.mem.load_word(addr),
+            0x11 => self.mem.load_word(addr),
+            _ => op_code,
+        };
+
+        let instruction = get_ins(op_code);
+
+        instruction
+    }
+
     pub fn disassemble(&self, addr : u16 ) -> (u16, String) {
-        (addr, String::new())
-
+        let ins = self.fetch_instruction(addr);
+        let bytes = ins.bytes;
+        let next_addr = (addr as u32 + bytes as u32) as u16;
+        (next_addr, String::from(ins.op.mnenomic))
     }
 
-    pub fn upload(&mut self, data : &[u8], _address : u16) -> u16 {
+    pub fn upload(&mut self, data : &[u8], _address : u16) {
+        let range = to_mem_range(_address, data.len() as u16);
 
-        use std::cmp::min;
-
-
-        let max = 0x10000 - ( _address as usize );
-
-        let to_copy = min(max, data.len());
-
-        println!("copying ${:04x} bytes to ${:04x}", to_copy, _address);
-
-        for f in 0..to_copy {
-            let addr = ( _address as usize + f ) as u16;
-            self.mem.store_byte(addr, data[f]);
+        for addr in range {
+            self.mem.store_byte(addr, data[( addr - _address ) as usize]);
         }
-
-        to_copy as u16
     }
 
-    pub fn download(&mut self, address : u16, size : u16 ) -> Vec<u8> {
-        use std::cmp::min;
+    pub fn download(&mut self, _address : u16, size : u16 ) -> Vec<u8> {
 
-        let uaddress = address as usize;
+        let range = to_mem_range(_address, size);
 
-        let mut data: Vec<u8> = Vec::new();
-        let max = 0x10000 - uaddress;
-        let to_copy = min(max, size as usize);
+        let mut data : Vec<u8> = Vec::new();
 
-        if to_copy > 0 {
-            for addr in uaddress..(uaddress+ (to_copy - 1)) {
-                data.push(self.mem.load_byte(addr as u16));
-            }
+        // println!("downloading ${:04x} bytes from ${:04x}", to_copy, _address);
+
+        for addr in range {
+            let b = self.mem.load_byte(addr);
+            data.push(b);
         }
 
         data
-
     }
 }

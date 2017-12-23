@@ -15,6 +15,7 @@ bitflags! {
     }
 }
 
+#[derive(Debug)]
 pub struct Regs {
     pub d : u16,
     pub a : u8,
@@ -45,6 +46,7 @@ impl Regs {
     }
 }
 
+#[derive(Debug)]
 pub struct Cpu {
     pub regs : Regs,
 }

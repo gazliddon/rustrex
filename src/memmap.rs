@@ -1,12 +1,27 @@
 // use mem::Memory;
 use mem::MemoryIO;
 use mem::Memory;
+use std::fmt;
 
 // Genericise TODO
 
 
 pub struct MemMap {
     all_memory: Vec< Box<MemoryIO> >
+}
+
+impl fmt::Debug for MemMap {
+
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+
+        let mut strs : Vec<String> = Vec::new();
+
+        for m in &self.all_memory {
+            strs.push(m.get_name())
+        }
+
+        write!(f, "{}", strs.join(" "))
+        }
 }
 
 impl MemoryIO for MemMap {
@@ -39,6 +54,7 @@ impl MemoryIO for MemMap {
 static MEMS: &[(&'static str, bool, u16, u16)] = &[
     ("cart", false, 0, 0x8000 ),
     ("sysrom", false, 0xe000, 0x2000),
+    ("ram", true, 0xc800, 0x800),
 ];
 
 impl MemMap {
@@ -60,6 +76,7 @@ impl MemMap {
 
     pub fn dump(&self) {
         for i in &self.all_memory {
+            println!("{}", i.get_name());
         }
  
     }
