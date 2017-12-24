@@ -18,6 +18,7 @@ use machine::Machine;
 use mem::MemoryIO;
 
 
+
 fn load_file(file_name : &'static str) -> Vec<u8> {
     let mut file = File::open(file_name).unwrap();
     let mut data: Vec<u8> = Vec::new();
@@ -64,9 +65,10 @@ fn main() {
     for i in 0..16 {
         let ins = m.fetch_instruction(addr);
 
-        let b = m.mem.load_byte(addr);
+        let bstr = m.mem.get_mem_as_str(addr, ins.bytes as u16);
 
-        println!("0x{:04x} 0x{:02x} {}   {:02x}", addr, b, ins.op.mnenomic, ins.op_code);
+
+        println!("0x{:04X}   {:15} {:6} {}", addr, bstr, ins.op.mnenomic, ins.addr_mode.name);
 
         addr = ( addr as u32 + ins.bytes as u32 ) as u16;
     }

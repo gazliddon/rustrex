@@ -3,8 +3,8 @@ use isa::Ins;
 use isa::get_ins;
 use memmap::MemMap;
 use mem::MemoryIO;
+use mem::to_mem_range;
 
-use std;
 
 #[derive(Debug)]
 pub struct Machine {
@@ -12,11 +12,6 @@ pub struct Machine {
     pub mem : MemMap,
 }
 
-fn to_mem_range( address : u16, size :u16 ) -> std::ops::Range<u16> {
-    use std::cmp::min;
-    let last_mem = address as u32 + size as u32;
-    (address .. min(0xffff, last_mem) as u16 )
-}
 
 impl Machine {
 
@@ -65,8 +60,6 @@ impl Machine {
         let range = to_mem_range(_address, size);
 
         let mut data : Vec<u8> = Vec::new();
-
-        // println!("downloading ${:04x} bytes from ${:04x}", to_copy, _address);
 
         for addr in range {
             let b = self.mem.load_byte(addr);

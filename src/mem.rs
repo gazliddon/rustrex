@@ -1,14 +1,23 @@
 use std::vec::Vec;
+use std;
 
-fn as_word(lo : u8, hi : u8) -> u16 {
+
+pub fn to_mem_range( address : u16, size :u16 ) -> std::ops::Range<u16> {
+    use std::cmp::min;
+    let last_mem = address as u32 + size as u32;
+    (address .. min(0xffff, last_mem) as u16 )
+}
+
+pub fn as_word(lo : u8, hi : u8) -> u16 {
     lo as u16 | (hi as u16) << 8
 }
 
-fn as_bytes(val : u16) -> (u8,u8) {
+pub fn as_bytes(val : u16) -> (u8,u8) {
     ( (val&0xff) as u8, (val>>8) as u8 )
 }
 
 pub trait MemoryIO {
+
     fn get_name(&self) -> String {
         String::from("NO NAME")
     }
@@ -33,6 +42,23 @@ pub trait MemoryIO {
     fn load_word(&self, addr:u16) -> u16 {
         as_word(self.load_byte(addr+1), self.load_byte(addr))
     }
+
+    fn get_mem_as_str(&self, addr:u16, size:u16 ) -> String {
+        let a32 = addr as u32;
+
+        let r = to_mem_range( addr, size);
+
+        let mut v : Vec<String> = Vec::new();
+
+        for a in r {
+            let b = self.load_byte(a);
+            let t = format!("{:02X}", b);
+            v.push(t);
+        }
+
+        v.join(" ")
+    }
+
 }
 
 pub struct Memory {

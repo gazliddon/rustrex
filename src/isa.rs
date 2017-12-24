@@ -13,20 +13,11 @@ pub enum FlagEffects {
     UNKNOWN
 }
 
-trait IAddrMode {
-    fn get_name(&self) -> &'static str {
-        "NO NAME"
-    }
-
-    fn fetch(&self, cpu : &Cpu, mem : &mut MemMap ) -> u16 ;
-}
-
-
 pub struct AddrMode {
     pub name : &'static str,
-    pub fetch : fn(cpu : &mut Cpu, mem : &mut MemMap ) -> u16,
+    pub fetch : fn(&AddrMode, cpu : &mut Cpu, mem : &mut MemMap, addr : u16) -> u16,
+    pub store : fn(&AddrMode, cpu : &mut Cpu, mem : &mut MemMap, addr : u16, val : u16),
 
-    pub store : fn(v : u16, cpu : &mut Cpu, mem : &mut MemMap ),
 }
 
 pub struct Op {
@@ -60,30 +51,30 @@ pub struct Ins {
 
 impl Ins {
 
-    pub fn exec(&self,  _cpu : &mut Cpu, _mem : &mut MemMap) -> u32 {
+    pub fn exec(&self,  cpu : &mut Cpu, _mem : &mut MemMap) -> u32 {
 
         let fetch =  self.addr_mode.fetch;
         let store =  self.addr_mode.store;
         let exec =  self.op.exec;
 
-        let a = fetch(_cpu, _mem);
-        let res = exec(a,0,0,_cpu, _mem);
-        store(res, _cpu, _mem);
+        let pc = cpu.regs.pc;
+
+        let operand = fetch(self.addr_mode, cpu, _mem, pc + 1);
+        let res = exec(operand,0,0,cpu, _mem);
+        store(self.addr_mode, cpu, _mem, pc + 1, res);
         self.cycles as u32
     }
-
 }
 
-pub fn default_fetch(_cpu : &mut Cpu, _mem : &mut MemMap ) -> u16 {
+pub fn default_fetch(_ : &AddrMode, cpu : &mut Cpu, mem : &mut MemMap, addr : u16) -> u16 {
     0
 }
 
-pub fn default_store(_v : u16, _cpu : &mut Cpu, _mem : &mut MemMap ) {
+pub fn default_store(_ : &AddrMode, cpu : &mut Cpu, mem : &mut MemMap, addr : u16, val : u16) {
 }
 
-pub fn direct_fetch(_cpu : &mut Cpu, _mem : &mut MemMap ) -> u16 {
-    let pc = _cpu.regs.pc;
-    _mem.load_word(pc + 1)
+pub fn direct_fetch(_ : &AddrMode, cpu : &mut Cpu, mem : &mut MemMap, addr : u16 ) -> u16 {
+    mem.load_byte(addr) as u16
 }
 
 // Addressing modes
