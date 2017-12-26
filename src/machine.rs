@@ -4,6 +4,8 @@ use isa::get_ins;
 use memmap::MemMap;
 use mem::MemoryIO;
 use mem::to_mem_range;
+use addr::format_operand;
+use addr::fetch_operand;
 
 
 #[derive(Debug)]
@@ -11,6 +13,8 @@ pub struct Machine {
     pub cpu : Cpu,
     pub mem : MemMap,
 }
+
+
 
 
 impl Machine {
@@ -26,6 +30,8 @@ impl Machine {
         }
     }
 
+
+
     pub fn fetch_instruction(&self, addr : u16 )  -> &'static Ins {
         let mut op_code = self.mem.load_byte(addr) as u16;
 
@@ -40,11 +46,19 @@ impl Machine {
         instruction
     }
 
-    pub fn disassemble(&self, addr : u16 ) -> (u16, String) {
+    pub fn disassemble(&mut self, addr : u16 ) -> (u16, String) {
         let ins = self.fetch_instruction(addr);
+
+        let (_, operand) = fetch_operand(&ins.addr_mode.mode,
+                                         ins.op_code,
+                                         &mut self.cpu,
+                                         &mut self.mem,
+                                         addr + ins.operand_offset as u16);
+
         let bytes = ins.bytes;
         let next_addr = (addr as u32 + bytes as u32) as u16;
-        (next_addr, String::from(ins.op.mnenomic))
+        let formatted = format_operand(&ins.addr_mode.mode, operand);
+        (next_addr, format!("{} {} ({})", ins.op.mnenomic, formatted, ins.addr_mode.name))
     }
 
     pub fn upload(&mut self, data : &[u8], _address : u16) {

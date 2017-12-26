@@ -5,3 +5,6 @@ authors = ["Gaz Liddon Retina <gaz@gazaxian.com>"]
 
 [dependencies]
 bitflags="*"
+serde = "1.0"
+serde_yaml = "0.7"
+serde_derive = "1.0"

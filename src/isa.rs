@@ -5,6 +5,10 @@ use memmap::MemMap;
 use mem::MemoryIO;
 use std::fmt;
 
+use addr::AddrModes;
+use addr::fetch_operand;
+
+
 pub enum FlagEffects {
     UNAFFECTED,
     AFFECTED,
@@ -15,9 +19,7 @@ pub enum FlagEffects {
 
 pub struct AddrMode {
     pub name : &'static str,
-    pub fetch : fn(&AddrMode, cpu : &mut Cpu, mem : &mut MemMap, addr : u16) -> u16,
-    pub store : fn(&AddrMode, cpu : &mut Cpu, mem : &mut MemMap, addr : u16, val : u16),
-
+    pub mode : AddrModes,
 }
 
 pub struct Op {
@@ -29,101 +31,82 @@ impl fmt::Debug for Op {
 
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{}", self.mnenomic)
-        }
+    }
 }
 
-impl fmt::Debug for AddrMode {
 
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-
-        write!(f, "{}", self.name)
-        }
-}
-
-#[derive(Debug)]
 pub struct Ins {
     pub op : &'static Op,
     pub addr_mode : &'static AddrMode,
     pub op_code : u16,
     pub cycles : u8,
     pub bytes : u8,
+    pub operand_offset : u8,
 }
+
+
+// const TS : TestStruct  = TestStruct {
+//     addr_mode : ILLEGAL_BOX,
+// };
 
 impl Ins {
 
-    pub fn exec(&self,  cpu : &mut Cpu, _mem : &mut MemMap) -> u32 {
-
-        let fetch =  self.addr_mode.fetch;
-        let store =  self.addr_mode.store;
-        let exec =  self.op.exec;
+    pub fn exec(&self,  cpu : &mut Cpu, mem : &mut MemMap) -> u32 {
 
         let pc = cpu.regs.pc;
 
-        let operand = fetch(self.addr_mode, cpu, _mem, pc + 1);
-        let res = exec(operand,0,0,cpu, _mem);
-        store(self.addr_mode, cpu, _mem, pc + 1, res);
+        let (_, operand) =  fetch_operand(&self.addr_mode.mode,
+                                     self.op_code,
+                                     cpu,
+                                     mem,
+                                     pc + 1);
+        let exec =  self.op.exec;
+
+        let res = exec(operand,0,0,cpu, mem);
+
         self.cycles as u32
     }
-}
-
-pub fn default_fetch(_ : &AddrMode, cpu : &mut Cpu, mem : &mut MemMap, addr : u16) -> u16 {
-    0
-}
-
-pub fn default_store(_ : &AddrMode, cpu : &mut Cpu, mem : &mut MemMap, addr : u16, val : u16) {
-}
-
-pub fn direct_fetch(_ : &AddrMode, cpu : &mut Cpu, mem : &mut MemMap, addr : u16 ) -> u16 {
-    mem.load_byte(addr) as u16
 }
 
 // Addressing modes
 static ILLEGAL_ADDR : AddrMode = AddrMode {
     name : "illegal",
-    fetch : default_fetch,
-    store : default_store,
+    mode : AddrModes::Illegal,
 };
 
 static DIRECT : AddrMode = AddrMode {
     name : "DIRECT",
-    fetch : direct_fetch,
-    store : default_store,
+    mode : AddrModes::Direct,
 };
 
 static INHERENT : AddrMode = AddrMode {
     name : "INHERENT",
-    fetch : default_fetch,
-    store : default_store,
+    mode : AddrModes::Inherent,
 };
 
 static VARIANT : AddrMode = AddrMode {
     name : "VARIANT",
-    fetch : default_fetch,
-    store : default_store,
+    mode : AddrModes::Variant,
 };
 
 static RELATIVE : AddrMode = AddrMode {
     name : "RELATIVE",
-    fetch : default_fetch,
-    store : default_store,
+    mode : AddrModes::Relative,
 };
 
 static INDEXED : AddrMode = AddrMode {
     name : "INDEXED",
-    fetch : default_fetch,
-    store : default_store,
+    mode : AddrModes::Indexed,
 };
 
 static IMMEDIATE : AddrMode = AddrMode {
     name : "IMMEDIATE",
-    fetch : default_fetch,
-    store : default_store,
+    mode : AddrModes::Immediate,
 };
 
 static EXTENDED : AddrMode = AddrMode {
     name : "EXTENDED",
-    fetch : default_fetch,
-    store : default_store,
+    mode : AddrModes::Extended,
 };
 
 // Stack helpers
@@ -844,342 +827,290 @@ static CMPS : Op = Op {
     exec: default_exec,
 };
 
-
 ////////////////////////////////////////////////////////////////////////////////
 
 macro_rules! ins {
-    ($op_code:expr, $op:ident, $am:ident, $cycles:expr, $bytes:expr) => ( Ins {
+    ($op_code:expr, $op:ident, $am:ident, $cycles:expr, $bytes:expr, $operand_offset:expr) => ( Ins {
         op : &$op,
         addr_mode : &$am,
         op_code : $op_code,
         cycles : $cycles,
         bytes: $bytes,
+        operand_offset: $operand_offset
     });
 }
 
-static PAGE1 : &'static [Ins] = &[
-    ins!( 0x1021, LBRN, RELATIVE, 5, 4 ),
-    ins!( 0x1022, LBHI, RELATIVE, 5, 4 ),
-    ins!( 0x1023, LBLS, RELATIVE, 5, 4 ),
-    ins!( 0x1024, LBHS_LBCC, RELATIVE, 5, 4 ),
-    ins!( 0x1025, LBLO_LBCS, RELATIVE, 5, 4 ),
-    ins!( 0x1026, LBNE, RELATIVE, 5, 4 ),
-    ins!( 0x1027, LBEQ, RELATIVE, 5, 4 ),
-    ins!( 0x1028, LBVC, RELATIVE, 5, 4 ),
-    ins!( 0x1029, LBVS, RELATIVE, 5, 4 ),
-    ins!( 0x102A, LBPL, RELATIVE, 5, 4 ),
-    ins!( 0x102B, LBMI, RELATIVE, 5, 4 ),
-    ins!( 0x102C, LBGE, RELATIVE, 5, 4 ),
-    ins!( 0x102D, LBLT, RELATIVE, 5, 4 ),
-    ins!( 0x102E, LBGT, RELATIVE, 5, 4 ),
-    ins!( 0x102F, LBLE, RELATIVE, 5, 4 ),
-    ins!( 0x103F, SWI2, INHERENT, 20, 2 ),
-    ins!( 0x1083, CMPD, IMMEDIATE, 5, 4 ),
-    ins!( 0x108C, CMPY, IMMEDIATE, 5, 4 ),
-    ins!( 0x108E, LDY, IMMEDIATE, 4, 4 ),
-    ins!( 0x1093, CMPD, DIRECT, 7, 3 ),
-    ins!( 0x109C, CMPY, DIRECT, 7, 3 ),
-    ins!( 0x109E, LDY, DIRECT, 6, 3 ),
-    ins!( 0x109F, STY, DIRECT, 6, 3 ),
-    ins!( 0x10A3, CMPD, INDEXED, 7, 3 ),
-    ins!( 0x10AC, CMPY, INDEXED, 7, 3 ),
-    ins!( 0x10AE, LDY, INDEXED, 6, 3 ),
-    ins!( 0x10AF, STY, INDEXED, 6, 3 ),
-    ins!( 0x10B3, CMPD, EXTENDED, 8, 4 ),
-    ins!( 0x10BC, CMPY, EXTENDED, 8, 4 ),
-    ins!( 0x10BE, LDY, EXTENDED, 7, 4 ),
-    ins!( 0x10BF, STY, EXTENDED, 7, 4 ),
-    ins!( 0x10CE, LDS, IMMEDIATE, 4, 4 ),
-    ins!( 0x10DE, LDS, DIRECT, 6, 3 ),
-    ins!( 0x10DF, STS, DIRECT, 6, 3 ),
-    ins!( 0x10EE, LDS, INDEXED, 6, 3 ),
-    ins!( 0x10EF, STS, INDEXED, 6, 3 ),
-    ins!( 0x10FE, LDS, EXTENDED, 7, 4 ),
-    ins!( 0x10FF, STS, EXTENDED, 7, 4 ),
-];
-
-static PAGE2 : &'static [Ins] = &[
-    ins!( 0x113F, SWI3, INHERENT     ,  20   ,   2   ),
-    ins!( 0x1183, CMPU, IMMEDIATE    ,   5   ,   4   ),
-    ins!( 0x118C, CMPS, IMMEDIATE    ,   5   ,   4   ),
-    ins!( 0x1193, CMPU, DIRECT       ,   7   ,   3   ),
-    ins!( 0x119C, CMPS, DIRECT       ,   7   ,   3   ),
-    ins!( 0x11A3, CMPU, INDEXED      ,   7   ,   3   ),
-    ins!( 0x11AC, CMPS, INDEXED      ,   7   ,   3   ),
-    ins!( 0x11B3, CMPU, EXTENDED     ,   8   ,   4   ),
-    ins!( 0x11BC, CMPS, EXTENDED     ,   8   ,   4   ),
-];
 
 
 static INS : &'static [Ins] = &[
-    ins!(0x00, NEG, DIRECT, 6, 2 ),
-    ins!(0x01, ILLEGAL, ILLEGAL_ADDR, 1, 1 ),
-    ins!(0x02, ILLEGAL, ILLEGAL_ADDR, 1, 1 ),
-    ins!(0x03, COM, DIRECT, 6, 2 ),
-    ins!(0x04, LSR, DIRECT, 6, 2 ),
-    ins!(0x05, ILLEGAL, ILLEGAL_ADDR, 1, 1 ),
-    ins!(0x06, ROR, DIRECT, 6, 2 ),
-    ins!(0x07, ASR, DIRECT, 6, 2 ),
-    ins!(0x08, LSL_ASL, DIRECT, 6, 2 ),
-    ins!(0x09, ROL, DIRECT, 6, 2 ),
-    ins!(0x0A, DEC, DIRECT, 6, 2 ),
-    ins!(0x0B, ILLEGAL, ILLEGAL_ADDR, 1, 1 ),
-    ins!(0x0C, INC, DIRECT, 6, 2 ),
-    ins!(0x0D, TST, DIRECT, 6, 2 ),
-    ins!(0x0E, JMP, DIRECT, 3, 2 ),
-    ins!(0x0F, CLR, DIRECT, 6, 2 ),
-    ins!(0x10, PAGE1_OP, VARIANT, 1, 1 ),
-    ins!(0x11, PAGE2_OP, VARIANT, 1, 1 ),
-    ins!(0x12, NOP, INHERENT, 2, 1 ),
-    ins!(0x13, SYNC, INHERENT, 2, 1 ),
-    ins!(0x14, ILLEGAL, ILLEGAL_ADDR, 1, 1 ),
-    ins!(0x15, ILLEGAL, ILLEGAL_ADDR, 1, 1 ),
-    ins!(0x16, LBRA, RELATIVE, 5, 3 ),
-    ins!(0x17, LBSR, RELATIVE, 9, 3 ),
-    ins!(0x18, ILLEGAL, ILLEGAL_ADDR, 1, 1 ),
-    ins!(0x19, DAA, INHERENT, 2, 1 ),
-    ins!(0x1A, ORCC, IMMEDIATE, 3, 2 ),
-    ins!(0x1B, ILLEGAL, ILLEGAL_ADDR, 1, 1 ),
-    ins!(0x1C, ANDCC, IMMEDIATE, 3, 2 ),
-    ins!(0x1D, SEX, INHERENT, 2, 1 ),
-    ins!(0x1E, EXG, INHERENT, 8, 2 ),
-    ins!(0x1F, TFR, INHERENT, 7, 2 ),
-    ins!(0x20, BRA, RELATIVE, 3, 2 ),
-    ins!(0x21, BRN, RELATIVE, 3, 2 ),
-    ins!(0x22, BHI, RELATIVE, 3, 2 ),
-    ins!(0x23, BLS, RELATIVE, 3, 2 ),
-    ins!(0x24, BHS_BCC, RELATIVE, 3, 2 ),
-    ins!(0x25, BLO_BCS, RELATIVE, 3, 2 ),
-    ins!(0x26, BNE, RELATIVE, 3, 2 ),
-    ins!(0x27, BEQ, RELATIVE, 3, 2 ),
-    ins!(0x28, BVC, RELATIVE, 3, 2 ),
-    ins!(0x29, BVS, RELATIVE, 3, 2 ),
-    ins!(0x2A, BPL, RELATIVE, 3, 2 ),
-    ins!(0x2B, BMI, RELATIVE, 3, 2 ),
-    ins!(0x2C, BGE, RELATIVE, 3, 2 ),
-    ins!(0x2D, BLT, RELATIVE, 3, 2 ),
-    ins!(0x2E, BGT, RELATIVE, 3, 2 ),
-    ins!(0x2F, BLE, RELATIVE, 3, 2 ),
-    ins!(0x30, LEAX, INDEXED, 4, 2 ),
-    ins!(0x31, LEAY, INDEXED, 4, 2 ),
-    ins!(0x32, LEAS, INDEXED, 4, 2 ),
-    ins!(0x33, LEAU, INDEXED, 4, 2 ),
-    ins!(0x34, PSHS, INHERENT, 5, 2 ),
-    ins!(0x35, PULS, INHERENT, 5, 2 ),
-    ins!(0x36, PSHU, INHERENT, 5, 2 ),
-    ins!(0x37, PULU, INHERENT, 5, 2 ),
-    ins!(0x38, ILLEGAL, ILLEGAL_ADDR, 1, 1 ),
-    ins!(0x39, RTS, INHERENT, 5, 1 ),
-    ins!(0x3A, ABX, INHERENT, 3, 1 ),
-    ins!(0x3B, RTI, INHERENT, 6, 1 ),   // *!!!!
-    ins!(0x3C, CWAI, INHERENT, 21, 2 ),
-    ins!(0x3D, MUL, INHERENT, 11, 1 ),
-    ins!(0x3E, RESET, INHERENT, 1, 1 ), // *!!!
-    ins!(0x3F, SWI, INHERENT, 19, 1 ),
-    ins!(0x40, NEGA, INHERENT, 2, 1 ),
-    ins!(0x41, ILLEGAL, ILLEGAL_ADDR, 1, 1 ),
-    ins!(0x42, ILLEGAL, ILLEGAL_ADDR, 1, 1 ),
-    ins!(0x43, COMA, INHERENT, 2, 1 ),
-    ins!(0x44, LSRA, INHERENT, 2, 1 ),
-    ins!(0x45, ILLEGAL, ILLEGAL_ADDR, 1, 1 ),
-    ins!(0x46, RORA, INHERENT, 2, 1 ),
-    ins!(0x47, ASRA, INHERENT, 2, 1 ),
-    ins!(0x48, LSLA_ASLA, INHERENT, 2, 1 ),
-    ins!(0x49, ROLA, INHERENT, 2, 1 ),
-    ins!(0x4A, DECA, INHERENT, 2, 1 ),
-    ins!(0x4B, ILLEGAL, ILLEGAL_ADDR, 1, 1 ),
-    ins!(0x4C, INCA, INHERENT, 2, 1 ),
-    ins!(0x4D, TSTA, INHERENT, 2, 1 ),
-    ins!(0x4E, ILLEGAL, ILLEGAL_ADDR, 1, 1 ),
-    ins!(0x4F, CLRA, INHERENT, 2, 1 ),
-    ins!(0x50, NEGB, INHERENT, 2, 1 ),
-    ins!(0x51, ILLEGAL, ILLEGAL_ADDR, 1, 1 ),
-    ins!(0x52, ILLEGAL, ILLEGAL_ADDR, 1, 1 ),
-    ins!(0x53, COMB, INHERENT, 2, 1 ),
-    ins!(0x54, LSRB, INHERENT, 2, 1 ),
-    ins!(0x55, ILLEGAL, ILLEGAL_ADDR, 1, 1 ),
-    ins!(0x56, RORB, INHERENT, 2, 1 ),
-    ins!(0x57, ASRB, INHERENT, 2, 1 ),
-    ins!(0x58, LSLB_ASLB, INHERENT, 2, 1 ),
-    ins!(0x59, ROLB, INHERENT, 2, 1 ),
-    ins!(0x5A, DECB, INHERENT, 2, 1 ),
-    ins!(0x5B, ILLEGAL, ILLEGAL_ADDR, 1, 1 ),
-    ins!(0x5C, INCB, INHERENT, 2, 1 ),
-    ins!(0x5D, TSTB, INHERENT, 2, 1 ),
-    ins!(0x5E, ILLEGAL, ILLEGAL_ADDR, 1, 1 ),
-    ins!(0x5F, CLRB, INHERENT, 2, 1 ),
-    ins!(0x60, NEG, INDEXED, 6, 2 ),
-    ins!(0x61, ILLEGAL, ILLEGAL_ADDR, 1, 1 ),
-    ins!(0x62, ILLEGAL, ILLEGAL_ADDR, 1, 1 ),
-    ins!(0x63, COM, INDEXED, 6, 2 ),
-    ins!(0x64, LSR, INDEXED, 6, 2 ),
-    ins!(0x65, ILLEGAL, ILLEGAL_ADDR, 1, 1 ),
-    ins!(0x66, ROR, INDEXED, 6, 2 ),
-    ins!(0x67, ASR, INDEXED, 6, 2 ),
-    ins!(0x68, LSL_ASL, INDEXED, 6, 2 ),
-    ins!(0x69, ROL, INDEXED, 6, 2 ),
-    ins!(0x6A, DEC, INDEXED, 6, 2 ),
-    ins!(0x6B, ILLEGAL, ILLEGAL_ADDR, 1, 1 ),
-    ins!(0x6C, INC, INDEXED, 6, 2 ),
-    ins!(0x6D, TST, INDEXED, 6, 2 ),
-    ins!(0x6E, JMP, INDEXED, 3, 2 ),
-    ins!(0x6F, CLR, INDEXED, 6, 2 ),
-    ins!(0x70, NEG, EXTENDED, 7, 3 ),
-    ins!(0x71, ILLEGAL, ILLEGAL_ADDR, 1, 1 ),
-    ins!(0x72, ILLEGAL, ILLEGAL_ADDR, 1, 1 ),
-    ins!(0x73, COM, EXTENDED, 7, 3 ),
-    ins!(0x74, LSR, EXTENDED, 7, 3 ),
-    ins!(0x75, ILLEGAL, ILLEGAL_ADDR, 1, 1 ),
-    ins!(0x76, ROR, EXTENDED, 7, 3 ),
-    ins!(0x77, ASR, EXTENDED, 7, 3 ),
-    ins!(0x78, LSL_ASL, EXTENDED, 7, 3 ),
-    ins!(0x79, ROL, EXTENDED, 7, 3 ),
-    ins!(0x7A, DEC, EXTENDED, 7, 3 ),
-    ins!(0x7B, ILLEGAL, ILLEGAL_ADDR, 1, 1 ),
-    ins!(0x7C, INC, EXTENDED, 7, 3 ),
-    ins!(0x7D, TST, EXTENDED, 7, 3 ),
-    ins!(0x7E, JMP, EXTENDED, 3, 3 ),
-    ins!(0x7F, CLR, EXTENDED, 7, 3 ),
-    ins!(0x80, SUBA, IMMEDIATE, 2, 2 ),
-    ins!(0x81, CMPA, IMMEDIATE, 2, 2 ),
-    ins!(0x82, SBCA, IMMEDIATE, 2, 2 ),
-    ins!(0x83, SUBD, IMMEDIATE, 4, 3 ),
-    ins!(0x84, ANDA, IMMEDIATE, 2, 2 ),
-    ins!(0x85, BITA, IMMEDIATE, 2, 2 ),
-    ins!(0x86, LDA, IMMEDIATE, 2, 2 ),
-    ins!(0x87, ILLEGAL, ILLEGAL_ADDR, 1, 1 ),
-    ins!(0x88, EORA, IMMEDIATE, 2, 2 ),
-    ins!(0x89, ADCA, IMMEDIATE, 2, 2 ),
-    ins!(0x8A, ORA, IMMEDIATE, 2, 2 ),
-    ins!(0x8B, ADDA, IMMEDIATE, 2, 2 ),
-    ins!(0x8C, CMPX, IMMEDIATE, 4, 3 ),
-    ins!(0x8D, BSR, RELATIVE, 7, 2 ),
-    ins!(0x8E, LDX, IMMEDIATE, 3, 3 ),
-    ins!(0x8F, ILLEGAL, ILLEGAL_ADDR, 1, 1 ),
-    ins!(0x90, SUBA, DIRECT, 4, 2 ),
-    ins!(0x91, CMPA, DIRECT, 4, 2 ),
-    ins!(0x92, SBCA, DIRECT, 4, 2 ),
-    ins!(0x93, SUBD, DIRECT, 6, 2 ),
-    ins!(0x94, ANDA, DIRECT, 4, 2 ),
-    ins!(0x95, BITA, DIRECT, 4, 2 ),
-    ins!(0x96, LDA, DIRECT, 4, 2 ),
-    ins!(0x97, STA, DIRECT, 4, 2 ),
-    ins!(0x98, EORA, DIRECT, 4, 2 ),
-    ins!(0x99, ADCA, DIRECT, 4, 2 ),
-    ins!(0x9A, ORA, DIRECT, 4, 2 ),
-    ins!(0x9B, ADDA, DIRECT, 4, 2 ),
-    ins!(0x9C, CMPX, DIRECT, 6, 2 ),
-    ins!(0x9D, JSR, DIRECT, 7, 2 ),
-    ins!(0x9E, LDX, DIRECT, 5, 2 ),
-    ins!(0x9F, STX, DIRECT, 5, 2 ),
-    ins!(0xA0, SUBA, INDEXED, 4, 2 ),
-    ins!(0xA1, CMPA, INDEXED, 4, 2 ),
-    ins!(0xA2, SBCA, INDEXED, 4, 2 ),
-    ins!(0xA3, SUBD, INDEXED, 6, 2 ),
-    ins!(0xA4, ANDA, INDEXED, 4, 2 ),
-    ins!(0xA5, BITA, INDEXED, 4, 2 ),
-    ins!(0xA6, LDA, INDEXED, 4, 2 ),
-    ins!(0xA7, STA, INDEXED, 4, 2 ),
-    ins!(0xA8, EORA, INDEXED, 4, 2 ),
-    ins!(0xA9, ADCA, INDEXED, 4, 2 ),
-    ins!(0xAA, ORA, INDEXED, 4, 2 ),
-    ins!(0xAB, ADDA, INDEXED, 4, 2 ),
-    ins!(0xAC, CMPX, INDEXED, 6, 2 ),
-    ins!(0xAD, JSR, INDEXED, 7, 2 ),
-    ins!(0xAE, LDX, INDEXED, 5, 2 ),
-    ins!(0xAF, STX, INDEXED, 5, 2 ),
-    ins!(0xB0, SUBA, EXTENDED, 5, 3 ),
-    ins!(0xB1, CMPA, EXTENDED, 5, 3 ),
-    ins!(0xB2, SBCA, EXTENDED, 5, 3 ),
-    ins!(0xB3, SUBD, EXTENDED, 7, 3 ),
-    ins!(0xB4, ANDA, EXTENDED, 5, 3 ),
-    ins!(0xB5, BITA, EXTENDED, 5, 3 ),
-    ins!(0xB6, LDA, EXTENDED, 5, 3 ),
-    ins!(0xB7, STA, EXTENDED, 5, 3 ),
-    ins!(0xB8, EORA, EXTENDED, 5, 3 ),
-    ins!(0xB9, ADCA, EXTENDED, 5, 3 ),
-    ins!(0xBA, ORA, EXTENDED, 5, 3 ),
-    ins!(0xBB, ADDA, EXTENDED, 5, 3 ),
-    ins!(0xBC, CMPX, EXTENDED, 7, 3 ),
-    ins!(0xBD, JSR, EXTENDED, 8, 3 ),
-    ins!(0xBE, LDX, EXTENDED, 6, 3 ),
-    ins!(0xBF, STX, EXTENDED, 6, 3 ),
-    ins!(0xC0, SUBB, IMMEDIATE, 2, 2 ),
-    ins!(0xC1, CMPB, IMMEDIATE, 2, 2 ),
-    ins!(0xC2, SBCB, IMMEDIATE, 2, 2 ),
-    ins!(0xC3, ADDD, IMMEDIATE, 4, 3 ),
-    ins!(0xC4, ANDB, IMMEDIATE, 2, 2 ),
-    ins!(0xC5, BITB, IMMEDIATE, 2, 2 ),
-    ins!(0xC6, LDB, IMMEDIATE, 2, 2 ),
-    ins!(0xC7, ILLEGAL, ILLEGAL_ADDR, 1, 1 ),
-    ins!(0xC8, EORB, IMMEDIATE, 2, 2 ),
-    ins!(0xC9, ADCB, IMMEDIATE, 2, 2 ),
-    ins!(0xCA, ORB, IMMEDIATE, 2, 2 ),
-    ins!(0xCB, ADDB, IMMEDIATE, 2, 2 ),
-    ins!(0xCC, LDD, IMMEDIATE, 3, 3 ),
-    ins!(0xCD, ILLEGAL, ILLEGAL_ADDR, 1, 1 ),
-    ins!(0xCE, LDU, IMMEDIATE, 3, 3 ),
-    ins!(0xCF, ILLEGAL, ILLEGAL_ADDR, 1, 1 ),
-    ins!(0xD0, SUBB, DIRECT, 4, 2 ),
-    ins!(0xD1, CMPB, DIRECT, 4, 2 ),
-    ins!(0xD2, SBCB, DIRECT, 4, 2 ),
-    ins!(0xD3, ADDD, DIRECT, 6, 2 ),
-    ins!(0xD4, ANDB, DIRECT, 4, 2 ),
-    ins!(0xD5, BITB, DIRECT, 4, 2 ),
-    ins!(0xD6, LDB, DIRECT, 4, 2 ),
-    ins!(0xD7, STB, DIRECT, 4, 2 ),
-    ins!(0xD8, EORB, DIRECT, 4, 2 ),
-    ins!(0xD9, ADCB, DIRECT, 4, 2 ),
-    ins!(0xDA, ORB, DIRECT, 4, 2 ),
-    ins!(0xDB, ADDB, DIRECT, 4, 2 ),
-    ins!(0xDC, LDD, DIRECT, 5, 2 ),
-    ins!(0xDD, STD, DIRECT, 5, 2 ),
-    ins!(0xDE, LDU, DIRECT, 5, 2 ),
-    ins!(0xDF, STU, DIRECT, 5, 2 ),
-    ins!(0xE0, SUBB, INDEXED, 4, 2 ),
-    ins!(0xE1, CMPB, INDEXED, 4, 2 ),
-    ins!(0xE2, SBCB, INDEXED, 4, 2 ),
-    ins!(0xE3, ADDD, INDEXED, 6, 2 ),
-    ins!(0xE4, ANDB, INDEXED, 4, 2 ),
-    ins!(0xE5, BITB, INDEXED, 4, 2 ),
-    ins!(0xE6, LDB, INDEXED, 4, 2 ),
-    ins!(0xE7, STB, INDEXED, 4, 2 ),
-    ins!(0xE8, EORB, INDEXED, 4, 2 ),
-    ins!(0xE9, ADCB, INDEXED, 4, 2 ),
-    ins!(0xEA, ORB, INDEXED, 4, 2 ),
-    ins!(0xEB, ADDB, INDEXED, 4, 2 ),
-    ins!(0xEC, LDD, INDEXED, 5, 2 ),
-    ins!(0xED, STD, INDEXED, 5, 2 ),
-    ins!(0xEE, LDU, INDEXED, 5, 2 ),
-    ins!(0xEF, STU, INDEXED, 5, 2 ),
-    ins!(0xF0, SUBB, EXTENDED, 5, 3 ),
-    ins!(0xF1, CMPB, EXTENDED, 5, 3 ),
-    ins!(0xF2, SBCB, EXTENDED, 5, 3 ),
-    ins!(0xF3, ADDD, EXTENDED, 7, 3 ),
-    ins!(0xF4, ANDB, EXTENDED, 5, 3 ),
-    ins!(0xF5, BITB, EXTENDED, 5, 3 ),
-    ins!(0xF6, LDB, EXTENDED, 5, 3 ),
-    ins!(0xF7, STB, EXTENDED, 5, 3 ),
-    ins!(0xF8, EORB, EXTENDED, 5, 3 ),
-    ins!(0xF9, ADCB, EXTENDED, 5, 3 ),
-    ins!(0xFA, ORB, EXTENDED, 5, 3 ),
-    ins!(0xFB, ADDB, EXTENDED, 5, 3 ),
-    ins!(0xFC, LDD, EXTENDED, 6, 3 ),
-    ins!(0xFD, STD, EXTENDED, 6, 3 ),
-    ins!(0xFE, LDU, EXTENDED, 6, 3 ),
-    ins!(0xFF, STU, EXTENDED, 6, 3 ),
+    ins!(0x00, NEG, DIRECT, 6, 2 , 1),
+    ins!(0x01, ILLEGAL, ILLEGAL_ADDR, 1, 1 , 1),
+    ins!(0x02, ILLEGAL, ILLEGAL_ADDR, 1, 1 , 1),
+    ins!(0x03, COM, DIRECT, 6, 2 , 1),
+    ins!(0x04, LSR, DIRECT, 6, 2 , 1),
+    ins!(0x05, ILLEGAL, ILLEGAL_ADDR, 1, 1 , 1),
+    ins!(0x06, ROR, DIRECT, 6, 2 , 1),
+    ins!(0x07, ASR, DIRECT, 6, 2 , 1),
+    ins!(0x08, LSL_ASL, DIRECT, 6, 2 , 1),
+    ins!(0x09, ROL, DIRECT, 6, 2 , 1),
+    ins!(0x0A, DEC, DIRECT, 6, 2 , 1),
+    ins!(0x0B, ILLEGAL, ILLEGAL_ADDR, 1, 1 , 1),
+    ins!(0x0C, INC, DIRECT, 6, 2 , 1),
+    ins!(0x0D, TST, DIRECT, 6, 2 , 1),
+    ins!(0x0E, JMP, DIRECT, 3, 2 , 1),
+    ins!(0x0F, CLR, DIRECT, 6, 2 , 1),
+    ins!(0x10, PAGE1_OP, VARIANT, 1, 1 , 1),
+    ins!(0x11, PAGE2_OP, VARIANT, 1, 1 , 1),
+    ins!(0x12, NOP, INHERENT, 2, 1 , 1),
+    ins!(0x13, SYNC, INHERENT, 2, 1 , 1),
+    ins!(0x14, ILLEGAL, ILLEGAL_ADDR, 1, 1 , 1),
+    ins!(0x15, ILLEGAL, ILLEGAL_ADDR, 1, 1 , 1),
+    ins!(0x16, LBRA, RELATIVE, 5, 3 , 1),
+    ins!(0x17, LBSR, RELATIVE, 9, 3 , 1),
+    ins!(0x18, ILLEGAL, ILLEGAL_ADDR, 1, 1 , 1),
+    ins!(0x19, DAA, INHERENT, 2, 1 , 1),
+    ins!(0x1A, ORCC, IMMEDIATE, 3, 2 , 1),
+    ins!(0x1B, ILLEGAL, ILLEGAL_ADDR, 1, 1 , 1),
+    ins!(0x1C, ANDCC, IMMEDIATE, 3, 2 , 1),
+    ins!(0x1D, SEX, INHERENT, 2, 1 , 1),
+    ins!(0x1E, EXG, INHERENT, 8, 2 , 1),
+    ins!(0x1F, TFR, INHERENT, 7, 2 , 1),
+    ins!(0x20, BRA, RELATIVE, 3, 2 , 1),
+    ins!(0x21, BRN, RELATIVE, 3, 2 , 1),
+    ins!(0x22, BHI, RELATIVE, 3, 2 , 1),
+    ins!(0x23, BLS, RELATIVE, 3, 2 , 1),
+    ins!(0x24, BHS_BCC, RELATIVE, 3, 2 , 1),
+    ins!(0x25, BLO_BCS, RELATIVE, 3, 2 , 1),
+    ins!(0x26, BNE, RELATIVE, 3, 2 , 1),
+    ins!(0x27, BEQ, RELATIVE, 3, 2 , 1),
+    ins!(0x28, BVC, RELATIVE, 3, 2 , 1),
+    ins!(0x29, BVS, RELATIVE, 3, 2 , 1),
+    ins!(0x2A, BPL, RELATIVE, 3, 2 , 1),
+    ins!(0x2B, BMI, RELATIVE, 3, 2 , 1),
+    ins!(0x2C, BGE, RELATIVE, 3, 2 , 1),
+    ins!(0x2D, BLT, RELATIVE, 3, 2 , 1),
+    ins!(0x2E, BGT, RELATIVE, 3, 2 , 1),
+    ins!(0x2F, BLE, RELATIVE, 3, 2 , 1),
+    ins!(0x30, LEAX, INDEXED, 4, 2 , 1),
+    ins!(0x31, LEAY, INDEXED, 4, 2 , 1),
+    ins!(0x32, LEAS, INDEXED, 4, 2 , 1),
+    ins!(0x33, LEAU, INDEXED, 4, 2 , 1),
+    ins!(0x34, PSHS, INHERENT, 5, 2 , 1),
+    ins!(0x35, PULS, INHERENT, 5, 2 , 1),
+    ins!(0x36, PSHU, INHERENT, 5, 2 , 1),
+    ins!(0x37, PULU, INHERENT, 5, 2 , 1),
+    ins!(0x38, ILLEGAL, ILLEGAL_ADDR, 1, 1 , 1),
+    ins!(0x39, RTS, INHERENT, 5, 1 , 1),
+    ins!(0x3A, ABX, INHERENT, 3, 1 , 1),
+    ins!(0x3B, RTI, INHERENT, 6, 1 , 1),   // *!!!!
+    ins!(0x3C, CWAI, INHERENT, 21, 2 , 1),
+    ins!(0x3D, MUL, INHERENT, 11, 1 , 1),
+    ins!(0x3E, RESET, INHERENT, 1, 1 , 1), // *!!!
+    ins!(0x3F, SWI, INHERENT, 19, 1 , 1),
+    ins!(0x40, NEGA, INHERENT, 2, 1 , 1),
+    ins!(0x41, ILLEGAL, ILLEGAL_ADDR, 1, 1 , 1),
+    ins!(0x42, ILLEGAL, ILLEGAL_ADDR, 1, 1 , 1),
+    ins!(0x43, COMA, INHERENT, 2, 1 , 1),
+    ins!(0x44, LSRA, INHERENT, 2, 1 , 1),
+    ins!(0x45, ILLEGAL, ILLEGAL_ADDR, 1, 1 , 1),
+    ins!(0x46, RORA, INHERENT, 2, 1 , 1),
+    ins!(0x47, ASRA, INHERENT, 2, 1 , 1),
+    ins!(0x48, LSLA_ASLA, INHERENT, 2, 1 , 1),
+    ins!(0x49, ROLA, INHERENT, 2, 1 , 1),
+    ins!(0x4A, DECA, INHERENT, 2, 1 , 1),
+    ins!(0x4B, ILLEGAL, ILLEGAL_ADDR, 1, 1 , 1),
+    ins!(0x4C, INCA, INHERENT, 2, 1 , 1),
+    ins!(0x4D, TSTA, INHERENT, 2, 1 , 1),
+    ins!(0x4E, ILLEGAL, ILLEGAL_ADDR, 1, 1 , 1),
+    ins!(0x4F, CLRA, INHERENT, 2, 1 , 1),
+    ins!(0x50, NEGB, INHERENT, 2, 1 , 1),
+    ins!(0x51, ILLEGAL, ILLEGAL_ADDR, 1, 1 , 1),
+    ins!(0x52, ILLEGAL, ILLEGAL_ADDR, 1, 1 , 1),
+    ins!(0x53, COMB, INHERENT, 2, 1 , 1),
+    ins!(0x54, LSRB, INHERENT, 2, 1 , 1),
+    ins!(0x55, ILLEGAL, ILLEGAL_ADDR, 1, 1 , 1),
+    ins!(0x56, RORB, INHERENT, 2, 1 , 1),
+    ins!(0x57, ASRB, INHERENT, 2, 1 , 1),
+    ins!(0x58, LSLB_ASLB, INHERENT, 2, 1 , 1),
+    ins!(0x59, ROLB, INHERENT, 2, 1 , 1),
+    ins!(0x5A, DECB, INHERENT, 2, 1 , 1),
+    ins!(0x5B, ILLEGAL, ILLEGAL_ADDR, 1, 1 , 1),
+    ins!(0x5C, INCB, INHERENT, 2, 1 , 1),
+    ins!(0x5D, TSTB, INHERENT, 2, 1 , 1),
+    ins!(0x5E, ILLEGAL, ILLEGAL_ADDR, 1, 1 , 1),
+    ins!(0x5F, CLRB, INHERENT, 2, 1 , 1),
+    ins!(0x60, NEG, INDEXED, 6, 2 , 1),
+    ins!(0x61, ILLEGAL, ILLEGAL_ADDR, 1, 1 , 1),
+    ins!(0x62, ILLEGAL, ILLEGAL_ADDR, 1, 1 , 1),
+    ins!(0x63, COM, INDEXED, 6, 2 , 1),
+    ins!(0x64, LSR, INDEXED, 6, 2 , 1),
+    ins!(0x65, ILLEGAL, ILLEGAL_ADDR, 1, 1 , 1),
+    ins!(0x66, ROR, INDEXED, 6, 2 , 1),
+    ins!(0x67, ASR, INDEXED, 6, 2 , 1),
+    ins!(0x68, LSL_ASL, INDEXED, 6, 2 , 1),
+    ins!(0x69, ROL, INDEXED, 6, 2 , 1),
+    ins!(0x6A, DEC, INDEXED, 6, 2 , 1),
+    ins!(0x6B, ILLEGAL, ILLEGAL_ADDR, 1, 1 , 1),
+    ins!(0x6C, INC, INDEXED, 6, 2 , 1),
+    ins!(0x6D, TST, INDEXED, 6, 2 , 1),
+    ins!(0x6E, JMP, INDEXED, 3, 2 , 1),
+    ins!(0x6F, CLR, INDEXED, 6, 2 , 1),
+    ins!(0x70, NEG, EXTENDED, 7, 3 , 1),
+    ins!(0x71, ILLEGAL, ILLEGAL_ADDR, 1, 1 , 1),
+    ins!(0x72, ILLEGAL, ILLEGAL_ADDR, 1, 1 , 1),
+    ins!(0x73, COM, EXTENDED, 7, 3 , 1),
+    ins!(0x74, LSR, EXTENDED, 7, 3 , 1),
+    ins!(0x75, ILLEGAL, ILLEGAL_ADDR, 1, 1 , 1),
+    ins!(0x76, ROR, EXTENDED, 7, 3 , 1),
+    ins!(0x77, ASR, EXTENDED, 7, 3 , 1),
+    ins!(0x78, LSL_ASL, EXTENDED, 7, 3 , 1),
+    ins!(0x79, ROL, EXTENDED, 7, 3 , 1),
+    ins!(0x7A, DEC, EXTENDED, 7, 3 , 1),
+    ins!(0x7B, ILLEGAL, ILLEGAL_ADDR, 1, 1 , 1),
+    ins!(0x7C, INC, EXTENDED, 7, 3 , 1),
+    ins!(0x7D, TST, EXTENDED, 7, 3 , 1),
+    ins!(0x7E, JMP, EXTENDED, 3, 3 , 1),
+    ins!(0x7F, CLR, EXTENDED, 7, 3 , 1),
+    ins!(0x80, SUBA, IMMEDIATE, 2, 2 , 1),
+    ins!(0x81, CMPA, IMMEDIATE, 2, 2 , 1),
+    ins!(0x82, SBCA, IMMEDIATE, 2, 2 , 1),
+    ins!(0x83, SUBD, IMMEDIATE, 4, 3 , 1),
+    ins!(0x84, ANDA, IMMEDIATE, 2, 2 , 1),
+    ins!(0x85, BITA, IMMEDIATE, 2, 2 , 1),
+    ins!(0x86, LDA, IMMEDIATE, 2, 2 , 1),
+    ins!(0x87, ILLEGAL, ILLEGAL_ADDR, 1, 1 , 1),
+    ins!(0x88, EORA, IMMEDIATE, 2, 2 , 1),
+    ins!(0x89, ADCA, IMMEDIATE, 2, 2 , 1),
+    ins!(0x8A, ORA, IMMEDIATE, 2, 2 , 1),
+    ins!(0x8B, ADDA, IMMEDIATE, 2, 2 , 1),
+    ins!(0x8C, CMPX, IMMEDIATE, 4, 3 , 1),
+    ins!(0x8D, BSR, RELATIVE, 7, 2 , 1),
+    ins!(0x8E, LDX, IMMEDIATE, 3, 3 , 1),
+    ins!(0x8F, ILLEGAL, ILLEGAL_ADDR, 1, 1 , 1),
+    ins!(0x90, SUBA, DIRECT, 4, 2 , 1),
+    ins!(0x91, CMPA, DIRECT, 4, 2 , 1),
+    ins!(0x92, SBCA, DIRECT, 4, 2 , 1),
+    ins!(0x93, SUBD, DIRECT, 6, 2 , 1),
+    ins!(0x94, ANDA, DIRECT, 4, 2 , 1),
+    ins!(0x95, BITA, DIRECT, 4, 2 , 1),
+    ins!(0x96, LDA, DIRECT, 4, 2 , 1),
+    ins!(0x97, STA, DIRECT, 4, 2 , 1),
+    ins!(0x98, EORA, DIRECT, 4, 2 , 1),
+    ins!(0x99, ADCA, DIRECT, 4, 2 , 1),
+    ins!(0x9A, ORA, DIRECT, 4, 2 , 1),
+    ins!(0x9B, ADDA, DIRECT, 4, 2 , 1),
+    ins!(0x9C, CMPX, DIRECT, 6, 2 , 1),
+    ins!(0x9D, JSR, DIRECT, 7, 2 , 1),
+    ins!(0x9E, LDX, DIRECT, 5, 2 , 1),
+    ins!(0x9F, STX, DIRECT, 5, 2 , 1),
+    ins!(0xA0, SUBA, INDEXED, 4, 2 , 1),
+    ins!(0xA1, CMPA, INDEXED, 4, 2 , 1),
+    ins!(0xA2, SBCA, INDEXED, 4, 2 , 1),
+    ins!(0xA3, SUBD, INDEXED, 6, 2 , 1),
+    ins!(0xA4, ANDA, INDEXED, 4, 2 , 1),
+    ins!(0xA5, BITA, INDEXED, 4, 2 , 1),
+    ins!(0xA6, LDA, INDEXED, 4, 2 , 1),
+    ins!(0xA7, STA, INDEXED, 4, 2 , 1),
+    ins!(0xA8, EORA, INDEXED, 4, 2 , 1),
+    ins!(0xA9, ADCA, INDEXED, 4, 2 , 1),
+    ins!(0xAA, ORA, INDEXED, 4, 2 , 1),
+    ins!(0xAB, ADDA, INDEXED, 4, 2 , 1),
+    ins!(0xAC, CMPX, INDEXED, 6, 2 , 1),
+    ins!(0xAD, JSR, INDEXED, 7, 2 , 1),
+    ins!(0xAE, LDX, INDEXED, 5, 2 , 1),
+    ins!(0xAF, STX, INDEXED, 5, 2 , 1),
+    ins!(0xB0, SUBA, EXTENDED, 5, 3 , 1),
+    ins!(0xB1, CMPA, EXTENDED, 5, 3 , 1),
+    ins!(0xB2, SBCA, EXTENDED, 5, 3 , 1),
+    ins!(0xB3, SUBD, EXTENDED, 7, 3 , 1),
+    ins!(0xB4, ANDA, EXTENDED, 5, 3 , 1),
+    ins!(0xB5, BITA, EXTENDED, 5, 3 , 1),
+    ins!(0xB6, LDA, EXTENDED, 5, 3 , 1),
+    ins!(0xB7, STA, EXTENDED, 5, 3 , 1),
+    ins!(0xB8, EORA, EXTENDED, 5, 3 , 1),
+    ins!(0xB9, ADCA, EXTENDED, 5, 3 , 1),
+    ins!(0xBA, ORA, EXTENDED, 5, 3 , 1),
+    ins!(0xBB, ADDA, EXTENDED, 5, 3 , 1),
+    ins!(0xBC, CMPX, EXTENDED, 7, 3 , 1),
+    ins!(0xBD, JSR, EXTENDED, 8, 3 , 1),
+    ins!(0xBE, LDX, EXTENDED, 6, 3 , 1),
+    ins!(0xBF, STX, EXTENDED, 6, 3 , 1),
+    ins!(0xC0, SUBB, IMMEDIATE, 2, 2 , 1),
+    ins!(0xC1, CMPB, IMMEDIATE, 2, 2 , 1),
+    ins!(0xC2, SBCB, IMMEDIATE, 2, 2 , 1),
+    ins!(0xC3, ADDD, IMMEDIATE, 4, 3 , 1),
+    ins!(0xC4, ANDB, IMMEDIATE, 2, 2 , 1),
+    ins!(0xC5, BITB, IMMEDIATE, 2, 2 , 1),
+    ins!(0xC6, LDB, IMMEDIATE, 2, 2 , 1),
+    ins!(0xC7, ILLEGAL, ILLEGAL_ADDR, 1, 1 , 1),
+    ins!(0xC8, EORB, IMMEDIATE, 2, 2 , 1),
+    ins!(0xC9, ADCB, IMMEDIATE, 2, 2 , 1),
+    ins!(0xCA, ORB, IMMEDIATE, 2, 2 , 1),
+    ins!(0xCB, ADDB, IMMEDIATE, 2, 2 , 1),
+    ins!(0xCC, LDD, IMMEDIATE, 3, 3 , 1),
+    ins!(0xCD, ILLEGAL, ILLEGAL_ADDR, 1, 1 , 1),
+    ins!(0xCE, LDU, IMMEDIATE, 3, 3 , 1),
+    ins!(0xCF, ILLEGAL, ILLEGAL_ADDR, 1, 1 , 1),
+    ins!(0xD0, SUBB, DIRECT, 4, 2 , 1),
+    ins!(0xD1, CMPB, DIRECT, 4, 2 , 1),
+    ins!(0xD2, SBCB, DIRECT, 4, 2 , 1),
+    ins!(0xD3, ADDD, DIRECT, 6, 2 , 1),
+    ins!(0xD4, ANDB, DIRECT, 4, 2 , 1),
+    ins!(0xD5, BITB, DIRECT, 4, 2 , 1),
+    ins!(0xD6, LDB, DIRECT, 4, 2 , 1),
+    ins!(0xD7, STB, DIRECT, 4, 2 , 1),
+    ins!(0xD8, EORB, DIRECT, 4, 2 , 1),
+    ins!(0xD9, ADCB, DIRECT, 4, 2 , 1),
+    ins!(0xDA, ORB, DIRECT, 4, 2 , 1),
+    ins!(0xDB, ADDB, DIRECT, 4, 2 , 1),
+    ins!(0xDC, LDD, DIRECT, 5, 2 , 1),
+    ins!(0xDD, STD, DIRECT, 5, 2 , 1),
+    ins!(0xDE, LDU, DIRECT, 5, 2 , 1),
+    ins!(0xDF, STU, DIRECT, 5, 2 , 1),
+    ins!(0xE0, SUBB, INDEXED, 4, 2 , 1),
+    ins!(0xE1, CMPB, INDEXED, 4, 2 , 1),
+    ins!(0xE2, SBCB, INDEXED, 4, 2 , 1),
+    ins!(0xE3, ADDD, INDEXED, 6, 2 , 1),
+    ins!(0xE4, ANDB, INDEXED, 4, 2 , 1),
+    ins!(0xE5, BITB, INDEXED, 4, 2 , 1),
+    ins!(0xE6, LDB, INDEXED, 4, 2 , 1),
+    ins!(0xE7, STB, INDEXED, 4, 2 , 1),
+    ins!(0xE8, EORB, INDEXED, 4, 2 , 1),
+    ins!(0xE9, ADCB, INDEXED, 4, 2 , 1),
+    ins!(0xEA, ORB, INDEXED, 4, 2 , 1),
+    ins!(0xEB, ADDB, INDEXED, 4, 2 , 1),
+    ins!(0xEC, LDD, INDEXED, 5, 2 , 1),
+    ins!(0xED, STD, INDEXED, 5, 2 , 1),
+    ins!(0xEE, LDU, INDEXED, 5, 2 , 1),
+    ins!(0xEF, STU, INDEXED, 5, 2 , 1),
+    ins!(0xF0, SUBB, EXTENDED, 5, 3 , 1),
+    ins!(0xF1, CMPB, EXTENDED, 5, 3 , 1),
+    ins!(0xF2, SBCB, EXTENDED, 5, 3 , 1),
+    ins!(0xF3, ADDD, EXTENDED, 7, 3 , 1),
+    ins!(0xF4, ANDB, EXTENDED, 5, 3 , 1),
+    ins!(0xF5, BITB, EXTENDED, 5, 3 , 1),
+    ins!(0xF6, LDB, EXTENDED, 5, 3 , 1),
+    ins!(0xF7, STB, EXTENDED, 5, 3 , 1),
+    ins!(0xF8, EORB, EXTENDED, 5, 3 , 1),
+    ins!(0xF9, ADCB, EXTENDED, 5, 3 , 1),
+    ins!(0xFA, ORB, EXTENDED, 5, 3 , 1),
+    ins!(0xFB, ADDB, EXTENDED, 5, 3 , 1),
+    ins!(0xFC, LDD, EXTENDED, 6, 3 , 1),
+    ins!(0xFD, STD, EXTENDED, 6, 3 , 1),
+    ins!(0xFE, LDU, EXTENDED, 6, 3 , 1),
+    ins!(0xFF, STU, EXTENDED, 6, 3 , 1),
     ];
 
-static SWI3_INS_INHERENT:    &'static Ins = &ins!( 0x113F, SWI3, INHERENT     ,  20   ,   2   );
-static CMPU_INS_IMMEDIATE:   &'static Ins = &ins!( 0x1183, CMPU, IMMEDIATE    ,   5   ,   4   );
-static CMPS_INS_IMMEDIATE:   &'static Ins = &ins!( 0x118C, CMPS, IMMEDIATE    ,   5   ,   4   );
-static CMPU_INS_DIRECT:      &'static Ins = &ins!( 0x1193, CMPU, DIRECT       ,   7   ,   3   );
-static CMPS_INS_DIRECT:      &'static Ins = &ins!( 0x119C, CMPS, DIRECT       ,   7   ,   3   );
-static CMPU_INS_INDEXED:     &'static Ins = &ins!( 0x11A3, CMPU, INDEXED      ,   7   ,   3   );
-static CMPS_INS_INDEXED:     &'static Ins = &ins!( 0x11AC, CMPS, INDEXED      ,   7   ,   3   );
-static CMPU_INS_EXTENDED:    &'static Ins = &ins!( 0x11B3, CMPU, EXTENDED     ,   8   ,   4   );
-static CMPS_INS_EXTENDED:    &'static Ins = &ins!( 0x11BC, CMPS, EXTENDED     ,   8   ,   4   );
-static ILLEGAL_A11:    &'static Ins = &ins!( 0x11BC, ILLEGAL, INHERENT     ,   1   ,   1   );
+static SWI3_INS_INHERENT:    &'static Ins = &ins!( 0x113F, SWI3, INHERENT     ,  20   ,   2   , 2);
+static CMPU_INS_IMMEDIATE:   &'static Ins = &ins!( 0x1183, CMPU, IMMEDIATE    ,   5   ,   4   , 2);
+static CMPS_INS_IMMEDIATE:   &'static Ins = &ins!( 0x118C, CMPS, IMMEDIATE    ,   5   ,   4   , 2);
+static CMPU_INS_DIRECT:      &'static Ins = &ins!( 0x1193, CMPU, DIRECT       ,   7   ,   3   , 2);
+static CMPS_INS_DIRECT:      &'static Ins = &ins!( 0x119C, CMPS, DIRECT       ,   7   ,   3   , 2);
+static CMPU_INS_INDEXED:     &'static Ins = &ins!( 0x11A3, CMPU, INDEXED      ,   7   ,   3   , 2);
+static CMPS_INS_INDEXED:     &'static Ins = &ins!( 0x11AC, CMPS, INDEXED      ,   7   ,   3   , 2);
+static CMPU_INS_EXTENDED:    &'static Ins = &ins!( 0x11B3, CMPU, EXTENDED     ,   8   ,   4   , 2);
+static CMPS_INS_EXTENDED:    &'static Ins = &ins!( 0x11BC, CMPS, EXTENDED     ,   8   ,   4   , 2);
+static ILLEGAL_A11:    &'static Ins = &ins!( 0x11BC, ILLEGAL, INHERENT     ,   1   ,   1   , 2);
 
 fn get_ins_a11(op : u16) -> &'static Ins {
     match op {
@@ -1196,45 +1127,45 @@ fn get_ins_a11(op : u16) -> &'static Ins {
     }
 }
 
-static LBRN_RELATIVE: &'static Ins      =    &ins!( 0x1021, LBRN, RELATIVE, 5, 4 );
-static LBHI_RELATIVE: &'static Ins      =    &ins!( 0x1022, LBHI, RELATIVE, 5, 4 );
-static LBLS_RELATIVE: &'static Ins      =    &ins!( 0x1023, LBLS, RELATIVE, 5, 4 );
-static LBHS_LBCC_RELATIVE: &'static Ins =  &ins!( 0x1024, LBHS_LBCC, RELATIVE, 5, 4 );
-static LBLO_LBCS_RELATIVE: &'static Ins =  &ins!( 0x1025, LBLO_LBCS, RELATIVE, 5, 4 );
-static LBNE_RELATIVE: &'static Ins      =    &ins!( 0x1026, LBNE, RELATIVE, 5, 4 );
-static LBEQ_RELATIVE: &'static Ins      =    &ins!( 0x1027, LBEQ, RELATIVE, 5, 4 );
-static LBVC_RELATIVE: &'static Ins      =    &ins!( 0x1028, LBVC, RELATIVE, 5, 4 );
-static LBVS_RELATIVE: &'static Ins      =    &ins!( 0x1029, LBVS, RELATIVE, 5, 4 );
-static LBPL_RELATIVE: &'static Ins      =    &ins!( 0x102A, LBPL, RELATIVE, 5, 4 );
-static LBMI_RELATIVE: &'static Ins      =    &ins!( 0x102B, LBMI, RELATIVE, 5, 4 );
-static LBGE_RELATIVE: &'static Ins      =    &ins!( 0x102C, LBGE, RELATIVE, 5, 4 );
-static LBLT_RELATIVE: &'static Ins      =    &ins!( 0x102D, LBLT, RELATIVE, 5, 4 );
-static LBGT_RELATIVE: &'static Ins      =    &ins!( 0x102E, LBGT, RELATIVE, 5, 4 );
-static LBLE_RELATIVE: &'static Ins      =    &ins!( 0x102F, LBLE, RELATIVE, 5, 4 );
-static SWI2_INHERENT: &'static Ins      =    &ins!( 0x103F, SWI2, INHERENT, 20, 2 );
-static CMPD_IMMEDIATE: &'static Ins     =    &ins!( 0x1083, CMPD, IMMEDIATE, 5, 4 );
-static CMPY_IMMEDIATE: &'static Ins     =    &ins!( 0x108C, CMPY, IMMEDIATE, 5, 4 );
-static LDY_IMMEDIATE: &'static Ins      =    &ins!( 0x108E, LDY, IMMEDIATE, 4, 4 );
-static CMPD_DIRECT: &'static Ins        =    &ins!( 0x1093, CMPD, DIRECT, 7, 3 );
-static CMPY_DIRECT: &'static Ins        =    &ins!( 0x109C, CMPY, DIRECT, 7, 3 );
-static LDY_DIRECT: &'static Ins         =    &ins!( 0x109E, LDY, DIRECT, 6, 3 );
-static STY_DIRECT: &'static Ins         =    &ins!( 0x109F, STY, DIRECT, 6, 3 );
-static CMPD_INDEXED: &'static Ins       =    &ins!( 0x10A3, CMPD, INDEXED, 7, 3 );
-static CMPY_INDEXED: &'static Ins       =    &ins!( 0x10AC, CMPY, INDEXED, 7, 3 );
-static LDY_INDEXED: &'static Ins        =    &ins!( 0x10AE, LDY, INDEXED, 6, 3 );
-static STY_INDEXED: &'static Ins        =    &ins!( 0x10AF, STY, INDEXED, 6, 3 );
-static CMPD_EXTENDED: &'static Ins      =    &ins!( 0x10B3, CMPD, EXTENDED, 8, 4 );
-static CMPY_EXTENDED: &'static Ins      =    &ins!( 0x10BC, CMPY, EXTENDED, 8, 4 );
-static LDY_EXTENDED: &'static Ins       =    &ins!( 0x10BE, LDY, EXTENDED, 7, 4 );
-static STY_EXTENDED: &'static Ins       =    &ins!( 0x10BF, STY, EXTENDED, 7, 4 );
-static LDS_IMMEDIATE: &'static Ins      =    &ins!( 0x10CE, LDS, IMMEDIATE, 4, 4 );
-static LDS_DIRECT: &'static Ins         =    &ins!( 0x10DE, LDS, DIRECT, 6, 3 );
-static STS_DIRECT: &'static Ins         =    &ins!( 0x10DF, STS, DIRECT, 6, 3 );
-static LDS_INDEXED: &'static Ins        =    &ins!( 0x10EE, LDS, INDEXED, 6, 3 );
-static STS_INDEXED: &'static Ins        =    &ins!( 0x10EF, STS, INDEXED, 6, 3 );
-static LDS_EXTENDED: &'static Ins       =    &ins!( 0x10FE, LDS, EXTENDED, 7, 4 );
-static STS_EXTENDED: &'static Ins       =    &ins!( 0x10FF, STS, EXTENDED, 7, 4 );
-static ILLEGAL_A10:    &'static Ins = &ins!( 0x1000, ILLEGAL, INHERENT     ,   1   ,   1   );
+static LBRN_RELATIVE: &'static Ins      =    &ins!( 0x1021, LBRN, RELATIVE, 5, 4 , 2);
+static LBHI_RELATIVE: &'static Ins      =    &ins!( 0x1022, LBHI, RELATIVE, 5, 4 , 2);
+static LBLS_RELATIVE: &'static Ins      =    &ins!( 0x1023, LBLS, RELATIVE, 5, 4 , 2);
+static LBHS_LBCC_RELATIVE: &'static Ins =  &ins!( 0x1024, LBHS_LBCC, RELATIVE, 5, 4 , 2);
+static LBLO_LBCS_RELATIVE: &'static Ins =  &ins!( 0x1025, LBLO_LBCS, RELATIVE, 5, 4 , 2);
+static LBNE_RELATIVE: &'static Ins      =    &ins!( 0x1026, LBNE, RELATIVE, 5, 4 , 2);
+static LBEQ_RELATIVE: &'static Ins      =    &ins!( 0x1027, LBEQ, RELATIVE, 5, 4 , 2);
+static LBVC_RELATIVE: &'static Ins      =    &ins!( 0x1028, LBVC, RELATIVE, 5, 4 , 2);
+static LBVS_RELATIVE: &'static Ins      =    &ins!( 0x1029, LBVS, RELATIVE, 5, 4 , 2);
+static LBPL_RELATIVE: &'static Ins      =    &ins!( 0x102A, LBPL, RELATIVE, 5, 4 , 2);
+static LBMI_RELATIVE: &'static Ins      =    &ins!( 0x102B, LBMI, RELATIVE, 5, 4 , 2);
+static LBGE_RELATIVE: &'static Ins      =    &ins!( 0x102C, LBGE, RELATIVE, 5, 4 , 2);
+static LBLT_RELATIVE: &'static Ins      =    &ins!( 0x102D, LBLT, RELATIVE, 5, 4 , 2);
+static LBGT_RELATIVE: &'static Ins      =    &ins!( 0x102E, LBGT, RELATIVE, 5, 4 , 2);
+static LBLE_RELATIVE: &'static Ins      =    &ins!( 0x102F, LBLE, RELATIVE, 5, 4 , 2);
+static SWI2_INHERENT: &'static Ins      =    &ins!( 0x103F, SWI2, INHERENT, 20, 2 , 2);
+static CMPD_IMMEDIATE: &'static Ins     =    &ins!( 0x1083, CMPD, IMMEDIATE, 5, 4 , 2);
+static CMPY_IMMEDIATE: &'static Ins     =    &ins!( 0x108C, CMPY, IMMEDIATE, 5, 4 , 2);
+static LDY_IMMEDIATE: &'static Ins      =    &ins!( 0x108E, LDY, IMMEDIATE, 4, 4 , 2);
+static CMPD_DIRECT: &'static Ins        =    &ins!( 0x1093, CMPD, DIRECT, 7, 3 , 2);
+static CMPY_DIRECT: &'static Ins        =    &ins!( 0x109C, CMPY, DIRECT, 7, 3 , 2);
+static LDY_DIRECT: &'static Ins         =    &ins!( 0x109E, LDY, DIRECT, 6, 3 , 2);
+static STY_DIRECT: &'static Ins         =    &ins!( 0x109F, STY, DIRECT, 6, 3 , 2);
+static CMPD_INDEXED: &'static Ins       =    &ins!( 0x10A3, CMPD, INDEXED, 7, 3 , 2);
+static CMPY_INDEXED: &'static Ins       =    &ins!( 0x10AC, CMPY, INDEXED, 7, 3 , 2);
+static LDY_INDEXED: &'static Ins        =    &ins!( 0x10AE, LDY, INDEXED, 6, 3 , 2);
+static STY_INDEXED: &'static Ins        =    &ins!( 0x10AF, STY, INDEXED, 6, 3 , 2);
+static CMPD_EXTENDED: &'static Ins      =    &ins!( 0x10B3, CMPD, EXTENDED, 8, 4 , 2);
+static CMPY_EXTENDED: &'static Ins      =    &ins!( 0x10BC, CMPY, EXTENDED, 8, 4 , 2);
+static LDY_EXTENDED: &'static Ins       =    &ins!( 0x10BE, LDY, EXTENDED, 7, 4 , 2);
+static STY_EXTENDED: &'static Ins       =    &ins!( 0x10BF, STY, EXTENDED, 7, 4 , 2);
+static LDS_IMMEDIATE: &'static Ins      =    &ins!( 0x10CE, LDS, IMMEDIATE, 4, 4 , 2);
+static LDS_DIRECT: &'static Ins         =    &ins!( 0x10DE, LDS, DIRECT, 6, 3 , 2);
+static STS_DIRECT: &'static Ins         =    &ins!( 0x10DF, STS, DIRECT, 6, 3 , 2);
+static LDS_INDEXED: &'static Ins        =    &ins!( 0x10EE, LDS, INDEXED, 6, 3 , 2);
+static STS_INDEXED: &'static Ins        =    &ins!( 0x10EF, STS, INDEXED, 6, 3 , 2);
+static LDS_EXTENDED: &'static Ins       =    &ins!( 0x10FE, LDS, EXTENDED, 7, 4 , 2);
+static STS_EXTENDED: &'static Ins       =    &ins!( 0x10FF, STS, EXTENDED, 7, 4 , 2);
+static ILLEGAL_A10:    &'static Ins = &ins!( 0x1000, ILLEGAL, INHERENT     ,   1   ,   1   , 2);
 
 fn get_ins_a10(op : u16) -> &'static Ins {
     match op {
@@ -1279,7 +1210,6 @@ fn get_ins_a10(op : u16) -> &'static Ins {
         _ => ILLEGAL_A10,
     }
 }
-
 
 pub fn get_ins(op : u16 ) -> &'static Ins {
     match op >> 8 {
