@@ -10,6 +10,8 @@ mod diss;
 mod addr;
 mod symtab;
 mod disassembler;
+mod cpu2;
+mod registers;
 
 #[macro_use]
 extern crate bitflags;

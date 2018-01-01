@@ -36,11 +36,13 @@ pub trait MemoryIO {
     fn store_word(&mut self, addr:u16, val:u16) {
         let (lo,hi) = as_bytes(val);
         self.store_byte(addr, hi);
-        self.store_byte(addr+1, lo);
+        self.store_byte(addr.wrapping_add(1), lo);
     }
 
     fn load_word(&self, addr:u16) -> u16 {
-        as_word(self.load_byte(addr+1), self.load_byte(addr))
+        let lo = self.load_byte(addr.wrapping_add(1));
+        let hi = self.load_byte(addr);
+        as_word(lo, hi)
     }
 
     fn get_mem_as_str(&self, addr:u16, size:u16 ) -> String {
@@ -74,15 +76,19 @@ impl Memory {
     pub fn new(name: &'static str, read_only : bool, base: u16, size: u16) -> Memory {
 
         let data = vec![0u8; size as usize];
-        let last_mem = (base as u32) + (size as u32) - 1;
+        let last_mem = base.wrapping_add(size).wrapping_sub(1);
+
+        if last_mem < base {
+            panic!("Trying to add memory > that 16 bit address space");
+        }
 
         Memory {
-            size : size,
-            base : base,
+            size: size,
+            base: base,
             read_only: read_only,
-            data : data,
-            name : name,
-            last_mem : last_mem as u16,
+            data: data,
+            name: name,
+            last_mem: last_mem,
         }
     }
 }
@@ -97,14 +103,13 @@ impl MemoryIO for Memory {
     }
 
     fn load_byte(&self, addr:u16) -> u8 {
-        let idx = (addr - self.base) as usize;
-        assert!(idx < self.size as usize);
-        self.data[idx]
+        assert!(addr >= self.base && addr <= self.last_mem);
+        self.data[(addr - self.base) as usize]
     }
 
     fn store_byte(&mut self, addr:u16, val:u8) {
+        assert!(addr >= self.base && addr <= self.last_mem);
         let idx = (addr - self.base) as usize;
-        assert!(idx < self.size as usize);
         self.data[idx] = val;
     }
 }

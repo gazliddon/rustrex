@@ -34,6 +34,15 @@ impl fmt::Debug for Op {
     }
 }
 
+trait CanAddress {
+    fn get_name(&self) -> &'static str;
+}
+
+impl CanAddress for AddrMode {
+    fn get_name(&self) -> &'static str {
+        self.name
+    }
+}
 
 pub struct Ins {
     pub op : &'static Op,
@@ -53,18 +62,19 @@ impl Ins {
 
     pub fn exec(&self,  cpu : &mut Cpu, mem : &mut MemMap) -> u32 {
 
-        let pc = cpu.regs.pc;
+        // let pc = cpu.regs.pc;
 
-        let (_, operand) =  fetch_operand(&self.addr_mode.mode,
-                                     self.op_code,
-                                     cpu,
-                                     mem,
-                                     pc + 1);
-        let exec =  self.op.exec;
+        // let (_, operand) =  fetch_operand(&self.addr_mode.mode,
+        //                              self.op_code,
+        //                              cpu,
+        //                              mem,
+        //                              pc + 1);
+        // let exec =  self.op.exec;
 
-        let res = exec(operand,0,0,cpu, mem);
+        // let res = exec(operand,0,0,cpu, mem);
 
-        self.cycles as u32
+        // self.cycles as u32
+        0
     }
 }
 
@@ -108,6 +118,8 @@ static EXTENDED : AddrMode = AddrMode {
     name : "EXTENDED",
     mode : AddrModes::Extended,
 };
+
+
 
 // Stack helpers
 fn pushs_byte(v : u8, cpu : &mut Cpu, mem : &mut MemMap ) {
@@ -841,7 +853,6 @@ macro_rules! ins {
 }
 
 
-
 static INS : &'static [Ins] = &[
     ins!(0x00, NEG, DIRECT, 6, 2 , 1),
     ins!(0x01, ILLEGAL, ILLEGAL_ADDR, 1, 1 , 1),
@@ -1218,4 +1229,27 @@ pub fn get_ins(op : u16 ) -> &'static Ins {
         _ => &INS[op as usize],
     }
 }
+
+fn is_multi_byte( op_code : u8 ) -> bool {
+    (op_code == 0x10 || op_code == 0x11)
+}
+
+pub fn decode_ins(addr : u16, mem : &MemMap) -> (&'static Ins, u16, u16) {
+
+    let mut op = mem.load_byte(addr) as u16;
+
+    let mut operand_offset = 1;
+
+    if is_multi_byte(op as u8) {
+        op = mem.load_word(addr) as u16 ;
+        operand_offset = 2;
+    }
+
+    let ins = get_ins(op);
+
+    let (operand, next_ins) = fetch_operand(&ins.addr_mode.mode, mem, addr + operand_offset);
+
+    (ins, operand, next_ins)
+}
+
 

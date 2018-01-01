@@ -4,8 +4,8 @@ use isa::get_ins;
 use memmap::MemMap;
 use mem::MemoryIO;
 use mem::to_mem_range;
-use addr::format_operand;
-use addr::fetch_operand;
+// use addr::format_operand;
+// use addr::fetch_operand;
 
 
 #[derive(Debug)]
@@ -47,18 +47,20 @@ impl Machine {
     }
 
     pub fn disassemble(&mut self, addr : u16 ) -> (u16, String) {
-        let ins = self.fetch_instruction(addr);
+        // let ins = self.fetch_instruction(addr);
 
-        let (_, operand) = fetch_operand(&ins.addr_mode.mode,
-                                         ins.op_code,
-                                         &mut self.cpu,
-                                         &mut self.mem,
-                                         addr + ins.operand_offset as u16);
+        // let (_, operand) = fetch_operand(&ins.addr_mode.mode,
+        //                                  ins.op_code,
+        //                                  &mut self.cpu,
+        //                                  &mut self.mem,
+        //                                  addr + ins.operand_offset as u16);
 
-        let bytes = ins.bytes;
-        let next_addr = (addr as u32 + bytes as u32) as u16;
-        let formatted = format_operand(&ins.addr_mode.mode, operand);
-        (next_addr, format!("{} {} ({})", ins.op.mnenomic, formatted, ins.addr_mode.name))
+        // let bytes = ins.bytes;
+        // let next_addr = (addr as u32 + bytes as u32) as u16;
+        // let formatted = format_operand(&ins.addr_mode.mode, operand);
+        // (next_addr, format!("{} {} ({})", ins.op.mnenomic, formatted, ins.addr_mode.name))
+        
+        (0, String::from("kjsakjsa"))
     }
 
     pub fn upload(&mut self, data : &[u8], _address : u16) {
