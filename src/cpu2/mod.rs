@@ -145,7 +145,6 @@ impl <M: MemoryIO> Cpu<M> {
 
 //}}}
 
-
 // {{{ Op Codes
 impl <M: MemoryIO> Cpu<M> {
 
@@ -318,7 +317,6 @@ impl <M: MemoryIO> Cpu<M> {
         panic!("NO!")
     }
 
-
     // Loads
     pub fn lda<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
         let operand = addr_mode.fetch8(self);
@@ -344,7 +342,6 @@ impl <M: MemoryIO> Cpu<M> {
         let operand = addr_mode.fetch16(self);
         self.regs.load_x(operand)
     }
-
 
     pub fn leas<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
         panic!("NO!")
@@ -500,7 +497,6 @@ impl <M: MemoryIO> Cpu<M> {
         panic!("NO!")
     }
 
-
     pub fn cmps<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
         panic!("NO!")
     }
@@ -597,14 +593,18 @@ impl <M: MemoryIO> Cpu<M> {
         panic!("unimplemnted op code")
     }
 
-    pub fn exec(&mut self, num : usize) {
+    pub fn fetch_instruction(&mut self) -> u16 {
+
         let a = self.fetch_u8_bump_pc() as u16;
 
-        let a = match a {
+        match a {
             0x10 | 0x11 => (a << 8) + self.fetch_u8_bump_pc() as u16,
             _ => a
-        };
+        }
+    }
 
+    pub fn exec(&mut self, num : usize) {
+        let a = self.fetch_instruction();
         decode_op!(a, self)
     }
 }

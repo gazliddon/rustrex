@@ -5,6 +5,16 @@
 //     }
 // }
 
+// macro_rules! decode_op_test {
+//     ($op:expr, $this:ident) => {
+//         match $op {
+//             0x00 =>  { let v = $this.direct(); $this.neg(v)  },
+//             _ => {$this.unimplemented()}
+//         }
+//     }
+// }
+
+
 macro_rules! decode_op {
     ($op:expr, $this:ident) => {
         match $op {
