@@ -3,7 +3,7 @@ use registers::{ Regs};
 
 #[macro_use]
 mod isa;
-mod diss;
+pub mod diss;
 
 
 // Addressing modes
@@ -29,7 +29,7 @@ trait AddressingMode<M : MemoryIO> {
 
 // {{{
 
-struct Cpu<M: MemoryIO> {
+pub struct Cpu<M: MemoryIO> {
     pub mem: M,
     pub regs: Regs,
 }
@@ -111,35 +111,39 @@ impl <M: MemoryIO> AddressingMode<M> for ExtendedAddressingMode {}
 
 impl <M: MemoryIO> Cpu<M> {
 
-    pub fn direct(&mut self) -> MemoryAddressingMode {
+    fn direct(&mut self) -> MemoryAddressingMode {
         let v = self.fetch_u8_bump_pc() as u16;
         let addr = ((self.regs.dp as u16) << 8) + v;
         MemoryAddressingMode( addr )
     }
 
-    pub fn extended(&mut self) -> ExtendedAddressingMode {
+    fn extended(&mut self) -> ExtendedAddressingMode {
         panic!("NO!")
     }
 
-    pub fn immediate8(&mut self) -> MemoryAddressingMode {
+    fn immediate8(&mut self) -> MemoryAddressingMode {
         MemoryAddressingMode( self.add_pc(1) )
     }
 
-    pub fn immediate16(&mut self) -> MemoryAddressingMode {
+    fn immediate16(&mut self) -> MemoryAddressingMode {
         MemoryAddressingMode( self.add_pc(2) )
     }
 
-    pub fn indexed(&mut self) -> MemoryAddressingMode {
-        panic!("NO!")
-    }
-    
-    pub fn inherent(&mut self) -> InherentAddressingMode {
+    fn indexed(&mut self) -> MemoryAddressingMode {
         panic!("NO!")
     }
 
-    pub fn relative(&mut self) -> MemoryAddressingMode {
+    fn inherent(&mut self) -> InherentAddressingMode {
         panic!("NO!")
     }
+
+    fn relative8(&mut self) -> MemoryAddressingMode {
+        panic!("NO!")
+    }
+    fn relative16(&mut self) -> MemoryAddressingMode {
+        panic!("NO!")
+    }
+
 
 }
 
@@ -152,450 +156,452 @@ impl <M: MemoryIO> Cpu<M> {
         panic!("NO!")
     }
 
-    pub fn adca<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
+    fn adca<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
         panic!("NO!")
     }
-    pub fn adcb<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
+    fn adcb<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
         panic!("NO!")
     }
-    pub fn adda<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
+    fn adda<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
         panic!("NO!")
     }
-    pub fn addb<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
+    fn addb<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
         panic!("NO!")
     }
-    pub fn addd<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
+    fn addd<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
         panic!("NO!")
     }
-    pub fn anda<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
+    fn anda<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
         panic!("NO!")
     }
-    pub fn andb<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
+    fn andb<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
         panic!("NO!")
     }
-    pub fn andcc<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
+    fn andcc<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
         panic!("NO!")
     }
-    pub fn asr<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
+    fn asr<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
         panic!("NO!")
     }
-    pub fn asra<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
+    fn asra<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
         panic!("NO!")
     }
-    pub fn asrb<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
+    fn asrb<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
         panic!("NO!")
     }
-    pub fn beq<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
+    fn beq<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
         panic!("NO!")
     }
-    pub fn bge<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
+    fn bge<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
         panic!("NO!")
     }
-    pub fn bgt<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
+    fn bgt<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
         panic!("NO!")
     }
-    pub fn bhi<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
+    fn bhi<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
         panic!("NO!")
     }
-    pub fn bhs_bcc<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
+    fn bhs_bcc<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
         panic!("NO!")
     }
-    pub fn bita<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
+    fn bita<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
         panic!("NO!")
     }
-    pub fn bitb<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
+    fn bitb<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
         panic!("NO!")
     }
-    pub fn ble<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
+    fn ble<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
         panic!("NO!")
     }
-    pub fn blo_bcs<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
+    fn blo_bcs<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
         panic!("NO!")
     }
-    pub fn bls<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
+    fn bls<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
         panic!("NO!")
     }
-    pub fn blt<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
+    fn blt<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
         panic!("NO!")
     }
-    pub fn bmi<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
+    fn bmi<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
         panic!("NO!")
     }
-    pub fn bne<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
+    fn bne<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
         panic!("NO!")
     }
-    pub fn bpl<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
+    fn bpl<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
         panic!("NO!")
     }
-    pub fn bra<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
+    fn bra<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
         panic!("NO!")
     }
-    pub fn brn<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
+    fn brn<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
         panic!("NO!")
     }
-    pub fn bsr<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
+    fn bsr<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
         panic!("NO!")
     }
-    pub fn bvc<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
+    fn bvc<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
         panic!("NO!")
     }
-    pub fn bvs<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
+    fn bvs<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
         panic!("NO!")
     }
-    pub fn clr<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
+    fn clr<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
         panic!("NO!")
     }
-    pub fn clra<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
+    fn clra<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
         panic!("NO!")
     }
-    pub fn clrb<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
+    fn clrb<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
         panic!("NO!")
     }
-    pub fn cmpa<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
+    fn cmpa<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
         panic!("NO!")
     }
-    pub fn cmpb<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
+    fn cmpb<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
         panic!("NO!")
     }
-    pub fn cmpx<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
+    fn cmpx<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
         panic!("NO!")
     }
-    pub fn com<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
+    fn com<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
         panic!("NO!")
     }
-    pub fn coma<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
+    fn coma<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
         panic!("NO!")
     }
-    pub fn comb<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
+    fn comb<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
         panic!("NO!")
     }
-    pub fn cwai<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
+    fn cwai<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
         panic!("NO!")
     }
-    pub fn daa<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
+    fn daa<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
         panic!("NO!")
     }
-    pub fn dec<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
+    fn dec<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
         panic!("NO!")
     }
-    pub fn deca<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
+    fn deca<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
         panic!("NO!")
     }
-    pub fn decb<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
+    fn decb<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
         panic!("NO!")
     }
-    pub fn eora<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
+    fn eora<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
         panic!("NO!")
     }
-    pub fn eorb<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
+    fn eorb<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
         panic!("NO!")
     }
-    pub fn exg<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
+    fn exg<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
         panic!("NO!")
     }
-    pub fn inc<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
+    fn inc<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
         panic!("NO!")
     }
-    pub fn inca<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
+    fn inca<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
         panic!("noy fonr")
     }
-    pub fn incb<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
+    fn incb<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
         panic!("NO!")
     }
-    pub fn jmp<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
-        panic!("NO!")
-    }
-
-    pub fn jsr<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
+    fn jmp<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
         panic!("NO!")
     }
 
-    pub fn lbra<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
+    fn jsr<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
         panic!("NO!")
     }
-    pub fn lbsr<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
+
+    fn lbra<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
+        panic!("NO!")
+    }
+    fn lbsr<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
         panic!("NO!")
     }
 
     // Loads
-    pub fn lda<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
+    fn lda<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
         let operand = addr_mode.fetch8(self);
         self.regs.load_a(operand)
     }
 
-    pub fn ldb<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
+    fn ldb<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
         let operand = addr_mode.fetch8(self);
         self.regs.load_b(operand)
     }
 
-    pub fn ldd<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
+    fn ldd<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
         let operand = addr_mode.fetch16(self);
         self.regs.load_d(operand)
     }
 
-    pub fn ldu<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
+    fn ldu<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
         let operand = addr_mode.fetch16(self);
         self.regs.load_u(operand)
     }
 
-    pub fn ldx<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
+    fn ldx<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
         let operand = addr_mode.fetch16(self);
         self.regs.load_x(operand)
     }
 
-    pub fn leas<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
+    fn leas<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
         panic!("NO!")
     }
-    pub fn leau<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
+    fn leau<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
         panic!("NO!")
     }
-    pub fn leax<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
+    fn leax<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
         panic!("NO!")
     }
-    pub fn leay<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
+    fn leay<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
         panic!("NO!")
     }
-    pub fn lsl_asl<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
+    fn lsl_asl<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
         panic!("NO!")
     }
-    pub fn lsla_asla<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
+    fn lsla_asla<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
         panic!("NO!")
     }
-    pub fn lslb_aslb<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
+    fn lslb_aslb<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
         panic!("NO!")
     }
-    pub fn lsr<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
+    fn lsr<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
         panic!("NO!")
     }
-    pub fn lsra<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
+    fn lsra<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
         panic!("NO!")
     }
-    pub fn lsrb<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
+    fn lsrb<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
         panic!("NO!")
     }
-    pub fn mul<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
+    fn mul<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
         panic!("NO!")
     }
-    pub fn neg<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
+    fn neg<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
         panic!("NO!")
     }
-    pub fn nega<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
+    fn nega<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
         panic!("NO!")
     }
-    pub fn negb<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
+    fn negb<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
         panic!("NO!")
     }
-    pub fn nop<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
+    fn nop<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
         panic!("NO!")
     }
-    pub fn ora<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
+    fn ora<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
         panic!("NO!")
     }
-    pub fn orb<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
+    fn orb<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
         panic!("NO!")
     }
-    pub fn orcc<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
-        panic!("NO!")
-    }
-
-    pub fn pshs<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
-        panic!("NO!")
-    }
-    pub fn pshu<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
-        panic!("NO!")
-    }
-    pub fn puls<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
-        panic!("NO!")
-    }
-    pub fn pulu<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
-        panic!("NO!")
-    }
-    pub fn reset<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
-        panic!("NO!")
-    }
-    pub fn rol<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
-        panic!("NO!")
-    }
-    pub fn rola<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
-        panic!("NO!")
-    }
-    pub fn rolb<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
-        panic!("NO!")
-    }
-    pub fn ror<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
-        panic!("NO!")
-    }
-    pub fn rora<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
-        panic!("NO!")
-    }
-    pub fn rorb<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
-        panic!("NO!")
-    }
-    pub fn rti<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
-        panic!("NO!")
-    }
-    pub fn rts<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
-        panic!("NO!")
-    }
-    pub fn sbca<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
-        panic!("NO!")
-    }
-    pub fn sbcb<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
-        panic!("NO!")
-    }
-    pub fn sex<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
-        panic!("NO!")
-    }
-    pub fn sta<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
-        panic!("NO!")
-    }
-    pub fn stb<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
-        panic!("NO!")
-    }
-    pub fn std<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
-        panic!("NO!")
-    }
-    pub fn stu<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
-        panic!("NO!")
-    }
-    pub fn stx<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
-        panic!("NO!")
-    }
-    pub fn suba<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
-        panic!("NO!")
-    }
-    pub fn subb<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
-        panic!("NO!")
-    }
-    pub fn subd<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
-        panic!("NO!")
-    }
-    pub fn swi<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
-        panic!("NO!")
-    }
-    pub fn sync<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
-        panic!("NO!")
-    }
-    pub fn tfr<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
-        panic!("NO!")
-    }
-    pub fn tst<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
-        panic!("NO!")
-    }
-    pub fn tsta<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
-        panic!("NO!")
-    }
-    pub fn tstb<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
+    fn orcc<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
         panic!("NO!")
     }
 
-    pub fn swi3<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
+    fn pshs<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
+        panic!("NO!")
+    }
+    fn pshu<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
+        panic!("NO!")
+    }
+    fn puls<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
+        panic!("NO!")
+    }
+    fn pulu<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
+        panic!("NO!")
+    }
+    fn reset<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
+        panic!("NO!")
+    }
+    fn rol<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
+        panic!("NO!")
+    }
+    fn rola<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
+        panic!("NO!")
+    }
+    fn rolb<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
+        panic!("NO!")
+    }
+    fn ror<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
+        panic!("NO!")
+    }
+    fn rora<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
+        panic!("NO!")
+    }
+    fn rorb<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
+        panic!("NO!")
+    }
+    fn rti<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
+        panic!("NO!")
+    }
+    fn rts<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
+        panic!("NO!")
+    }
+    fn sbca<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
+        panic!("NO!")
+    }
+    fn sbcb<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
+        panic!("NO!")
+    }
+    fn sex<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
+        panic!("NO!")
+    }
+    fn sta<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
+        panic!("NO!")
+    }
+    fn stb<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
+        panic!("NO!")
+    }
+    fn std<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
+        panic!("NO!")
+    }
+    fn stu<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
+        panic!("NO!")
+    }
+    fn stx<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
+        panic!("NO!")
+    }
+    fn suba<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
+        panic!("NO!")
+    }
+    fn subb<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
+        panic!("NO!")
+    }
+    fn subd<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
+        panic!("NO!")
+    }
+    fn swi<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
+        panic!("NO!")
+    }
+    fn sync<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
+        panic!("NO!")
+    }
+    fn tfr<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
+        panic!("NO!")
+    }
+    fn tst<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
+        panic!("NO!")
+    }
+    fn tsta<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
+        panic!("NO!")
+    }
+    fn tstb<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
         panic!("NO!")
     }
 
-    pub fn cmpu<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
+    fn swi3<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
         panic!("NO!")
     }
 
-    pub fn cmps<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
+    fn cmpu<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
         panic!("NO!")
     }
 
-    pub fn lbrn<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
+    fn cmps<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
         panic!("NO!")
     }
 
-    pub fn lbhi<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
+    fn lbrn<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
         panic!("NO!")
     }
 
-    pub fn lbls<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
+    fn lbhi<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
         panic!("NO!")
     }
 
-    pub fn lbhs_lbcc<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
+    fn lbls<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
         panic!("NO!")
     }
 
-    pub fn lblo_lbcs<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
+    fn lbhs_lbcc<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
         panic!("NO!")
     }
 
-    pub fn lbne<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
+    fn lblo_lbcs<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
         panic!("NO!")
     }
 
-    pub fn lbeq<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
+    fn lbne<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
         panic!("NO!")
     }
 
-    pub fn lbvc<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
+    fn lbeq<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
         panic!("NO!")
     }
 
-    pub fn lbvs<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
+    fn lbvc<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
         panic!("NO!")
     }
 
-    pub fn lbpl<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
+    fn lbvs<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
         panic!("NO!")
     }
 
-    pub fn lbmi<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
+    fn lbpl<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
         panic!("NO!")
     }
 
-    pub fn lbge<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
+    fn lbmi<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
         panic!("NO!")
     }
 
-    pub fn lblt<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
+    fn lbge<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
         panic!("NO!")
     }
 
-    pub fn lbgt<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
+    fn lblt<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
         panic!("NO!")
     }
 
-    pub fn swi2<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
+    fn lbgt<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
         panic!("NO!")
     }
 
-    pub fn cmpd<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
+    fn swi2<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
         panic!("NO!")
     }
 
-    pub fn cmpy<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
+    fn cmpd<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
         panic!("NO!")
     }
 
-    pub fn ldy<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
+    fn cmpy<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
         panic!("NO!")
     }
 
-    pub fn lble<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
+    fn ldy<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
         panic!("NO!")
     }
 
-    pub fn sty<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
+    fn lble<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
         panic!("NO!")
     }
 
-    pub fn lds<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
+    fn sty<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
         panic!("NO!")
     }
 
-    pub fn sts<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
+    fn lds<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
         panic!("NO!")
     }
 
-    pub fn unimplemented(&mut self) {
+    fn sts<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
+        panic!("NO!")
+    }
+
+    fn unimplemented(&mut self) {
         panic!("unimplemnted op code")
     }
 
     pub fn fetch_instruction(&mut self) -> u16 {
 
         let a = self.fetch_u8_bump_pc() as u16;
+
+        println!("fetch ins 0x{:04x}", a);
 
         match a {
             0x10 | 0x11 => (a << 8) + self.fetch_u8_bump_pc() as u16,

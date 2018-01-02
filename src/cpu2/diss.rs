@@ -1,455 +1,565 @@
-use cpu2::Cpu;
 use mem::MemoryIO;
 // use registers::{ Regs};
 
-struct Disassembler<M: MemoryIO> {
-    cpu : Cpu<M>,
+struct Disassembly {
+}
+
+#[derive(Default)]
+struct Instruction {
+    addr : u16,
+    next_addr : u16,
+    bytes : usize,
+    text : String,
+    cycles : usize,
+}
+
+impl Instruction {
+    pub fn new(addr : u16) -> Self {
+        Instruction {
+            addr : addr,
+            next_addr : addr,
+            bytes : 0,
+            text : String::from(""),
+            cycles : 0,
+        }
+    }
+    
+    pub fn advance(&mut self, amount : usize) {
+        self.next_addr = self.next_addr.wrapping_add(amount as u16);
+        self.bytes = self.next_addr.wrapping_sub(self.addr) as usize;
+    }
+
+    pub fn next(&mut self) {
+        let addr = self.next_addr;
+        *self = Self::new(addr)
+    }
+
+    fn set_text(&mut self, txt : &String) {
+        self.text = txt.clone();
+    }
+
+    fn fetch_byte<M : MemoryIO> (&mut self, mem : &mut M) -> u8 {
+        let v = mem.load_byte(self.next_addr);
+        self.advance(1);
+        v
+    }
+
+    fn fetch_word<M : MemoryIO> (&mut self, mem : &mut M) -> u16 {
+        let v = mem.load_word(self.next_addr);
+        self.advance(2);
+        v
+    }
+
+    fn add_op(&mut self, txt : &'static str) {
+        let text = format!("{} {}", txt, self.text);
+        self.set_text(&text);
+    }
+
+    fn fetch_instruction<M : MemoryIO>(&mut self, mem : &mut M ) -> u16 {
+        let a = self.fetch_byte(mem) as u16;
+
+        match a {
+            0x10 | 0x11 => (a << 8) + self.fetch_byte(mem) as u16,
+            _ => a
+        }
+    }
+}
+
+pub struct Disassembler<M: MemoryIO> {
+    mem : M,
+    ins : Instruction,
 }
 
 impl <M: MemoryIO> Disassembler<M> {
 
-    pub fn direct(&mut self) -> String {
-        panic!("NO!")
+    fn add_op(&mut self, txt : &'static str) -> Disassembly {
+        self.ins.add_op(txt);
+        Disassembly {}
     }
 
-    pub fn extended(&mut self) -> String {
-        panic!("NO!")
+}
+
+impl <M: MemoryIO> Disassembler<M> {
+
+    fn from_byte_op(&mut self, text : &'static str) -> Disassembly { 
+        let v = self.ins.fetch_byte(&mut self.mem);
+        let vstr = format!("0x{:02X}", v);
+        let op_str = String::from(text);
+        self.ins.set_text( &op_str.replace("OP", &vstr));
+        Disassembly{}
     }
 
-    pub fn immediate8(&mut self) -> String {
-        panic!("NO!")
+    fn from_word_op(&mut self, text : &'static str) -> Disassembly { 
+        let v = self.ins.fetch_word(&mut self.mem);
+        let vstr = format!("0x{:04X}", v);
+        let op_str = String::from(text);
+        self.ins.set_text( &op_str.replace("OP", &vstr));
+        Disassembly{}
     }
 
-    pub fn immediate16(&mut self) -> String {
-        panic!("NO!")
+    fn from_no_op(&mut self ) -> Disassembly {
+        self.ins.set_text(&"".to_string());
+        Disassembly {}
+    }
+}
+
+impl <M: MemoryIO> Disassembler<M> {
+
+    fn direct(&mut self) -> Disassembly { self.from_byte_op("<OP") }
+
+    fn extended(&mut self) -> Disassembly { self.from_word_op("OP") }
+
+    fn immediate8(&mut self) -> Disassembly { self.from_byte_op("#OP") }
+
+    fn immediate16(&mut self) -> Disassembly { self.from_word_op("#OP") }
+
+    fn inherent(&mut self) -> Disassembly { self.from_no_op() }
+
+    fn indexed(&mut self) -> Disassembly {
+        panic!("INDEXED NOT IMPLEMENTED")
     }
 
-    pub fn indexed(&mut self) -> String {
-        panic!("NO!")
-    }
-    
-    pub fn inherent(&mut self) -> String {
-        panic!("NO!")
-    }
-
-    pub fn relative(&mut self) -> String {
-        panic!("NO!")
+    fn relative8(&mut self) -> Disassembly {
+        let v = self.ins.fetch_byte(&mut self.mem) as i8;
+        let vstr = format!("{}", v);
+        self.ins.set_text(&vstr);
+        Disassembly{}
     }
 
-    fn abx(&mut self, txt : String) -> String {
-        panic!("NO!")
+    fn relative16(&mut self) -> Disassembly {
+        let v = self.ins.fetch_word(&mut self.mem) as i16;
+        let vstr = format!("{}", v);
+        self.ins.set_text(&vstr);
+        Disassembly{}
     }
-    pub fn adca(&mut self, txt : String)  -> String {
-        panic!("NO!")
+}
+
+impl <M: MemoryIO> Disassembler<M> {
+
+    fn abx(&mut self, diss : Disassembly) -> Disassembly {
+        self.add_op("ABX")
     }
-    pub fn adcb(&mut self, txt : String)  -> String {
-        panic!("NO!")
+    fn adca(&mut self, diss : Disassembly)  -> Disassembly {
+        self.add_op("adca")
     }
-    pub fn adda(&mut self, txt : String)  -> String {
-        panic!("NO!")
+    fn adcb(&mut self, diss : Disassembly)  -> Disassembly {
+        self.add_op("ADCB")
     }
-    pub fn addb(&mut self, txt : String)  -> String {
-        panic!("NO!")
+    fn adda(&mut self, diss : Disassembly)  -> Disassembly {
+        self.add_op("adda")
     }
-    pub fn addd(&mut self, txt : String)  -> String {
-        panic!("NO!")
+    fn addb(&mut self, diss : Disassembly)  -> Disassembly {
+        self.add_op("addb")
     }
-    pub fn anda(&mut self, txt : String)  -> String {
-        panic!("NO!")
+    fn addd(&mut self, diss : Disassembly)  -> Disassembly {
+        self.add_op("addd")
     }
-    pub fn andb(&mut self, txt : String)  -> String {
-        panic!("NO!")
+    fn anda(&mut self, diss : Disassembly)  -> Disassembly {
+        self.add_op("anda")
     }
-    pub fn andcc(&mut self, txt : String)  -> String {
-        panic!("NO!")
+    fn andb(&mut self, diss : Disassembly)  -> Disassembly {
+        self.add_op("andb")
     }
-    pub fn asr(&mut self, txt : String)  -> String {
-        panic!("NO!")
+    fn andcc(&mut self, diss : Disassembly)  -> Disassembly {
+        self.add_op("andcc")
     }
-    pub fn asra(&mut self, txt : String)  -> String {
-        panic!("NO!")
+    fn asr(&mut self, diss : Disassembly)  -> Disassembly {
+        self.add_op("asr")
     }
-    pub fn asrb(&mut self, txt : String)  -> String {
-        panic!("NO!")
+    fn asra(&mut self, diss : Disassembly)  -> Disassembly {
+        self.add_op("asra")
     }
-    pub fn beq(&mut self, txt : String)  -> String {
-        panic!("NO!")
+    fn asrb(&mut self, diss : Disassembly)  -> Disassembly {
+        self.add_op("asrb")
     }
-    pub fn bge(&mut self, txt : String)  -> String {
-        panic!("NO!")
+    fn beq(&mut self, diss : Disassembly)  -> Disassembly {
+        self.add_op("beq")
     }
-    pub fn bgt(&mut self, txt : String)  -> String {
-        panic!("NO!")
+    fn bge(&mut self, diss : Disassembly)  -> Disassembly {
+        self.add_op("bge")
     }
-    pub fn bhi(&mut self, txt : String)  -> String {
-        panic!("NO!")
+    fn bgt(&mut self, diss : Disassembly)  -> Disassembly {
+        self.add_op("bgt")
     }
-    pub fn bhs_bcc(&mut self, txt : String)  -> String {
-        panic!("NO!")
+    fn bhi(&mut self, diss : Disassembly)  -> Disassembly {
+        self.add_op("bhi")
     }
-    pub fn bita(&mut self, txt : String)  -> String {
-        panic!("NO!")
+    fn bhs_bcc(&mut self, diss : Disassembly)  -> Disassembly {
+        self.add_op("bhs_bcc")
     }
-    pub fn bitb(&mut self, txt : String)  -> String {
-        panic!("NO!")
+    fn bita(&mut self, diss : Disassembly)  -> Disassembly {
+        self.add_op("bita")
     }
-    pub fn ble(&mut self, txt : String)  -> String {
-        panic!("NO!")
+    fn bitb(&mut self, diss : Disassembly)  -> Disassembly {
+        self.add_op("bitb")
     }
-    pub fn blo_bcs(&mut self, txt : String)  -> String {
-        panic!("NO!")
+    fn ble(&mut self, diss : Disassembly)  -> Disassembly {
+        self.add_op("ble")
     }
-    pub fn bls(&mut self, txt : String)  -> String {
-        panic!("NO!")
+    fn blo_bcs(&mut self, diss : Disassembly)  -> Disassembly {
+        self.add_op("blo_bcs")
     }
-    pub fn blt(&mut self, txt : String)  -> String {
-        panic!("NO!")
+    fn bls(&mut self, diss : Disassembly)  -> Disassembly {
+        self.add_op("bls")
     }
-    pub fn bmi(&mut self, txt : String)  -> String {
-        panic!("NO!")
+    fn blt(&mut self, diss : Disassembly)  -> Disassembly {
+        self.add_op("blt")
     }
-    pub fn bne(&mut self, txt : String)  -> String {
-        panic!("NO!")
+    fn bmi(&mut self, diss : Disassembly)  -> Disassembly {
+        self.add_op("bmi")
     }
-    pub fn bpl(&mut self, txt : String)  -> String {
-        panic!("NO!")
+    fn bne(&mut self, diss : Disassembly)  -> Disassembly {
+        self.add_op("bne")
     }
-    pub fn bra(&mut self, txt : String)  -> String {
-        panic!("NO!")
+    fn bpl(&mut self, diss : Disassembly)  -> Disassembly {
+        self.add_op("bpl")
     }
-    pub fn brn(&mut self, txt : String)  -> String {
-        panic!("NO!")
+    fn bra(&mut self, diss : Disassembly)  -> Disassembly {
+        self.add_op("bra")
     }
-    pub fn bsr(&mut self, txt : String)  -> String {
-        panic!("NO!")
+    fn brn(&mut self, diss : Disassembly)  -> Disassembly {
+        self.add_op("brn")
     }
-    pub fn bvc(&mut self, txt : String)  -> String {
-        panic!("NO!")
+    fn bsr(&mut self, diss : Disassembly)  -> Disassembly {
+        self.add_op("bsr")
     }
-    pub fn bvs(&mut self, txt : String)  -> String {
-        panic!("NO!")
+    fn bvc(&mut self, diss : Disassembly)  -> Disassembly {
+        self.add_op("bvc")
     }
-    pub fn clr(&mut self, txt : String)  -> String {
-        panic!("NO!")
+    fn bvs(&mut self, diss : Disassembly)  -> Disassembly {
+        self.add_op("bvs")
     }
-    pub fn clra(&mut self, txt : String)  -> String {
-        panic!("NO!")
+    fn clr(&mut self, diss : Disassembly)  -> Disassembly {
+        self.add_op("clr")
     }
-    pub fn clrb(&mut self, txt : String)  -> String {
-        panic!("NO!")
+    fn clra(&mut self, diss : Disassembly)  -> Disassembly {
+        self.add_op("clra")
     }
-    pub fn cmpa(&mut self, txt : String)  -> String {
-        panic!("NO!")
+    fn clrb(&mut self, diss : Disassembly)  -> Disassembly {
+        self.add_op("clrb")
     }
-    pub fn cmpb(&mut self, txt : String)  -> String {
-        panic!("NO!")
+    fn cmpa(&mut self, diss : Disassembly)  -> Disassembly {
+        self.add_op("cmpa")
     }
-    pub fn cmpx(&mut self, txt : String)  -> String {
-        panic!("NO!")
+    fn cmpb(&mut self, diss : Disassembly)  -> Disassembly {
+        self.add_op("cmpb")
     }
-    pub fn com(&mut self, txt : String)  -> String {
-        panic!("NO!")
+    fn cmpx(&mut self, diss : Disassembly)  -> Disassembly {
+        self.add_op("cmpx")
     }
-    pub fn coma(&mut self, txt : String)  -> String {
-        panic!("NO!")
+    fn com(&mut self, diss : Disassembly)  -> Disassembly {
+        self.add_op("com")
     }
-    pub fn comb(&mut self, txt : String)  -> String {
-        panic!("NO!")
+    fn coma(&mut self, diss : Disassembly)  -> Disassembly {
+        self.add_op("coma")
     }
-    pub fn cwai(&mut self, txt : String)  -> String {
-        panic!("NO!")
+    fn comb(&mut self, diss : Disassembly)  -> Disassembly {
+        self.add_op("comb")
     }
-    pub fn daa(&mut self, txt : String)  -> String {
-        panic!("NO!")
+    fn cwai(&mut self, diss : Disassembly)  -> Disassembly {
+        self.add_op("cwai")
     }
-    pub fn dec(&mut self, txt : String)  -> String {
-        panic!("NO!")
+    fn daa(&mut self, diss : Disassembly)  -> Disassembly {
+        self.add_op("daa")
     }
-    pub fn deca(&mut self, txt : String)  -> String {
-        panic!("NO!")
+    fn dec(&mut self, diss : Disassembly)  -> Disassembly {
+        self.add_op("dec")
     }
-    pub fn decb(&mut self, txt : String)  -> String {
-        panic!("NO!")
+    fn deca(&mut self, diss : Disassembly)  -> Disassembly {
+        self.add_op("deca")
     }
-    pub fn eora(&mut self, txt : String)  -> String {
-        panic!("NO!")
+    fn decb(&mut self, diss : Disassembly)  -> Disassembly {
+        self.add_op("decb")
     }
-    pub fn eorb(&mut self, txt : String)  -> String {
-        panic!("NO!")
+    fn eora(&mut self, diss : Disassembly)  -> Disassembly {
+        self.add_op("eora")
     }
-    pub fn exg(&mut self, txt : String)  -> String {
-        panic!("NO!")
+    fn eorb(&mut self, diss : Disassembly)  -> Disassembly {
+        self.add_op("eorb")
     }
-    pub fn inc(&mut self, txt : String)  -> String {
-        panic!("NO!")
+    fn exg(&mut self, diss : Disassembly)  -> Disassembly {
+        self.add_op("exg")
     }
-    pub fn inca(&mut self, txt : String)  -> String {
-        panic!("noy fonr")
+    fn inc(&mut self, diss : Disassembly)  -> Disassembly {
+        self.add_op("inc")
     }
-    pub fn incb(&mut self, txt : String)  -> String {
-        panic!("NO!")
+    fn inca(&mut self, diss : Disassembly)  -> Disassembly {
+        self.add_op("inca")
     }
-    pub fn jmp(&mut self, txt : String)  -> String {
-        panic!("NO!")
+    fn incb(&mut self, diss : Disassembly)  -> Disassembly {
+        self.add_op("incb")
     }
-    pub fn jsr(&mut self, txt : String)  -> String {
-        panic!("NO!")
+    fn jmp(&mut self, diss : Disassembly)  -> Disassembly {
+        self.add_op("jmp")
     }
-    pub fn lbra(&mut self, txt : String)  -> String {
-        panic!("NO!")
+    fn jsr(&mut self, diss : Disassembly)  -> Disassembly {
+        self.add_op("jsr")
     }
-    pub fn lbsr(&mut self, txt : String)  -> String {
-        panic!("NO!")
+    fn lbra(&mut self, diss : Disassembly)  -> Disassembly {
+        self.add_op("lbra")
     }
-    pub fn lda(&mut self, txt : String)  -> String {
-        panic!("NO!")
+    fn lbsr(&mut self, diss : Disassembly)  -> Disassembly {
+        self.add_op("lbsr")
     }
-    pub fn ldb(&mut self, txt : String)  -> String {
-        panic!("NO!")
+    fn lda(&mut self, diss : Disassembly)  -> Disassembly {
+        self.add_op("lda")
     }
-    pub fn ldd(&mut self, txt : String)  -> String {
-        panic!("NO!")
+    fn ldb(&mut self, diss : Disassembly)  -> Disassembly {
+        self.add_op("ldb")
     }
-    pub fn ldu(&mut self, txt : String)  -> String {
-        panic!("NO!")
+    fn ldd(&mut self, diss : Disassembly)  -> Disassembly {
+        self.add_op("ldd")
     }
-    pub fn ldx(&mut self, txt : String)  -> String {
-        panic!("NO!")
+    fn ldu(&mut self, diss : Disassembly)  -> Disassembly {
+        self.add_op("ldu")
     }
-    pub fn leas(&mut self, txt : String)  -> String {
-        panic!("NO!")
+    fn ldx(&mut self, diss : Disassembly)  -> Disassembly {
+        self.add_op("ldx")
     }
-    pub fn leau(&mut self, txt : String)  -> String {
-        panic!("NO!")
+    fn leas(&mut self, diss : Disassembly)  -> Disassembly {
+        self.add_op("leas")
     }
-    pub fn leax(&mut self, txt : String)  -> String {
-        panic!("NO!")
+    fn leau(&mut self, diss : Disassembly)  -> Disassembly {
+        self.add_op("leau")
     }
-    pub fn leay(&mut self, txt : String)  -> String {
-        panic!("NO!")
+    fn leax(&mut self, diss : Disassembly)  -> Disassembly {
+        self.add_op("leax")
     }
-    pub fn lsl_asl(&mut self, txt : String)  -> String {
-        panic!("NO!")
+    fn leay(&mut self, diss : Disassembly)  -> Disassembly {
+        self.add_op("leay")
     }
-    pub fn lsla_asla(&mut self, txt : String)  -> String {
-        panic!("NO!")
+    fn lsl_asl(&mut self, diss : Disassembly)  -> Disassembly {
+        self.add_op("lsl_asl")
     }
-    pub fn lslb_aslb(&mut self, txt : String)  -> String {
-        panic!("NO!")
+    fn lsla_asla(&mut self, diss : Disassembly)  -> Disassembly {
+        self.add_op("lsla_asla")
     }
-    pub fn lsr(&mut self, txt : String)  -> String {
-        panic!("NO!")
+    fn lslb_aslb(&mut self, diss : Disassembly)  -> Disassembly {
+        self.add_op("lslb_aslb")
     }
-    pub fn lsra(&mut self, txt : String)  -> String {
-        panic!("NO!")
+    fn lsr(&mut self, diss : Disassembly)  -> Disassembly {
+        self.add_op("lsr")
     }
-    pub fn lsrb(&mut self, txt : String)  -> String {
-        panic!("NO!")
+    fn lsra(&mut self, diss : Disassembly)  -> Disassembly {
+        self.add_op("lsra")
     }
-    pub fn mul(&mut self, txt : String)  -> String {
-        panic!("NO!")
+    fn lsrb(&mut self, diss : Disassembly)  -> Disassembly {
+        self.add_op("lsrb")
     }
-    pub fn neg(&mut self, txt : String)  -> String {
-        panic!("NO!")
+    fn mul(&mut self, diss : Disassembly)  -> Disassembly {
+        self.add_op("MUL")
     }
-    pub fn nega(&mut self, txt : String)  -> String {
-        panic!("NO!")
+    fn neg(&mut self, diss : Disassembly)  -> Disassembly {
+        self.add_op("NEG")
     }
-    pub fn negb(&mut self, txt : String)  -> String {
-        panic!("NO!")
+    fn nega(&mut self, diss : Disassembly)  -> Disassembly {
+        self.add_op("nega")
     }
-    pub fn nop(&mut self, txt : String)  -> String {
-        panic!("NO!")
+    fn negb(&mut self, diss : Disassembly)  -> Disassembly {
+        self.add_op("negb")
     }
-    pub fn ora(&mut self, txt : String)  -> String {
-        panic!("NO!")
+    fn nop(&mut self, diss : Disassembly)  -> Disassembly {
+        self.add_op("nop")
     }
-    pub fn orb(&mut self, txt : String)  -> String {
-        panic!("NO!")
+    fn ora(&mut self, diss : Disassembly)  -> Disassembly {
+        self.add_op("ora")
     }
-    pub fn orcc(&mut self, txt : String)  -> String {
-        panic!("NO!")
+    fn orb(&mut self, diss : Disassembly)  -> Disassembly {
+        self.add_op("orb")
     }
-    pub fn pshs(&mut self, txt : String)  -> String {
-        panic!("NO!")
+    fn orcc(&mut self, diss : Disassembly)  -> Disassembly {
+        self.add_op("orcc")
     }
-    pub fn pshu(&mut self, txt : String)  -> String {
-        panic!("NO!")
+    fn pshs(&mut self, diss : Disassembly)  -> Disassembly {
+        self.add_op("pshs")
     }
-    pub fn puls(&mut self, txt : String)  -> String {
-        panic!("NO!")
+    fn pshu(&mut self, diss : Disassembly)  -> Disassembly {
+        self.add_op("pshu")
     }
-    pub fn pulu(&mut self, txt : String)  -> String {
-        panic!("NO!")
+    fn puls(&mut self, diss : Disassembly)  -> Disassembly {
+        self.add_op("puls")
     }
-    pub fn reset(&mut self, txt : String)  -> String {
-        panic!("NO!")
+    fn pulu(&mut self, diss : Disassembly)  -> Disassembly {
+        self.add_op("pulu")
     }
-    pub fn rol(&mut self, txt : String)  -> String {
-        panic!("NO!")
+    fn reset(&mut self, diss : Disassembly)  -> Disassembly {
+        self.add_op("reset")
     }
-    pub fn rola(&mut self, txt : String)  -> String {
-        panic!("NO!")
+    fn rol(&mut self, diss : Disassembly)  -> Disassembly {
+        self.add_op("rol")
     }
-    pub fn rolb(&mut self, txt : String)  -> String {
-        panic!("NO!")
+    fn rola(&mut self, diss : Disassembly)  -> Disassembly {
+        self.add_op("rola")
     }
-    pub fn ror(&mut self, txt : String)  -> String {
-        panic!("NO!")
+    fn rolb(&mut self, diss : Disassembly)  -> Disassembly {
+        self.add_op("rolb")
     }
-    pub fn rora(&mut self, txt : String)  -> String {
-        panic!("NO!")
+    fn ror(&mut self, diss : Disassembly)  -> Disassembly {
+        self.add_op("ror")
     }
-    pub fn rorb(&mut self, txt : String)  -> String {
-        panic!("NO!")
+    fn rora(&mut self, diss : Disassembly)  -> Disassembly {
+        self.add_op("rora")
     }
-    pub fn rti(&mut self, txt : String)  -> String {
-        panic!("NO!")
+    fn rorb(&mut self, diss : Disassembly)  -> Disassembly {
+        self.add_op("rorb")
     }
-    pub fn rts(&mut self, txt : String)  -> String {
-        panic!("NO!")
+    fn rti(&mut self, diss : Disassembly)  -> Disassembly {
+        self.add_op("rti")
     }
-    pub fn sbca(&mut self, txt : String)  -> String {
-        panic!("NO!")
+    fn rts(&mut self, diss : Disassembly)  -> Disassembly {
+        self.add_op("rts")
     }
-    pub fn sbcb(&mut self, txt : String)  -> String {
-        panic!("NO!")
+    fn sbca(&mut self, diss : Disassembly)  -> Disassembly {
+        self.add_op("sbca")
     }
-    pub fn sex(&mut self, txt : String)  -> String {
-        panic!("NO!")
+    fn sbcb(&mut self, diss : Disassembly)  -> Disassembly {
+        self.add_op("sbcb")
     }
-    pub fn sta(&mut self, txt : String)  -> String {
-        panic!("NO!")
+    fn sex(&mut self, diss : Disassembly)  -> Disassembly {
+        self.add_op("sex")
     }
-    pub fn stb(&mut self, txt : String)  -> String {
-        panic!("NO!")
+    fn sta(&mut self, diss : Disassembly)  -> Disassembly {
+        self.add_op("sta")
     }
-    pub fn std(&mut self, txt : String)  -> String {
-        panic!("NO!")
+    fn stb(&mut self, diss : Disassembly)  -> Disassembly {
+        self.add_op("stb")
     }
-    pub fn stu(&mut self, txt : String)  -> String {
-        panic!("NO!")
+    fn std(&mut self, diss : Disassembly)  -> Disassembly {
+        self.add_op("std")
     }
-    pub fn stx(&mut self, txt : String)  -> String {
-        panic!("NO!")
+    fn stu(&mut self, diss : Disassembly)  -> Disassembly {
+        self.add_op("stu")
     }
-    pub fn suba(&mut self, txt : String)  -> String {
-        panic!("NO!")
+    fn stx(&mut self, diss : Disassembly)  -> Disassembly {
+        self.add_op("stx")
     }
-    pub fn subb(&mut self, txt : String)  -> String {
-        panic!("NO!")
+    fn suba(&mut self, diss : Disassembly)  -> Disassembly {
+        self.add_op("suba")
     }
-    pub fn subd(&mut self, txt : String)  -> String {
-        panic!("NO!")
+    fn subb(&mut self, diss : Disassembly)  -> Disassembly {
+        self.add_op("subb")
     }
-    pub fn swi(&mut self, txt : String)  -> String {
-        panic!("NO!")
+    fn subd(&mut self, diss : Disassembly)  -> Disassembly {
+        self.add_op("subd")
     }
-    pub fn sync(&mut self, txt : String)  -> String {
-        panic!("NO!")
+    fn swi(&mut self, diss : Disassembly)  -> Disassembly {
+        self.add_op("swi")
     }
-    pub fn tfr(&mut self, txt : String)  -> String {
-        panic!("NO!")
+    fn sync(&mut self, diss : Disassembly)  -> Disassembly {
+        self.add_op("sync")
     }
-    pub fn tst(&mut self, txt : String)  -> String {
-        panic!("NO!")
+    fn tfr(&mut self, diss : Disassembly)  -> Disassembly {
+        self.add_op("tfr")
     }
-    pub fn tsta(&mut self, txt : String)  -> String {
-        panic!("NO!")
+    fn tst(&mut self, diss : Disassembly)  -> Disassembly {
+        self.add_op("tst")
     }
-    pub fn tstb(&mut self, txt : String)  -> String {
-        panic!("NO!")
+    fn tsta(&mut self, diss : Disassembly)  -> Disassembly {
+        self.add_op("tsta")
     }
-    pub fn swi3(&mut self, txt : String)  -> String {
-        panic!("NO!")
+    fn tstb(&mut self, diss : Disassembly)  -> Disassembly {
+        self.add_op("tstb")
     }
-    pub fn cmpu(&mut self, txt : String)  -> String {
-        panic!("NO!")
+    fn swi3(&mut self, diss : Disassembly)  -> Disassembly {
+        self.add_op("swi3")
     }
-    pub fn cmps(&mut self, txt : String)  -> String {
-        panic!("NO!")
+    fn cmpu(&mut self, diss : Disassembly)  -> Disassembly {
+        self.add_op("cmpu")
     }
-    pub fn lbrn(&mut self, txt : String)  -> String {
-        panic!("NO!")
+    fn cmps(&mut self, diss : Disassembly)  -> Disassembly {
+        self.add_op("cmps")
     }
-    pub fn lbhi(&mut self, txt : String)  -> String {
-        panic!("NO!")
+    fn lbrn(&mut self, diss : Disassembly)  -> Disassembly {
+        self.add_op("lbrn")
     }
-    pub fn lbls(&mut self, txt : String)  -> String {
-        panic!("NO!")
+    fn lbhi(&mut self, diss : Disassembly)  -> Disassembly {
+        self.add_op("lbhi")
     }
-    pub fn lbhs_lbcc(&mut self, txt : String)  -> String {
-        panic!("NO!")
+    fn lbls(&mut self, diss : Disassembly)  -> Disassembly {
+        self.add_op("lbls")
     }
-    pub fn lblo_lbcs(&mut self, txt : String)  -> String {
-        panic!("NO!")
+    fn lbhs_lbcc(&mut self, diss : Disassembly)  -> Disassembly {
+        self.add_op("lbhs_lbcc")
     }
-    pub fn lbne(&mut self, txt : String)  -> String {
-        panic!("NO!")
+    fn lblo_lbcs(&mut self, diss : Disassembly)  -> Disassembly {
+        self.add_op("lblo_lbcs")
     }
-    pub fn lbeq(&mut self, txt : String)  -> String {
-        panic!("NO!")
+    fn lbne(&mut self, diss : Disassembly)  -> Disassembly {
+        self.add_op("lbne")
     }
-    pub fn lbvc(&mut self, txt : String)  -> String {
-        panic!("NO!")
+    fn lbeq(&mut self, diss : Disassembly)  -> Disassembly {
+        self.add_op("lbeq")
     }
-    pub fn lbvs(&mut self, txt : String)  -> String {
-        panic!("NO!")
+    fn lbvc(&mut self, diss : Disassembly)  -> Disassembly {
+        self.add_op("lbvc")
     }
-    pub fn lbpl(&mut self, txt : String)  -> String {
-        panic!("NO!")
+    fn lbvs(&mut self, diss : Disassembly)  -> Disassembly {
+        self.add_op("lbvs")
     }
-    pub fn lbmi(&mut self, txt : String)  -> String {
-        panic!("NO!")
+    fn lbpl(&mut self, diss : Disassembly)  -> Disassembly {
+        self.add_op("lbpl")
     }
-    pub fn lbge(&mut self, txt : String)  -> String {
-        panic!("NO!")
+    fn lbmi(&mut self, diss : Disassembly)  -> Disassembly {
+        self.add_op("lbmi")
     }
-    pub fn lblt(&mut self, txt : String)  -> String {
-        panic!("NO!")
+    fn lbge(&mut self, diss : Disassembly)  -> Disassembly {
+        self.add_op("lbge")
     }
-    pub fn lbgt(&mut self, txt : String)  -> String {
-        panic!("NO!")
+    fn lblt(&mut self, diss : Disassembly)  -> Disassembly {
+        self.add_op("lblt")
     }
-    pub fn swi2(&mut self, txt : String)  -> String {
-        panic!("NO!")
+    fn lbgt(&mut self, diss : Disassembly)  -> Disassembly {
+        self.add_op("lbgt")
     }
-    pub fn cmpd(&mut self, txt : String)  -> String {
-        panic!("NO!")
+    fn swi2(&mut self, diss : Disassembly)  -> Disassembly {
+        self.add_op("swi2")
     }
-    pub fn cmpy(&mut self, txt : String)  -> String {
-        panic!("NO!")
+    fn cmpd(&mut self, diss : Disassembly)  -> Disassembly {
+        self.add_op("cmpd")
     }
-    pub fn ldy(&mut self, txt : String)  -> String {
-        panic!("NO!")
+    fn cmpy(&mut self, diss : Disassembly)  -> Disassembly {
+        self.add_op("cmpy")
     }
-    pub fn lble(&mut self, txt : String)  -> String {
-        panic!("NO!")
+    fn ldy(&mut self, diss : Disassembly)  -> Disassembly {
+        self.add_op("ldy")
     }
-    pub fn sty(&mut self, txt : String)  -> String {
-        panic!("NO!")
+    fn lble(&mut self, diss : Disassembly)  -> Disassembly {
+        self.add_op("lble")
     }
-    pub fn lds(&mut self, txt : String)  -> String {
-        panic!("NO!")
+    fn sty(&mut self, diss : Disassembly)  -> Disassembly {
+        self.add_op("sty")
     }
-    pub fn sts(&mut self, txt : String)  -> String {
-        panic!("NO!")
+    fn lds(&mut self, diss :  Disassembly)  -> Disassembly {
+        self.add_op("lds")
+    }
+    fn sts(&mut self, diss : Disassembly)  -> Disassembly {
+        self.add_op("sts")
     }
 
-    pub fn unimplemented(&mut self) -> String {
-        panic!("???")
+    fn unimplemented(&mut self) -> Disassembly {
+        panic!("??? Unimplemented")
     }
 
-    pub fn new(cpu : Cpu<M>) -> Self {
+    pub fn new(mem : M) -> Self {
         Disassembler {
-            cpu : cpu
-        }
+            mem : mem,
+            ins : Default::default(), }
     }
 
-    pub fn disassemble(&mut self, addr : u16, amount : usize) {
-        self.cpu.regs.pc = addr;
-        let op = self.cpu.fetch_instruction();
-        decode_op!(op, self);
+    pub fn diss(&mut self, addr : u16, amount : usize) {
+        self.ins = Instruction::new(addr);
+
+        for i in 0..amount {
+
+            let op = self.ins.fetch_instruction(&mut self.mem);
+            let d = decode_op!(op, self);
+
+            let bstr = self.mem.get_mem_as_str(self.ins.addr, self.ins.bytes as u16 );
+            println!("0x{:04X}   {:15} {}", self.ins.addr, bstr, self.ins.text);
+
+            self.ins.next();
+        }
+
     }
 
 }

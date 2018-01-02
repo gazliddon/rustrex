@@ -67,7 +67,7 @@ impl Machine {
         let range = to_mem_range(_address, data.len() as u16);
 
         for addr in range {
-            self.mem.store_byte(addr, data[( addr - _address ) as usize]);
+            self.mem.store_byte(addr as u16, data[( addr as u16 - _address ) as usize]);
         }
     }
 
@@ -78,7 +78,7 @@ impl Machine {
         let mut data : Vec<u8> = Vec::new();
 
         for addr in range {
-            let b = self.mem.load_byte(addr);
+            let b = self.mem.load_byte(addr as u16);
             data.push(b);
         }
 

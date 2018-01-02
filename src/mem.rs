@@ -2,10 +2,12 @@ use std::vec::Vec;
 use std;
 
 
-pub fn to_mem_range( address : u16, size :u16 ) -> std::ops::Range<u16> {
+pub fn to_mem_range( address : u16, size :u16 ) -> std::ops::Range<u32> {
     use std::cmp::min;
+
     let last_mem = address as u32 + size as u32;
-    (address .. min(0xffff, last_mem) as u16 )
+
+    (address as u32 .. min(0x10000, last_mem) )
 }
 
 pub fn as_word(lo : u8, hi : u8) -> u16 {
@@ -17,6 +19,8 @@ pub fn as_bytes(val : u16) -> (u8,u8) {
 }
 
 pub trait MemoryIO {
+
+    fn upload(&mut self, addr : u16, data : &[u8]);
 
     fn get_name(&self) -> String {
         String::from("NO NAME")
@@ -53,7 +57,7 @@ pub trait MemoryIO {
         let mut v : Vec<String> = Vec::new();
 
         for a in r {
-            let b = self.load_byte(a);
+            let b = self.load_byte(a as u16);
             let t = format!("{:02X}", b);
             v.push(t);
         }
@@ -94,6 +98,11 @@ impl Memory {
 }
 
 impl MemoryIO for Memory {
+
+    fn upload(&mut self, addr : u16, data : &[u8]) {
+        panic!("not done")
+    }
+
     fn get_name(&self) -> String {
         String::from(self.name)
     }

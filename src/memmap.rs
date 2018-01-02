@@ -25,6 +25,14 @@ impl fmt::Debug for MemMap {
 }
 
 impl MemoryIO for MemMap {
+
+    fn upload(&mut self, addr : u16, data : &[u8]) {
+        for (i, item) in data.iter().enumerate() {
+            let a = addr.wrapping_add(i as u16);
+            self.store_byte(a, *item)
+        }
+    }
+
     fn get_name(&self) -> String {
         String::from("Entire Address Range")
     }
@@ -52,7 +60,7 @@ impl MemoryIO for MemMap {
 }
 
 static MEMS: &[(&'static str, bool, u16, u16)] = &[
-    ("cart", false, 0, 0x8000 ),
+   ("cart", false, 0, 0x8000 ),
     ("sysrom", false, 0xe000, 0x2000),
     ("ram", true, 0xc800, 0x800),
 ];
@@ -63,9 +71,7 @@ impl MemMap {
         let mut v : Vec<Box<MemoryIO>> = Vec::new();
 
         for &(name, writeable, base, size) in MEMS {
-
             let m1 = Memory::new(name, writeable, base, size);
-
             v.push(Box::new(m1));
         }
 
@@ -78,7 +84,7 @@ impl MemMap {
         for i in &self.all_memory {
             println!("{}", i.get_name());
         }
- 
+
     }
 }
 
