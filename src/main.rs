@@ -3,7 +3,6 @@
 mod via;
 mod mem;
 mod memmap;
-mod diss;
 mod addr;
 mod symtab;
 mod cpu2;
