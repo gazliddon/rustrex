@@ -1,13 +1,9 @@
 // use mem::Memory;
-use mem::MemoryIO;
-use mem::Memory;
+use cpu::mem::MemoryIO;
 use std::fmt;
 
-// Genericise TODO
-
-
 pub struct MemMap {
-    all_memory: Vec< Box<MemoryIO> >
+    all_memory: Vec< Box<MemoryIO>>
 }
 
 impl fmt::Debug for MemMap {
@@ -59,25 +55,16 @@ impl MemoryIO for MemMap {
     }
 }
 
-static MEMS: &[(&'static str, bool, u16, u16)] = &[
-   ("cart", false, 0, 0x8000 ),
-    ("sysrom", false, 0xe000, 0x2000),
-    ("ram", true, 0xc800, 0x800),
-];
-
 impl MemMap {
     pub fn new() -> MemMap {
 
-        let mut v : Vec<Box<MemoryIO>> = Vec::new();
-
-        for &(name, writeable, base, size) in MEMS {
-            let m1 = Memory::new(name, writeable, base, size);
-            v.push(Box::new(m1));
-        }
-
         MemMap {
-            all_memory : v
+            all_memory : Vec::new()
         }
+    }
+
+    pub fn add(&mut self, mem : Box<MemoryIO> ) {
+        self.all_memory.push(mem)
     }
 
     pub fn dump(&self) {

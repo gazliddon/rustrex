@@ -1,5 +1,9 @@
-use mem::MemoryIO;
+use cpu::mem::MemoryIO;
 // use registers::{ Regs};
+
+trait SymTab {
+    fn get_symbol(&self, val : u8) -> String;
+}
 
 struct Disassembly {
 }

@@ -1,6 +1,6 @@
 // use cpu::Cpu;
 use memmap::MemMap;
-use mem::MemoryIO;
+use cpu::mem::MemoryIO;
 
 #[derive(Debug)]
 pub enum Regs {
