@@ -25,7 +25,7 @@ static MEMS: &[(&'static str, bool, u16, u16)] = &[
 
 static ROMS : &[(&'static str, u16)] = &[
     ( "resources/rom.dat", 0xe000 ),
-    ( "resources/ROCKS.BIN", 0 ),
+    ( "utils/6809/6809all.raw", 0x1000 ),
 ];
 
 fn main() {
@@ -41,6 +41,6 @@ fn main() {
 
     let mut diss = Disassembler::new(mm);
 
-    diss.diss(0xf000,50, Some(&syms));
+    diss.diss(0x1000,50, Some(&syms));
 }
 

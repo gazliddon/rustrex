@@ -1,5 +1,6 @@
 use cpu::mem::MemoryIO;
-// use registers::{ Regs};
+
+use cpu::registers::{ RegEnum };
 
 pub trait SymTab {
     fn get_symbol(&self, val : u16) -> Option<String>;
@@ -113,9 +114,9 @@ impl <M: MemoryIO> Disassembler<M> {
     }
 
     fn from_word_op(&mut self, text : &'static str, syms : &Option<&SymTab>) -> Disassembly { 
-       let v = self.ins.fetch_word(&mut self.mem);
-       let def_str  = format!("0x{:04X}", v);
-       self.expand(v , &def_str, text, syms)
+        let v = self.ins.fetch_word(&mut self.mem);
+        let def_str  = format!("0x{:04X}", v);
+        self.expand(v , &def_str, text, syms)
     }
 
     fn from_no_op(&mut self ) -> Disassembly {
@@ -124,7 +125,84 @@ impl <M: MemoryIO> Disassembler<M> {
     }
 }
 
+fn stack_regs(op : u8 ) -> Vec<RegEnum>{
+
+    let mut res = Vec::new();
+
+    if (op & 0x80) == 0x80 {
+        res.push(RegEnum::PC)
+    }
+
+    if ( op & 0x40 ) == 0x40  {
+        res.push(RegEnum::S)
+    }
+
+    if ( op & 0x20 ) == 0x20  {
+        res.push(RegEnum::Y)
+    }
+
+    if ( op & 0x10 ) == 0x10  {
+        res.push(RegEnum::X)
+    }
+
+    if ( op & 0x8 ) == 0x8  {
+        res.push(RegEnum::DP)
+    }
+
+    if ( op & 0x4 ) == 0x4  {
+        res.push(RegEnum::B)
+    }
+
+    if ( op & 0x2 ) == 0x2  {
+        res.push(RegEnum::A)
+    }
+
+    if ( op & 0x1 ) == 0x1  {
+        res.push(RegEnum::CC)
+    }
+
+    res
+}
+
+fn tfr_one_reg(op : u8 ) -> RegEnum{
+
+    match op {
+        0 => RegEnum::D,
+        1 => RegEnum::X,
+        2 => RegEnum::Y,
+        3 => RegEnum::U,
+        4 => RegEnum::S,
+        5 => RegEnum::PC,
+        8 => RegEnum::A,
+        9 => RegEnum::B,
+        10 =>RegEnum::CC,
+        11 =>RegEnum::DP,
+        _ => {
+            println!("op of {:02X}", op);
+            panic!("illegal tfr regs")
+        },
+    }
+}
+
+fn tfr_regs(op : u8) -> Vec<RegEnum> {
+    vec![ (tfr_one_reg(op>>4)), (tfr_one_reg(op&0xf)), ]
+}
+
+
 impl <M: MemoryIO> Disassembler<M> {
+
+    fn reg_to_str(&mut self, f : fn(u8) -> Vec<RegEnum>) -> Disassembly {
+
+        let byte = self.ins.fetch_byte(&mut self.mem);
+
+        let regs : Vec<String> = f(byte)
+            .into_iter()
+            .map(|x| x.as_string())
+            .collect();
+
+        self.ins.set_text(&regs.join(","));
+        Disassembly{}
+    } 
 
     fn direct(&mut self, syms : &Option<&SymTab>) -> Disassembly { self.from_byte_op("<OP", syms) }
 
@@ -136,8 +214,16 @@ impl <M: MemoryIO> Disassembler<M> {
 
     fn inherent(&mut self, syms : &Option<&SymTab>) -> Disassembly { self.from_no_op() }
 
-    fn indexed(&mut self, syms : &Option<&SymTab>) -> Disassembly {
-        panic!("INDEXED NOT IMPLEMENTED")
+    fn inherent_reg_stack(&mut self, syms : &Option<&SymTab>) -> Disassembly { 
+        self.reg_to_str(stack_regs)
+    }
+
+    fn inherent_reg_reg(&mut self, syms : &Option<&SymTab>) -> Disassembly { 
+        self.reg_to_str(tfr_regs)
+    }
+
+
+    fn indexed(&mut self, syms : &Option<&SymTab>) -> Disassembly { panic!("INDEXED NOT IMPLEMENTED")
     }
 
     fn relative8(&mut self, syms : &Option<&SymTab>) -> Disassembly {
@@ -580,6 +666,7 @@ impl <M: MemoryIO> Disassembler<M> {
             let d = decode_op_2!(op, self, &syms);
 
             let bstr = self.mem.get_mem_as_str(self.ins.addr, self.ins.bytes as u16 );
+
             println!("0x{:04X}   {:15} {}", self.ins.addr, bstr, self.ins.text);
 
             self.ins.next();

@@ -35,6 +35,8 @@ impl Flags {
 
 }
 
+
+
 #[derive(Debug)]
 pub struct Regs {
     pub a : u8,
@@ -48,7 +50,62 @@ pub struct Regs {
     pub flags: Flags,
 }
 
+pub enum RegEnum {
+    A, B, X, Y, U, S, D, DP, CC, PC
+}
+
+impl RegEnum {
+    pub fn as_string(&self) -> String {
+        match *self {
+            RegEnum::A => "A",
+            RegEnum::B => "B",
+            RegEnum::X => "X",
+            RegEnum::Y => "Y",
+            RegEnum::U => "U",
+            RegEnum::S => "S",
+            RegEnum::D => "D",
+            RegEnum::DP => "DP",
+            RegEnum::CC => "CC",
+            RegEnum::PC => "PC",
+        }.to_string()
+    }
+
+}
+
 impl Regs {
+    pub fn set(&mut self, r : RegEnum, val : u16)  {
+        match r {
+            RegEnum::A => self.a = val as u8,
+            RegEnum::B => self.b = val as u8,
+            RegEnum::X => self.x = val,
+            RegEnum::Y => self.y = val,
+            RegEnum::U => self.u = val,
+            RegEnum::S => self.s = val, 
+            RegEnum::D => self.set_d(val),
+            RegEnum::DP => self.dp = val as u8,
+            RegEnum::CC => self.flags.bits = val as u8,
+            RegEnum::PC => self.pc = val,
+        } 
+    }
+
+    pub fn get(&self, r: RegEnum) -> u16 {
+        match r {
+            RegEnum::A => self.a as u16,
+            RegEnum::B => self.b as u16,
+            RegEnum::X => self.x,
+            RegEnum::Y => self.y,
+            RegEnum::U => self.u,
+            RegEnum::S => self.s,
+            RegEnum::D => self.get_d(),
+            RegEnum::DP => self.dp as u16,
+            RegEnum::CC => self.flags.bits as u16,
+            RegEnum::PC => self.pc,
+        } 
+    }
+}
+
+impl Regs {
+
     fn get_d(&self) -> u16 { ( ( self.a as u16 ) << 8 ) | self.b as u16 }
     fn set_d(&mut self, d : u16) { self.a = (d >> 8) as u8; self.b = d as u8; }
 
