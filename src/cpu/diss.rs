@@ -2,7 +2,14 @@ use cpu::mem::MemoryIO;
 // use registers::{ Regs};
 
 pub trait SymTab {
-    fn get_symbol(&self, val : u16) -> String;
+    fn get_symbol(&self, val : u16) -> Option<String>;
+
+    fn get_symbol_with_default(&self, val : u16, def : &String) -> String {
+        match self.get_symbol(val) {
+            Some(text) => text,
+            None => def.clone()
+        }
+    }
 }
 
 struct Disassembly {
@@ -18,6 +25,7 @@ struct Instruction {
 }
 
 impl Instruction {
+
     pub fn new(addr : u16) -> Self {
         Instruction {
             addr : addr,
@@ -69,13 +77,13 @@ impl Instruction {
     }
 }
 
+#[derive(Default)]
 pub struct Disassembler<M: MemoryIO> {
     mem : M,
     ins : Instruction,
 }
 
 impl <M: MemoryIO> Disassembler<M> {
-
     fn add_op(&mut self, txt : &'static str) -> Disassembly {
         self.ins.add_op(txt);
         Disassembly {}
@@ -85,20 +93,29 @@ impl <M: MemoryIO> Disassembler<M> {
 
 impl <M: MemoryIO> Disassembler<M> {
 
-    fn from_byte_op(&mut self, text : &'static str) -> Disassembly { 
-        let v = self.ins.fetch_byte(&mut self.mem);
-        let vstr = format!("0x{:02X}", v);
+    fn expand(&mut self, v : u16, def_str : &String, text : &'static str, syms : &Option<&SymTab>) -> Disassembly {
         let op_str = String::from(text);
-        self.ins.set_text( &op_str.replace("OP", &vstr));
+
+        let def_str = match syms {
+            &Some(tab) => tab.get_symbol_with_default(v, def_str),
+            &None => def_str.clone(),
+        };
+
+        self.ins.set_text( &op_str.replace("OP", &def_str));
+
         Disassembly{}
     }
 
-    fn from_word_op(&mut self, text : &'static str) -> Disassembly { 
-        let v = self.ins.fetch_word(&mut self.mem);
-        let vstr = format!("0x{:04X}", v);
-        let op_str = String::from(text);
-        self.ins.set_text( &op_str.replace("OP", &vstr));
-        Disassembly{}
+    fn from_byte_op(&mut self, text : &'static str, syms : &Option<&SymTab>) -> Disassembly { 
+        let v = self.ins.fetch_byte(&mut self.mem);
+        let def_str  = format!("0x{:02X}", v);
+        self.expand(v as u16, &def_str, text, syms)
+    }
+
+    fn from_word_op(&mut self, text : &'static str, syms : &Option<&SymTab>) -> Disassembly { 
+       let v = self.ins.fetch_word(&mut self.mem);
+       let def_str  = format!("0x{:04X}", v);
+       self.expand(v , &def_str, text, syms)
     }
 
     fn from_no_op(&mut self ) -> Disassembly {
@@ -109,28 +126,28 @@ impl <M: MemoryIO> Disassembler<M> {
 
 impl <M: MemoryIO> Disassembler<M> {
 
-    fn direct(&mut self) -> Disassembly { self.from_byte_op("<OP") }
+    fn direct(&mut self, syms : &Option<&SymTab>) -> Disassembly { self.from_byte_op("<OP", syms) }
 
-    fn extended(&mut self) -> Disassembly { self.from_word_op("OP") }
+    fn extended(&mut self, syms : &Option<&SymTab>) -> Disassembly { self.from_word_op("OP", syms) }
 
-    fn immediate8(&mut self) -> Disassembly { self.from_byte_op("#OP") }
+    fn immediate8(&mut self, syms : &Option<&SymTab>) -> Disassembly { self.from_byte_op("#OP", syms) }
 
-    fn immediate16(&mut self) -> Disassembly { self.from_word_op("#OP") }
+    fn immediate16(&mut self, syms : &Option<&SymTab>) -> Disassembly { self.from_word_op("#OP", syms) }
 
-    fn inherent(&mut self) -> Disassembly { self.from_no_op() }
+    fn inherent(&mut self, syms : &Option<&SymTab>) -> Disassembly { self.from_no_op() }
 
-    fn indexed(&mut self) -> Disassembly {
+    fn indexed(&mut self, syms : &Option<&SymTab>) -> Disassembly {
         panic!("INDEXED NOT IMPLEMENTED")
     }
 
-    fn relative8(&mut self) -> Disassembly {
+    fn relative8(&mut self, syms : &Option<&SymTab>) -> Disassembly {
         let v = self.ins.fetch_byte(&mut self.mem) as i8;
         let vstr = format!("{}", v);
         self.ins.set_text(&vstr);
         Disassembly{}
     }
 
-    fn relative16(&mut self) -> Disassembly {
+    fn relative16(&mut self, syms : &Option<&SymTab>) -> Disassembly {
         let v = self.ins.fetch_word(&mut self.mem) as i16;
         let vstr = format!("{}", v);
         self.ins.set_text(&vstr);
@@ -548,6 +565,7 @@ impl <M: MemoryIO> Disassembler<M> {
         Disassembler {
             mem : mem,
             ins : Default::default(),
+
         }
     }
 
@@ -559,7 +577,7 @@ impl <M: MemoryIO> Disassembler<M> {
 
             let op = self.ins.fetch_instruction(&mut self.mem);
 
-            let d = decode_op!(op, self);
+            let d = decode_op_2!(op, self, &syms);
 
             let bstr = self.mem.get_mem_as_str(self.ins.addr, self.ins.bytes as u16 );
             println!("0x{:04X}   {:15} {}", self.ins.addr, bstr, self.ins.text);

@@ -6,15 +6,12 @@ use serde_yaml;
 
 impl diss::SymTab for SymbolTable {
 
-    fn get_symbol(&self, val : u16) -> String {
+    fn get_symbol(&self, val : u16) -> Option<String> {
         let v = self.lookup_from_val(val);
-
-        match v {
-            None => format!("{:04X}", val),
-            Some(text) => text
-        }
+        v
     }
 }
+
 
 #[derive(Debug, PartialEq, Serialize, Deserialize)]
 pub struct SymbolTable {
