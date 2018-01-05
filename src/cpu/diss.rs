@@ -1,8 +1,8 @@
 use cpu::mem::MemoryIO;
 // use registers::{ Regs};
 
-trait SymTab {
-    fn get_symbol(&self, val : u8) -> String;
+pub trait SymTab {
+    fn get_symbol(&self, val : u16) -> String;
 }
 
 struct Disassembly {
@@ -547,15 +547,18 @@ impl <M: MemoryIO> Disassembler<M> {
     pub fn new(mem : M) -> Self {
         Disassembler {
             mem : mem,
-            ins : Default::default(), }
+            ins : Default::default(),
+        }
     }
 
-    pub fn diss(&mut self, addr : u16, amount : usize) {
+    pub fn diss(&mut self, addr : u16, amount : usize, syms : Option<&SymTab> ) {
+
         self.ins = Instruction::new(addr);
 
         for i in 0..amount {
 
             let op = self.ins.fetch_instruction(&mut self.mem);
+
             let d = decode_op!(op, self);
 
             let bstr = self.mem.get_mem_as_str(self.ins.addr, self.ins.bytes as u16 );

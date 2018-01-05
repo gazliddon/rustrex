@@ -1,5 +1,6 @@
 use std::vec::Vec;
 use cpu::mem::MemoryIO;
+use memmap::MemMap;
 
 pub struct MemBlock {
     pub read_only : bool,
@@ -28,6 +29,13 @@ impl MemBlock {
             name: name,
             last_mem: last_mem,
         }
+    }
+}
+
+impl MemMap {
+    pub fn add_mem_block(&mut self, name : &'static str, writable : bool, base : u16, size : u16) {
+        let mb = Box::new(MemBlock::new(name, writable, base, size));
+        self.add(mb);
     }
 }
 

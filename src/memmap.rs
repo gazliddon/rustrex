@@ -17,7 +17,7 @@ impl fmt::Debug for MemMap {
         }
 
         write!(f, "{}", strs.join(" "))
-        }
+    }
 }
 
 impl MemoryIO for MemMap {
@@ -67,11 +67,13 @@ impl MemMap {
         self.all_memory.push(mem)
     }
 
-    pub fn dump(&self) {
-        for i in &self.all_memory {
-            println!("{}", i.get_name());
+    pub fn load_roms(&mut self, roms : &[(&'static str, u16)]) -> &mut Self{
+        use utils::load_file;
+        for rom in roms.iter() {
+            let data = load_file(rom.0);
+            self.upload(rom.1, &data);
         }
-
+        self
     }
 }
 

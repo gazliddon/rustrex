@@ -1,23 +1,29 @@
-use std::fs::File;
-use std::io::prelude::*;
 use std::collections::BTreeMap;
 
+use cpu::diss;
+
 use serde_yaml;
+
+impl diss::SymTab for SymbolTable {
+
+    fn get_symbol(&self, val : u16) -> String {
+        let v = self.lookup_from_val(val);
+
+        match v {
+            None => format!("{:04X}", val),
+            Some(text) => text
+        }
+    }
+}
 
 #[derive(Debug, PartialEq, Serialize, Deserialize)]
 pub struct SymbolTable {
     syms_to_val : BTreeMap<String, u16>,
 }
 
-fn load_file_as_string(file_name : &String ) -> String {
-    let mut file = File::open(file_name).unwrap();
-    let mut contents = String::new();
-    file.read_to_string(&mut contents).unwrap();
-    contents
-}
-
 impl SymbolTable {
     pub fn new(file_name : &'static str) -> Self {
+        use utils::load_file_as_string;
         let s = load_file_as_string(&file_name.to_string());
         let v : BTreeMap<String,u16> = serde_yaml::from_str(&s).unwrap(); 
 
