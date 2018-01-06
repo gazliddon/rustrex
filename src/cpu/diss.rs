@@ -188,21 +188,18 @@ fn tfr_regs(op : u8) -> Vec<RegEnum> {
     vec![ (tfr_one_reg(op>>4)), (tfr_one_reg(op&0xf)), ]
 }
 
+fn regs_to_str(byte : u8, f : fn(u8) -> Vec<RegEnum>) ->  String {
+
+    let regs : Vec<String> = f(byte)
+        .into_iter()
+        .map(|x| x.as_string())
+        .collect();
+
+    regs.join(",")
+
+} 
 
 impl <M: MemoryIO> Disassembler<M> {
-
-    fn reg_to_str(&mut self, f : fn(u8) -> Vec<RegEnum>) -> Disassembly {
-
-        let byte = self.ins.fetch_byte(&mut self.mem);
-
-        let regs : Vec<String> = f(byte)
-            .into_iter()
-            .map(|x| x.as_string())
-            .collect();
-
-        self.ins.set_text(&regs.join(","));
-        Disassembly{}
-    } 
 
     fn direct(&mut self, syms : &Option<&SymTab>) -> Disassembly { self.from_byte_op("<OP", syms) }
 
@@ -215,11 +212,15 @@ impl <M: MemoryIO> Disassembler<M> {
     fn inherent(&mut self, syms : &Option<&SymTab>) -> Disassembly { self.from_no_op() }
 
     fn inherent_reg_stack(&mut self, syms : &Option<&SymTab>) -> Disassembly { 
-        self.reg_to_str(stack_regs)
+        let byte = self.ins.fetch_byte(&mut self.mem);
+        self.ins.set_text(&regs_to_str(byte,stack_regs));
+        Disassembly{}
     }
 
     fn inherent_reg_reg(&mut self, syms : &Option<&SymTab>) -> Disassembly { 
-        self.reg_to_str(tfr_regs)
+        let byte = self.ins.fetch_byte(&mut self.mem);
+        self.ins.set_text(&regs_to_str(byte,tfr_regs));
+        Disassembly{}
     }
 
 
