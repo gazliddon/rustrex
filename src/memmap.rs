@@ -1,5 +1,5 @@
 // use mem::Memory;
-use cpu::mem::MemoryIO;
+use mem::MemoryIO;
 use std::fmt;
 
 pub struct MemMap {

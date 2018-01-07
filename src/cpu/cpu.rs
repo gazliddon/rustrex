@@ -1,4 +1,4 @@
-use cpu::mem::MemoryIO;
+use mem::MemoryIO;
 use cpu::registers::{ Regs};
 
 // Addressing modes

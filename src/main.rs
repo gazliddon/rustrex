@@ -5,17 +5,18 @@
 #[macro_use] extern crate serde_derive;
 extern crate serde_yaml;
 
+mod cpu;
+mod mem;
+
 mod via;
 mod memblock;
 mod memmap;
-mod addr;
 mod symtab;
-mod cpu;
 mod utils;
 
 use symtab::SymbolTable;
 use memmap::MemMap;
-use cpu::diss::Disassembler;
+use cpu::Disassembler;
 
 static MEMS: &[(&'static str, bool, u16, u16)] = &[
    ("cart"  , false, 0     , 0x8000 ),
@@ -41,6 +42,7 @@ fn main() {
 
     let mut diss = Disassembler::new(mm);
 
-    diss.diss(0x1000,50, Some(&syms));
+    // diss.diss(0x104d,30, Some(&syms));
+    diss.diss(0xf000,30, Some(&syms));
 }
 

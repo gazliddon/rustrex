@@ -1,6 +1,7 @@
-use cpu::mem::MemoryIO;
+use mem::MemoryIO;
 
-use cpu::registers::{ RegEnum };
+use cpu::{RegEnum };
+use cpu::{IndexedFlags, IndexModes};
 
 pub trait SymTab {
     fn get_symbol(&self, val : u16) -> Option<String>;
@@ -64,7 +65,7 @@ impl Instruction {
     }
 
     fn add_op(&mut self, txt : &'static str) {
-        let text = format!("{} {}", txt, self.text);
+        let text = format!("{:6} {}", txt, self.text);
         self.set_text(&text);
     }
 
@@ -223,8 +224,48 @@ impl <M: MemoryIO> Disassembler<M> {
         Disassembly{}
     }
 
+    fn fetch_byte(&mut self) -> u8 {
+        self.ins.fetch_byte(&mut self.mem)
+    }
 
-    fn indexed(&mut self, syms : &Option<&SymTab>) -> Disassembly { panic!("INDEXED NOT IMPLEMENTED")
+    fn fetch_word(&mut self) -> u16 {
+        self.ins.fetch_word(&mut self.mem)
+    }
+
+    fn set_text(&mut self, text : &String) {
+        self.ins.set_text(text);
+    }
+
+    fn indexed(&mut self, syms : &Option<&SymTab>) -> Disassembly {
+
+        let op = self.fetch_byte();
+        let iflags = IndexedFlags::new(op);
+        let index_type = iflags.get_index_type();
+
+        let mut s = match index_type {
+            IndexModes::RPlus(r) => format!(",{:?}+",r),
+            IndexModes::RPlusPlus(r) => format!(",{:?}++",r),
+            IndexModes::RSub(r) => format!(",-{:?}",r),
+            IndexModes::RSubSub(r) => format!(",--{:?}",r),
+            IndexModes::RZero(r) => format!(",{:?}",r),
+            IndexModes::RAddB(r) => format!("B,{:?}", r),
+            IndexModes::RAddA(r) => format!("A,{:?}", r),
+            IndexModes::RAddi8(r) => format!("{},{:?}",self.fetch_byte() as i8, r),
+            IndexModes::RAddi16(r) => format!("{},{:?}",self.fetch_word() as i16, r),
+            IndexModes::RAddD(r) => format!("D,{:?}", r),
+            IndexModes::PCAddi8 => format!("PC,{:?}",self.fetch_byte() as i8),
+            IndexModes::PCAddi16 => format!("PC,{:?}",self.fetch_word() as i16),
+            IndexModes::Illegal => "illegal".to_string(),
+            IndexModes::Ea=> format!("0x{:04X}", self.fetch_word()),
+            IndexModes::ROff(r,offset)=> format!("{}, {:?}", offset, r),
+        };
+
+        if iflags.is_indirect() {
+            s = format!("[{}]", s);
+        }
+        self.set_text(&s);
+
+        Disassembly {}
     }
 
     fn relative8(&mut self, syms : &Option<&SymTab>) -> Disassembly {
@@ -245,13 +286,13 @@ impl <M: MemoryIO> Disassembler<M> {
 impl <M: MemoryIO> Disassembler<M> {
 
     fn abx(&mut self, diss : Disassembly) -> Disassembly {
-        self.add_op("ABX")
+        self.add_op("abx")
     }
     fn adca(&mut self, diss : Disassembly)  -> Disassembly {
         self.add_op("adca")
     }
     fn adcb(&mut self, diss : Disassembly)  -> Disassembly {
-        self.add_op("ADCB")
+        self.add_op("adcb")
     }
     fn adda(&mut self, diss : Disassembly)  -> Disassembly {
         self.add_op("adda")

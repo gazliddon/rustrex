@@ -1,5 +1,5 @@
 use std::vec::Vec;
-use cpu::mem::MemoryIO;
+use mem::MemoryIO;
 use memmap::MemMap;
 
 pub struct MemBlock {
