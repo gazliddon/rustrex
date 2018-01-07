@@ -1,6 +1,6 @@
 use std::collections::BTreeMap;
 
-use cpu::diss;
+use diss;
 
 use serde_yaml;
 

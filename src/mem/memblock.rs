@@ -1,6 +1,5 @@
 use std::vec::Vec;
-use mem::MemoryIO;
-use memmap::MemMap;
+use mem::{ MemoryIO, MemMap };
 
 pub struct MemBlock {
     pub read_only : bool,

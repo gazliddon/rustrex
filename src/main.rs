@@ -5,18 +5,18 @@
 #[macro_use] extern crate serde_derive;
 extern crate serde_yaml;
 
+#[macro_use]
 mod cpu;
+
 mod mem;
 
 mod via;
-mod memblock;
-mod memmap;
 mod symtab;
 mod utils;
+mod diss;
 
 use symtab::SymbolTable;
-use memmap::MemMap;
-use cpu::Disassembler;
+use diss::Disassembler;
 
 static MEMS: &[(&'static str, bool, u16, u16)] = &[
    ("cart"  , false, 0     , 0x8000 ),
@@ -32,7 +32,7 @@ static ROMS : &[(&'static str, u16)] = &[
 fn main() {
     let syms = SymbolTable::new("resources/syms.yaml");
 
-    let mut mm = MemMap::new();
+    let mut mm = mem::MemMap::new();
 
     for &(name, rw, base, size) in MEMS {
         mm.add_mem_block(name, rw, base, size)

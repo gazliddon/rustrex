@@ -1,7 +1,6 @@
 use mem::MemoryIO;
 
-use cpu::{RegEnum };
-use cpu::{IndexedFlags, IndexModes};
+use cpu::{RegEnum, IndexedFlags, IndexModes};
 
 pub trait SymTab {
     fn get_symbol(&self, val : u16) -> Option<String>;
