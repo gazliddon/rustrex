@@ -1,23 +1,20 @@
-#[derive(Debug)]
-pub enum Regs {
-    D, A, B, X, Y, S, U, PC, DP
-}
+use cpu::RegEnum;
 
 #[derive(Debug)]
 pub enum IndexModes {
 
-    ROff(Regs,i8),
+    ROff(RegEnum,i8),
 
-    RPlus(Regs),     //               ,R+              2 0 |
-    RPlusPlus(Regs), //               ,R++             3 0 |
-    RSub(Regs),      //               ,-R              2 0 |
-    RSubSub(Regs),   //               ,--R             3 0 |
-    RZero(Regs),     //               ,R               0 0 |
-    RAddB(Regs),     //             (+/- B),R          1 0 |
-    RAddA(Regs),     //             (+/- A),R          1 0 |
-    RAddi8(Regs),    //    (+/- 7 b  it offset),R      1 1 |
-    RAddi16(Regs),   //      (+/- 15 bit offset),R     4 2 |
-    RAddD(Regs),     //             (+/- D),R          4 0 |
+    RPlus(RegEnum),     //               ,R+              2 0 |
+    RPlusPlus(RegEnum), //               ,R++             3 0 |
+    RSub(RegEnum),      //               ,-R              2 0 |
+    RSubSub(RegEnum),   //               ,--R             3 0 |
+    RZero(RegEnum),     //               ,R               0 0 |
+    RAddB(RegEnum),     //             (+/- B),R          1 0 |
+    RAddA(RegEnum),     //             (+/- A),R          1 0 |
+    RAddi8(RegEnum),    //    (+/- 7 b  it offset),R      1 1 |
+    RAddi16(RegEnum),   //      (+/- 15 bit offset),R     4 2 |
+    RAddD(RegEnum),     //             (+/- D),R          4 0 |
     PCAddi8,         //      (+/- 7 bit offset),PC     1 1 |
     PCAddi16,        //      (+/- 15 bit offset),PC    5 2 |
     Illegal,         //              Illegal           u u |
@@ -70,12 +67,12 @@ impl IndexedFlags {
         (self.bits & IndexedFlags::NOT_IMM.bits()) != 0
     }
 
-    fn get_reg(&self) -> Regs {
+    fn get_reg(&self) -> RegEnum {
         match ( self.bits & (IndexedFlags::R.bits()) ) >> 5{
-            0 => Regs::X,
-            1 => Regs::Y,
-            2 => Regs::U,
-            _ => Regs::S,
+            0 => RegEnum::X,
+            1 => RegEnum::Y,
+            2 => RegEnum::U,
+            _ => RegEnum::S,
         }
     }
 

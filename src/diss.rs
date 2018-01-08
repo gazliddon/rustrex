@@ -3,6 +3,7 @@ use mem::MemoryIO;
 use cpu::{RegEnum, IndexedFlags, IndexModes};
 
 pub trait SymTab {
+
     fn get_symbol(&self, val : u16) -> Option<String>;
 
     fn get_symbol_with_default(&self, val : u16, def : &String) -> String {
@@ -13,10 +14,10 @@ pub trait SymTab {
     }
 }
 
-struct Disassembly {
-}
+struct Disassembly { }
 
 #[derive(Default)]
+
 struct Instruction {
     addr : u16,
     next_addr : u16,
@@ -63,11 +64,6 @@ impl Instruction {
         v
     }
 
-    fn add_op(&mut self, txt : &'static str) {
-        let text = format!("{:6} {}", txt, self.text);
-        self.set_text(&text);
-    }
-
     fn fetch_instruction<M : MemoryIO>(&mut self, mem : &mut M ) -> u16 {
         let a = self.fetch_byte(mem) as u16;
 
@@ -86,13 +82,10 @@ pub struct Disassembler<M: MemoryIO> {
 
 impl <M: MemoryIO> Disassembler<M> {
     fn add_op(&mut self, txt : &'static str) -> Disassembly {
-        self.ins.add_op(txt);
+        let text = format!("{:6} {}", txt, self.ins.text);
+        self.ins.text = text;
         Disassembly {}
     }
-
-}
-
-impl <M: MemoryIO> Disassembler<M> {
 
     fn expand(&mut self, v : u16, def_str : &String, text : &'static str, syms : &Option<&SymTab>) -> Disassembly {
         let op_str = String::from(text);
@@ -192,7 +185,7 @@ fn regs_to_str(byte : u8, f : fn(u8) -> Vec<RegEnum>) ->  String {
 
     let regs : Vec<String> = f(byte)
         .into_iter()
-        .map(|x| x.as_string())
+        .map(|x| format!("{:?}", x))
         .collect();
 
     regs.join(",")
@@ -692,7 +685,6 @@ impl <M: MemoryIO> Disassembler<M> {
         Disassembler {
             mem : mem,
             ins : Default::default(),
-
         }
     }
 
@@ -708,7 +700,7 @@ impl <M: MemoryIO> Disassembler<M> {
 
             let bstr = self.mem.get_mem_as_str(self.ins.addr, self.ins.bytes as u16 );
 
-            println!("0x{:04X}   {:15} {}", self.ins.addr, bstr, self.ins.text);
+            println!("0x{:04X}  {:15} {}", self.ins.addr, bstr, self.ins.text);
 
             self.ins.next();
         }
