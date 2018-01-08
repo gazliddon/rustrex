@@ -19,6 +19,7 @@ pub struct Regs {
 }
 
 impl Regs {
+
     pub fn set(&mut self, r : RegEnum, val : u16)  {
         match r {
             RegEnum::A => self.a = val as u8,
@@ -48,9 +49,6 @@ impl Regs {
             RegEnum::PC => self.pc,
         } 
     }
-}
-
-impl Regs {
 
     fn get_d(&self) -> u16 { ( ( self.a as u16 ) << 8 ) | self.b as u16 }
     fn set_d(&mut self, d : u16) { self.a = (d >> 8) as u8; self.b = d as u8; }
