@@ -2,6 +2,10 @@
 use mem::MemoryIO;
 use std::fmt;
 
+pub trait MemMapIO {
+    fn add_memory(&mut self, mem : Box<MemoryIO> ) ;
+}
+
 pub struct MemMap {
     all_memory: Vec< Box<MemoryIO>>
 }
@@ -63,9 +67,6 @@ impl MemMap {
         }
     }
 
-    pub fn add(&mut self, mem : Box<MemoryIO> ) {
-        self.all_memory.push(mem)
-    }
 
     pub fn load_roms(&mut self, roms : &[(&'static str, u16)]) -> &mut Self{
         use utils::load_file;
@@ -74,6 +75,12 @@ impl MemMap {
             self.upload(rom.1, &data);
         }
         self
+    }
+}
+
+impl MemMapIO for MemMap {
+    fn add_memory(&mut self, mem : Box<MemoryIO> ) {
+        self.all_memory.push(mem)
     }
 }
 

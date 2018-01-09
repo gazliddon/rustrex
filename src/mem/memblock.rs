@@ -1,5 +1,5 @@
 use std::vec::Vec;
-use mem::{ MemoryIO, MemMap };
+use mem::{ MemoryIO, MemMap, MemMapIO };
 
 pub struct MemBlock {
     pub read_only : bool,
@@ -34,7 +34,7 @@ impl MemBlock {
 impl MemMap {
     pub fn add_mem_block(&mut self, name : &'static str, writable : bool, base : u16, size : u16) {
         let mb = Box::new(MemBlock::new(name, writable, base, size));
-        self.add(mb);
+        self.add_memory(mb);
     }
 }
 

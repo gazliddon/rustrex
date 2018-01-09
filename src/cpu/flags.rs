@@ -1,15 +1,26 @@
 
 bitflags! {
     pub struct Flags: u8 {
-        const E  = 0b00000001;
-        const F  = 0b00000010;
-        const H  = 0b00000100;
-        const I  = 0b00001000;
-        const N  = 0b00010000;
-        const Z  = 0b00100000;
-        const V  = 0b01000000;
-        const C  = 0b10000000;
+        const E  = 0b10000000;
+        const F  = 0b01000000;
+        const H  = 0b00100000;
+        const I  = 0b00010000;
+        const N  = 0b00001000;
+        const Z  = 0b00000100;
+        const V  = 0b00000010;
+        const C  = 0b00000001;
     }
+}
+
+enum FlagsE {
+    E  = 0b10000000,
+    F  = 0b01000000,
+    H  = 0b00100000,
+    I  = 0b00010000,
+    N  = 0b00001000,
+    Z  = 0b00000100,
+    V  = 0b00000010,
+    C  = 0b00000001,
 }
 
 impl Flags {
@@ -18,6 +29,7 @@ impl Flags {
             bits: val
         }
     }
+
 
     pub fn test_8(&mut self, val : u8 ) {
         self.set(Flags::N, (val&0x80 == 0x80));

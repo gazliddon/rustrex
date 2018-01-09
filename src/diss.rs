@@ -1,9 +1,8 @@
 use mem::MemoryIO;
 
-use cpu::{RegEnum, IndexedFlags, IndexModes};
+use cpu::{RegEnum, IndexedFlags, IndexModes, InstructionDecoder};
 
 pub trait SymTab {
-
     fn get_symbol(&self, val : u16) -> Option<String>;
 
     fn get_symbol_with_default(&self, val : u16, def : &String) -> String {
@@ -14,107 +13,54 @@ pub trait SymTab {
     }
 }
 
-struct Disassembly { }
+
 
 #[derive(Default)]
-
-struct Instruction {
-    addr : u16,
-    next_addr : u16,
-    bytes : usize,
+pub struct Disassembler {
     text : String,
-    cycles : usize,
+    is_upper_case : bool,
+    hex_prefix: String,
+
 }
 
-impl Instruction {
+impl Disassembler {
 
-    pub fn new(addr : u16) -> Self {
-        Instruction {
-            addr : addr,
-            next_addr : addr,
-            bytes : 0,
-            text : String::from(""),
-            cycles : 0,
+    pub fn new() -> Self {
+        Disassembler { 
+            is_upper_case : false,
+            hex_prefix : "0x".to_string(),
+            .. Default::default()
         }
     }
-    
-    pub fn advance(&mut self, amount : usize) {
-        self.next_addr = self.next_addr.wrapping_add(amount as u16);
-        self.bytes = self.next_addr.wrapping_sub(self.addr) as usize;
+
+    fn add_op<M: MemoryIO>(&mut self, m : &M, diss: &mut InstructionDecoder, txt : &'static str) {
+        self.text = format!("{:width$} {}", txt, self.text, width = 5);
     }
 
-    pub fn next(&mut self) {
-        let addr = self.next_addr;
-        *self = Self::new(addr)
-    }
-
-    fn set_text(&mut self, txt : &String) {
-        self.text = txt.clone();
-    }
-
-    fn fetch_byte<M : MemoryIO> (&mut self, mem : &mut M) -> u8 {
-        let v = mem.load_byte(self.next_addr);
-        self.advance(1);
-        v
-    }
-
-    fn fetch_word<M : MemoryIO> (&mut self, mem : &mut M) -> u16 {
-        let v = mem.load_word(self.next_addr);
-        self.advance(2);
-        v
-    }
-
-    fn fetch_instruction<M : MemoryIO>(&mut self, mem : &mut M ) -> u16 {
-        let a = self.fetch_byte(mem) as u16;
-
-        match a {
-            0x10 | 0x11 => (a << 8) + self.fetch_byte(mem) as u16,
-            _ => a
-        }
-    }
-}
-
-#[derive(Default)]
-pub struct Disassembler<M: MemoryIO> {
-    mem : M,
-    ins : Instruction,
-}
-
-impl <M: MemoryIO> Disassembler<M> {
-    fn add_op(&mut self, txt : &'static str) -> Disassembly {
-        let text = format!("{:6} {}", txt, self.ins.text);
-        self.ins.text = text;
-        Disassembly {}
-    }
-
-    fn expand(&mut self, v : u16, def_str : &String, text : &'static str, syms : &Option<&SymTab>) -> Disassembly {
+    fn expand<M : MemoryIO>(&mut self, v : u16, def_str : &String, text : &'static str, m: &M, diss : &mut InstructionDecoder) {
         let op_str = String::from(text);
 
-        let def_str = match syms {
-            &Some(tab) => tab.get_symbol_with_default(v, def_str),
-            &None => def_str.clone(),
-        };
-
-        self.ins.set_text( &op_str.replace("OP", &def_str));
-
-        Disassembly{}
+        // let def_str = match syms {
+        //     &Some(tab) => tab.get_symbol_with_default(v, def_str),
+        //     &None => def_str.clone(),
+        // };
+        //
+        // Disassembly::new( &op_str.replace("OP", &def_str))
+        
+        self.text =  op_str.replace("OP", &def_str);
     }
 
-    fn from_byte_op(&mut self, text : &'static str, syms : &Option<&SymTab>) -> Disassembly { 
-        let v = self.ins.fetch_byte(&mut self.mem);
-        let def_str  = format!("0x{:02X}", v);
-        self.expand(v as u16, &def_str, text, syms)
+    fn from_byte_op<M : MemoryIO>(&mut self, text : &'static str, mem: &M, diss : &mut InstructionDecoder) { 
+
+        let v = diss.fetch_byte(mem);
+        let def_str  = format!("${:02X}", v);
+        self.expand(v as u16, &def_str, text, mem, diss)
     }
 
-    fn from_word_op(&mut self, text : &'static str, syms : &Option<&SymTab>) -> Disassembly { 
-        let v = self.ins.fetch_word(&mut self.mem);
-        let def_str  = format!("0x{:04X}", v);
-        self.expand(v , &def_str, text, syms)
-    }
-
-    fn from_no_op(&mut self ) -> Disassembly {
-        self.ins.set_text(&"".to_string());
-        Disassembly {}
+    fn from_word_op<M : MemoryIO>(&mut self, text : &'static str, mem: &M, diss : &mut InstructionDecoder) { 
+        let v = diss.fetch_word(mem);
+        let def_str  = format!("${:04X}", v);
+        self.expand(v as u16, &def_str, text, mem, diss)
     }
 }
 
@@ -189,522 +135,271 @@ fn regs_to_str(byte : u8, f : fn(u8) -> Vec<RegEnum>) ->  String {
         .collect();
 
     regs.join(",")
-
 } 
 
-impl <M: MemoryIO> Disassembler<M> {
+impl Disassembler {
+    fn direct<M : MemoryIO>(&mut self, mem : &M, diss : &mut InstructionDecoder) { self.from_byte_op("<OP", mem,diss) }
 
-    fn direct(&mut self, syms : &Option<&SymTab>) -> Disassembly { self.from_byte_op("<OP", syms) }
+    fn extended<M : MemoryIO>(&mut self, mem : &M, diss : &mut InstructionDecoder) { self.from_word_op("OP", mem, diss) }
 
-    fn extended(&mut self, syms : &Option<&SymTab>) -> Disassembly { self.from_word_op("OP", syms) }
+    fn immediate8<M : MemoryIO>(&mut self, mem : &M, diss : &mut InstructionDecoder) { self.from_byte_op("#OP", mem, diss) }
 
-    fn immediate8(&mut self, syms : &Option<&SymTab>) -> Disassembly { self.from_byte_op("#OP", syms) }
+    fn immediate16<M : MemoryIO>(&mut self, mem : &M, diss : &mut InstructionDecoder) { self.from_word_op("#OP", mem, diss) }
 
-    fn immediate16(&mut self, syms : &Option<&SymTab>) -> Disassembly { self.from_word_op("#OP", syms) }
+    fn inherent<M : MemoryIO>(&mut self, mem : &M, diss : &mut InstructionDecoder) {}
 
-    fn inherent(&mut self, syms : &Option<&SymTab>) -> Disassembly { self.from_no_op() }
-
-    fn inherent_reg_stack(&mut self, syms : &Option<&SymTab>) -> Disassembly { 
-        let byte = self.ins.fetch_byte(&mut self.mem);
-        self.ins.set_text(&regs_to_str(byte,stack_regs));
-        Disassembly{}
+    fn inherent_reg_stack<M : MemoryIO>(&mut self, mem : &M, diss : &mut InstructionDecoder) { 
+        let byte = diss.fetch_byte(mem);
+        self.text = regs_to_str(byte,stack_regs);
     }
 
-    fn inherent_reg_reg(&mut self, syms : &Option<&SymTab>) -> Disassembly { 
-        let byte = self.ins.fetch_byte(&mut self.mem);
-        self.ins.set_text(&regs_to_str(byte,tfr_regs));
-        Disassembly{}
+    fn inherent_reg_reg<M : MemoryIO>(&mut self, mem : &M, diss : &mut InstructionDecoder) { 
+        let byte = diss.fetch_byte(mem);
+        self.text = regs_to_str(byte,tfr_regs)
     }
 
-    fn fetch_byte(&mut self) -> u8 {
-        self.ins.fetch_byte(&mut self.mem)
-    }
+    fn indexed<M : MemoryIO>(&mut self, mem : &M, diss : &mut InstructionDecoder) {
 
-    fn fetch_word(&mut self) -> u16 {
-        self.ins.fetch_word(&mut self.mem)
-    }
+        let iflags = IndexedFlags::new(diss.fetch_byte(mem));
 
-    fn set_text(&mut self, text : &String) {
-        self.ins.set_text(text);
-    }
-
-    fn indexed(&mut self, syms : &Option<&SymTab>) -> Disassembly {
-
-        let op = self.fetch_byte();
-        let iflags = IndexedFlags::new(op);
         let index_type = iflags.get_index_type();
 
         let mut s = match index_type {
-            IndexModes::RPlus(r) => format!(",{:?}+",r),
-            IndexModes::RPlusPlus(r) => format!(",{:?}++",r),
-            IndexModes::RSub(r) => format!(",-{:?}",r),
-            IndexModes::RSubSub(r) => format!(",--{:?}",r),
-            IndexModes::RZero(r) => format!(",{:?}",r),
-            IndexModes::RAddB(r) => format!("B,{:?}", r),
-            IndexModes::RAddA(r) => format!("A,{:?}", r),
-            IndexModes::RAddi8(r) => format!("{},{:?}",self.fetch_byte() as i8, r),
-            IndexModes::RAddi16(r) => format!("{},{:?}",self.fetch_word() as i16, r),
-            IndexModes::RAddD(r) => format!("D,{:?}", r),
-            IndexModes::PCAddi8 => format!("PC,{:?}",self.fetch_byte() as i8),
-            IndexModes::PCAddi16 => format!("PC,{:?}",self.fetch_word() as i16),
-            IndexModes::Illegal => "illegal".to_string(),
-            IndexModes::Ea=> format!("0x{:04X}", self.fetch_word()),
-            IndexModes::ROff(r,offset)=> format!("{}, {:?}", offset, r),
+
+            IndexModes::RPlus(r) => { 
+                format!(",{:?}+",r)
+            },
+
+            IndexModes::RPlusPlus(r) => {
+                format!(",{:?}++",r)
+            },
+
+            IndexModes::RSub(r) => {
+                format!(",-{:?}",r) 
+            },
+
+            IndexModes::RSubSub(r) =>{
+                format!(",--{:?}",r)
+            },
+
+            IndexModes::RZero(r) => { 
+                format!(",{:?}",r) 
+            },
+
+            IndexModes::RAddB(r) => { 
+                format!("B,{:?}", r) 
+            },
+
+            IndexModes::RAddA(r) => {
+                format!("A,{:?}", r) 
+            },
+
+            IndexModes::RAddi8(r) => {
+                format!("{},{:?}",diss.fetch_byte(mem) as i8, r)
+            },
+
+            IndexModes::RAddi16(r) => {
+                format!("{},{:?}",diss.fetch_word(mem) as i16, r)
+            },
+
+            IndexModes::RAddD(r) => {
+                format!("D,{:?}", r) 
+            },
+
+            IndexModes::PCAddi8 => {
+                format!("PC,{:?}",diss.fetch_byte(mem) as i8)
+            },
+
+            IndexModes::PCAddi16 => {
+                format!("PC,{:?}",diss.fetch_word(mem) as i16)
+            },
+
+            IndexModes::Illegal => { 
+                "illegal".to_string() 
+            },
+
+            IndexModes::Ea=> {
+                format!("0x{:04X}", diss.fetch_word(mem))
+            },
+
+            IndexModes::ROff(r,offset)=> {
+                format!("{}, {:?}", offset, r) 
+            },
         };
 
         if iflags.is_indirect() {
             s = format!("[{}]", s);
         }
-        self.set_text(&s);
 
-        Disassembly {}
+        self.text = s;
     }
 
-    fn relative8(&mut self, syms : &Option<&SymTab>) -> Disassembly {
-        let v = self.ins.fetch_byte(&mut self.mem) as i8;
+    fn relative8<M : MemoryIO>(&mut self, mem : &M, diss : &mut InstructionDecoder) {
+        let v = diss.fetch_byte(mem) as i8;
         let vstr = format!("{}", v);
-        self.ins.set_text(&vstr);
-        Disassembly{}
+        self.text = vstr;
     }
 
-    fn relative16(&mut self, syms : &Option<&SymTab>) -> Disassembly {
-        let v = self.ins.fetch_word(&mut self.mem) as i16;
+    fn relative16<M : MemoryIO>(&mut self, mem: &M, diss : &mut InstructionDecoder) {
+        let v = diss.fetch_word(mem) as i16;
         let vstr = format!("{}", v);
-        self.ins.set_text(&vstr);
-        Disassembly{}
+        self.text = vstr;
     }
 }
 
-impl <M: MemoryIO> Disassembler<M> {
+macro_rules! op {
+    ($op:ident, $text:expr) => {
+        fn $op<M: MemoryIO>(&mut self, mem : &M,  res : &mut InstructionDecoder) { self.add_op(mem, res, $text) }
+    };
+    ($op:ident) => {
+        op!($op, stringify!($op));
+    };
+}
 
-    fn abx(&mut self, diss : Disassembly) -> Disassembly {
-        self.add_op("abx")
-    }
-    fn adca(&mut self, diss : Disassembly)  -> Disassembly {
-        self.add_op("adca")
-    }
-    fn adcb(&mut self, diss : Disassembly)  -> Disassembly {
-        self.add_op("adcb")
-    }
-    fn adda(&mut self, diss : Disassembly)  -> Disassembly {
-        self.add_op("adda")
-    }
-    fn addb(&mut self, diss : Disassembly)  -> Disassembly {
-        self.add_op("addb")
-    }
-    fn addd(&mut self, diss : Disassembly)  -> Disassembly {
-        self.add_op("addd")
-    }
-    fn anda(&mut self, diss : Disassembly)  -> Disassembly {
-        self.add_op("anda")
-    }
-    fn andb(&mut self, diss : Disassembly)  -> Disassembly {
-        self.add_op("andb")
-    }
-    fn andcc(&mut self, diss : Disassembly)  -> Disassembly {
-        self.add_op("andcc")
-    }
-    fn asr(&mut self, diss : Disassembly)  -> Disassembly {
-        self.add_op("asr")
-    }
-    fn asra(&mut self, diss : Disassembly)  -> Disassembly {
-        self.add_op("asra")
-    }
-    fn asrb(&mut self, diss : Disassembly)  -> Disassembly {
-        self.add_op("asrb")
-    }
-    fn beq(&mut self, diss : Disassembly)  -> Disassembly {
-        self.add_op("beq")
-    }
-    fn bge(&mut self, diss : Disassembly)  -> Disassembly {
-        self.add_op("bge")
-    }
-    fn bgt(&mut self, diss : Disassembly)  -> Disassembly {
-        self.add_op("bgt")
-    }
-    fn bhi(&mut self, diss : Disassembly)  -> Disassembly {
-        self.add_op("bhi")
-    }
-    fn bhs_bcc(&mut self, diss : Disassembly)  -> Disassembly {
-        self.add_op("bhs_bcc")
-    }
-    fn bita(&mut self, diss : Disassembly)  -> Disassembly {
-        self.add_op("bita")
-    }
-    fn bitb(&mut self, diss : Disassembly)  -> Disassembly {
-        self.add_op("bitb")
-    }
-    fn ble(&mut self, diss : Disassembly)  -> Disassembly {
-        self.add_op("ble")
-    }
-    fn blo_bcs(&mut self, diss : Disassembly)  -> Disassembly {
-        self.add_op("blo_bcs")
-    }
-    fn bls(&mut self, diss : Disassembly)  -> Disassembly {
-        self.add_op("bls")
-    }
-    fn blt(&mut self, diss : Disassembly)  -> Disassembly {
-        self.add_op("blt")
-    }
-    fn bmi(&mut self, diss : Disassembly)  -> Disassembly {
-        self.add_op("bmi")
-    }
-    fn bne(&mut self, diss : Disassembly)  -> Disassembly {
-        self.add_op("bne")
-    }
-    fn bpl(&mut self, diss : Disassembly)  -> Disassembly {
-        self.add_op("bpl")
-    }
-    fn bra(&mut self, diss : Disassembly)  -> Disassembly {
-        self.add_op("bra")
-    }
-    fn brn(&mut self, diss : Disassembly)  -> Disassembly {
-        self.add_op("brn")
-    }
-    fn bsr(&mut self, diss : Disassembly)  -> Disassembly {
-        self.add_op("bsr")
-    }
-    fn bvc(&mut self, diss : Disassembly)  -> Disassembly {
-        self.add_op("bvc")
-    }
-    fn bvs(&mut self, diss : Disassembly)  -> Disassembly {
-        self.add_op("bvs")
-    }
-    fn clr(&mut self, diss : Disassembly)  -> Disassembly {
-        self.add_op("clr")
-    }
-    fn clra(&mut self, diss : Disassembly)  -> Disassembly {
-        self.add_op("clra")
-    }
-    fn clrb(&mut self, diss : Disassembly)  -> Disassembly {
-        self.add_op("clrb")
-    }
-    fn cmpa(&mut self, diss : Disassembly)  -> Disassembly {
-        self.add_op("cmpa")
-    }
-    fn cmpb(&mut self, diss : Disassembly)  -> Disassembly {
-        self.add_op("cmpb")
-    }
-    fn cmpx(&mut self, diss : Disassembly)  -> Disassembly {
-        self.add_op("cmpx")
-    }
-    fn com(&mut self, diss : Disassembly)  -> Disassembly {
-        self.add_op("com")
-    }
-    fn coma(&mut self, diss : Disassembly)  -> Disassembly {
-        self.add_op("coma")
-    }
-    fn comb(&mut self, diss : Disassembly)  -> Disassembly {
-        self.add_op("comb")
-    }
-    fn cwai(&mut self, diss : Disassembly)  -> Disassembly {
-        self.add_op("cwai")
-    }
-    fn daa(&mut self, diss : Disassembly)  -> Disassembly {
-        self.add_op("daa")
-    }
-    fn dec(&mut self, diss : Disassembly)  -> Disassembly {
-        self.add_op("dec")
-    }
-    fn deca(&mut self, diss : Disassembly)  -> Disassembly {
-        self.add_op("deca")
-    }
-    fn decb(&mut self, diss : Disassembly)  -> Disassembly {
-        self.add_op("decb")
-    }
-    fn eora(&mut self, diss : Disassembly)  -> Disassembly {
-        self.add_op("eora")
-    }
-    fn eorb(&mut self, diss : Disassembly)  -> Disassembly {
-        self.add_op("eorb")
-    }
-    fn exg(&mut self, diss : Disassembly)  -> Disassembly {
-        self.add_op("exg")
-    }
-    fn inc(&mut self, diss : Disassembly)  -> Disassembly {
-        self.add_op("inc")
-    }
-    fn inca(&mut self, diss : Disassembly)  -> Disassembly {
-        self.add_op("inca")
-    }
-    fn incb(&mut self, diss : Disassembly)  -> Disassembly {
-        self.add_op("incb")
-    }
-    fn jmp(&mut self, diss : Disassembly)  -> Disassembly {
-        self.add_op("jmp")
-    }
-    fn jsr(&mut self, diss : Disassembly)  -> Disassembly {
-        self.add_op("jsr")
-    }
-    fn lbra(&mut self, diss : Disassembly)  -> Disassembly {
-        self.add_op("lbra")
-    }
-    fn lbsr(&mut self, diss : Disassembly)  -> Disassembly {
-        self.add_op("lbsr")
-    }
-    fn lda(&mut self, diss : Disassembly)  -> Disassembly {
-        self.add_op("lda")
-    }
-    fn ldb(&mut self, diss : Disassembly)  -> Disassembly {
-        self.add_op("ldb")
-    }
-    fn ldd(&mut self, diss : Disassembly)  -> Disassembly {
-        self.add_op("ldd")
-    }
-    fn ldu(&mut self, diss : Disassembly)  -> Disassembly {
-        self.add_op("ldu")
-    }
-    fn ldx(&mut self, diss : Disassembly)  -> Disassembly {
-        self.add_op("ldx")
-    }
-    fn leas(&mut self, diss : Disassembly)  -> Disassembly {
-        self.add_op("leas")
-    }
-    fn leau(&mut self, diss : Disassembly)  -> Disassembly {
-        self.add_op("leau")
-    }
-    fn leax(&mut self, diss : Disassembly)  -> Disassembly {
-        self.add_op("leax")
-    }
-    fn leay(&mut self, diss : Disassembly)  -> Disassembly {
-        self.add_op("leay")
-    }
-    fn lsl_asl(&mut self, diss : Disassembly)  -> Disassembly {
-        self.add_op("lsl_asl")
-    }
-    fn lsla_asla(&mut self, diss : Disassembly)  -> Disassembly {
-        self.add_op("lsla_asla")
-    }
-    fn lslb_aslb(&mut self, diss : Disassembly)  -> Disassembly {
-        self.add_op("lslb_aslb")
-    }
-    fn lsr(&mut self, diss : Disassembly)  -> Disassembly {
-        self.add_op("lsr")
-    }
-    fn lsra(&mut self, diss : Disassembly)  -> Disassembly {
-        self.add_op("lsra")
-    }
-    fn lsrb(&mut self, diss : Disassembly)  -> Disassembly {
-        self.add_op("lsrb")
-    }
-    fn mul(&mut self, diss : Disassembly)  -> Disassembly {
-        self.add_op("MUL")
-    }
-    fn neg(&mut self, diss : Disassembly)  -> Disassembly {
-        self.add_op("NEG")
-    }
-    fn nega(&mut self, diss : Disassembly)  -> Disassembly {
-        self.add_op("nega")
-    }
-    fn negb(&mut self, diss : Disassembly)  -> Disassembly {
-        self.add_op("negb")
-    }
-    fn nop(&mut self, diss : Disassembly)  -> Disassembly {
-        self.add_op("nop")
-    }
-    fn ora(&mut self, diss : Disassembly)  -> Disassembly {
-        self.add_op("ora")
-    }
-    fn orb(&mut self, diss : Disassembly)  -> Disassembly {
-        self.add_op("orb")
-    }
-    fn orcc(&mut self, diss : Disassembly)  -> Disassembly {
-        self.add_op("orcc")
-    }
-    fn pshs(&mut self, diss : Disassembly)  -> Disassembly {
-        self.add_op("pshs")
-    }
-    fn pshu(&mut self, diss : Disassembly)  -> Disassembly {
-        self.add_op("pshu")
-    }
-    fn puls(&mut self, diss : Disassembly)  -> Disassembly {
-        self.add_op("puls")
-    }
-    fn pulu(&mut self, diss : Disassembly)  -> Disassembly {
-        self.add_op("pulu")
-    }
-    fn reset(&mut self, diss : Disassembly)  -> Disassembly {
-        self.add_op("reset")
-    }
-    fn rol(&mut self, diss : Disassembly)  -> Disassembly {
-        self.add_op("rol")
-    }
-    fn rola(&mut self, diss : Disassembly)  -> Disassembly {
-        self.add_op("rola")
-    }
-    fn rolb(&mut self, diss : Disassembly)  -> Disassembly {
-        self.add_op("rolb")
-    }
-    fn ror(&mut self, diss : Disassembly)  -> Disassembly {
-        self.add_op("ror")
-    }
-    fn rora(&mut self, diss : Disassembly)  -> Disassembly {
-        self.add_op("rora")
-    }
-    fn rorb(&mut self, diss : Disassembly)  -> Disassembly {
-        self.add_op("rorb")
-    }
-    fn rti(&mut self, diss : Disassembly)  -> Disassembly {
-        self.add_op("rti")
-    }
-    fn rts(&mut self, diss : Disassembly)  -> Disassembly {
-        self.add_op("rts")
-    }
-    fn sbca(&mut self, diss : Disassembly)  -> Disassembly {
-        self.add_op("sbca")
-    }
-    fn sbcb(&mut self, diss : Disassembly)  -> Disassembly {
-        self.add_op("sbcb")
-    }
-    fn sex(&mut self, diss : Disassembly)  -> Disassembly {
-        self.add_op("sex")
-    }
-    fn sta(&mut self, diss : Disassembly)  -> Disassembly {
-        self.add_op("sta")
-    }
-    fn stb(&mut self, diss : Disassembly)  -> Disassembly {
-        self.add_op("stb")
-    }
-    fn std(&mut self, diss : Disassembly)  -> Disassembly {
-        self.add_op("std")
-    }
-    fn stu(&mut self, diss : Disassembly)  -> Disassembly {
-        self.add_op("stu")
-    }
-    fn stx(&mut self, diss : Disassembly)  -> Disassembly {
-        self.add_op("stx")
-    }
-    fn suba(&mut self, diss : Disassembly)  -> Disassembly {
-        self.add_op("suba")
-    }
-    fn subb(&mut self, diss : Disassembly)  -> Disassembly {
-        self.add_op("subb")
-    }
-    fn subd(&mut self, diss : Disassembly)  -> Disassembly {
-        self.add_op("subd")
-    }
-    fn swi(&mut self, diss : Disassembly)  -> Disassembly {
-        self.add_op("swi")
-    }
-    fn sync(&mut self, diss : Disassembly)  -> Disassembly {
-        self.add_op("sync")
-    }
-    fn tfr(&mut self, diss : Disassembly)  -> Disassembly {
-        self.add_op("tfr")
-    }
-    fn tst(&mut self, diss : Disassembly)  -> Disassembly {
-        self.add_op("tst")
-    }
-    fn tsta(&mut self, diss : Disassembly)  -> Disassembly {
-        self.add_op("tsta")
-    }
-    fn tstb(&mut self, diss : Disassembly)  -> Disassembly {
-        self.add_op("tstb")
-    }
-    fn swi3(&mut self, diss : Disassembly)  -> Disassembly {
-        self.add_op("swi3")
-    }
-    fn cmpu(&mut self, diss : Disassembly)  -> Disassembly {
-        self.add_op("cmpu")
-    }
-    fn cmps(&mut self, diss : Disassembly)  -> Disassembly {
-        self.add_op("cmps")
-    }
-    fn lbrn(&mut self, diss : Disassembly)  -> Disassembly {
-        self.add_op("lbrn")
-    }
-    fn lbhi(&mut self, diss : Disassembly)  -> Disassembly {
-        self.add_op("lbhi")
-    }
-    fn lbls(&mut self, diss : Disassembly)  -> Disassembly {
-        self.add_op("lbls")
-    }
-    fn lbhs_lbcc(&mut self, diss : Disassembly)  -> Disassembly {
-        self.add_op("lbhs_lbcc")
-    }
-    fn lblo_lbcs(&mut self, diss : Disassembly)  -> Disassembly {
-        self.add_op("lblo_lbcs")
-    }
-    fn lbne(&mut self, diss : Disassembly)  -> Disassembly {
-        self.add_op("lbne")
-    }
-    fn lbeq(&mut self, diss : Disassembly)  -> Disassembly {
-        self.add_op("lbeq")
-    }
-    fn lbvc(&mut self, diss : Disassembly)  -> Disassembly {
-        self.add_op("lbvc")
-    }
-    fn lbvs(&mut self, diss : Disassembly)  -> Disassembly {
-        self.add_op("lbvs")
-    }
-    fn lbpl(&mut self, diss : Disassembly)  -> Disassembly {
-        self.add_op("lbpl")
-    }
-    fn lbmi(&mut self, diss : Disassembly)  -> Disassembly {
-        self.add_op("lbmi")
-    }
-    fn lbge(&mut self, diss : Disassembly)  -> Disassembly {
-        self.add_op("lbge")
-    }
-    fn lblt(&mut self, diss : Disassembly)  -> Disassembly {
-        self.add_op("lblt")
-    }
-    fn lbgt(&mut self, diss : Disassembly)  -> Disassembly {
-        self.add_op("lbgt")
-    }
-    fn swi2(&mut self, diss : Disassembly)  -> Disassembly {
-        self.add_op("swi2")
-    }
-    fn cmpd(&mut self, diss : Disassembly)  -> Disassembly {
-        self.add_op("cmpd")
-    }
-    fn cmpy(&mut self, diss : Disassembly)  -> Disassembly {
-        self.add_op("cmpy")
-    }
-    fn ldy(&mut self, diss : Disassembly)  -> Disassembly {
-        self.add_op("ldy")
-    }
-    fn lble(&mut self, diss : Disassembly)  -> Disassembly {
-        self.add_op("lble")
-    }
-    fn sty(&mut self, diss : Disassembly)  -> Disassembly {
-        self.add_op("sty")
-    }
-    fn lds(&mut self, diss :  Disassembly)  -> Disassembly {
-        self.add_op("lds")
-    }
-    fn sts(&mut self, diss : Disassembly)  -> Disassembly {
-        self.add_op("sts")
-    }
+impl Disassembler {
 
-    fn unimplemented(&mut self) -> Disassembly {
-        panic!("??? Unimplemented")
-    }
+    op!(neg);
+    op!(abx);
+    op!(adca);
+    op!(adcb);
+    op!(adda);
+    op!(addb);
+    op!(addd);
+    op!(anda);
+    op!(andb);
+    op!(andcc);
+    op!(asr);
+    op!(asra);
+    op!(asrb);
+    op!(beq);
+    op!(bge);
+    op!(bgt);
+    op!(bhi);
+    op!(bhs_bcc);
+    op!(bita);
+    op!(bitb);
+    op!(ble);
+    op!(blo_bcs);
+    op!(bls);
+    op!(blt);
+    op!(bmi);
+    op!(bne);
+    op!(bpl);
+    op!(bra);
+    op!(brn);
+    op!(bsr);
+    op!(bvc);
+    op!(bvs);
+    op!(clr);
+    op!(clra);
+    op!(clrb);
+    op!(cmpa);
+    op!(cmpb);
+    op!(cmpx);
+    op!(com);
+    op!(coma);
+    op!(comb);
+    op!(cwai);
+    op!(daa);
+    op!(dec);
+    op!(deca);
+    op!(decb);
+    op!(eora);
+    op!(eorb);
+    op!(exg);
+    op!(inc);
+    op!(inca);
+    op!(incb);
+    op!(jmp);
+    op!(jsr);
+    op!(lbra);
+    op!(lbsr);
+    op!(lda);
+    op!(ldb);
+    op!(ldd);
+    op!(ldu);
+    op!(ldx);
+    op!(leas);
+    op!(leau);
+    op!(leax);
+    op!(leay);
+    op!(lsl_asl);
+    op!(lsla_asla);
+    op!(lslb_aslb);
+    op!(lsr);
+    op!(lsra);
+    op!(lsrb);
+    op!(mul);
+    op!(nega);
+    op!(negb);
+    op!(nop);
+    op!(ora);
+    op!(orb);
+    op!(orcc );
+    op!(pshs);
+    op!(pshu);
+    op!(puls);
+    op!(pulu);
+    op!(reset);
+    op!(rol);
+    op!(rola);
+    op!(rolb);
+    op!(ror);
+    op!(rora);
+    op!(rorb);
+    op!(rti);
+    op!(rts);
+    op!(sbca);
+    op!(sbcb);
+    op!(sex);
+    op!(sta);
+    op!(stb);
+    op!(std);
+    op!(stu);
+    op!(stx);
+    op!(suba);
+    op!(subb);
+    op!(subd);
+    op!(swi);
+    op!(sync);
+    op!(tfr);
+    op!(tst);
+    op!(tsta);
+    op!(tstb);
+    op!(swi3);
+    op!(cmpu);
+    op!(cmps);
+    op!(lbrn);
+    op!(lbhi);
+    op!(lbls);
+    op!(lbhs_lbcc);
+    op!(lblo_lbcs);
+    op!(lbne);
+    op!(lbeq);
+    op!(lbvc);
+    op!(lbvs);
+    op!(lbpl);
+    op!(lbmi);
+    op!(lbge);
+    op!(lblt);
+    op!(lbgt);
+    op!(swi2);
+    op!(cmpd);
+    op!(cmpy);
+    op!(ldy);
+    op!(lble);
+    op!(sty);
+    op!(lds);
+    op!(sts);
 
-    pub fn new(mem : M) -> Self {
-        Disassembler {
-            mem : mem,
-            ins : Default::default(),
-        }
-    }
+    fn unimplemented(&mut self, op : u16) { panic!("??? Unimplemented") }
 
-    pub fn diss(&mut self, addr : u16, amount : usize, syms : Option<&SymTab> ) {
-
-        self.ins = Instruction::new(addr);
-
-        for i in 0..amount {
-
-            let op = self.ins.fetch_instruction(&mut self.mem);
-
-            let d = decode_op_2!(op, self, &syms);
-
-            let bstr = self.mem.get_mem_as_str(self.ins.addr, self.ins.bytes as u16 );
-
-            println!("0x{:04X}  {:15} {}", self.ins.addr, bstr, self.ins.text);
-
-            self.ins.next();
-        }
-
+    pub fn diss<M: MemoryIO>(&mut self, mem : &M, addr : u16, syms : Option<&SymTab> ) -> (InstructionDecoder, String) {
+        let mut diss = InstructionDecoder::new(addr);
+        let op = diss.fetch_instruction(mem);
+        decode_op!(op, self, mem, &mut diss);
+        (diss, self.text.clone())
     }
 
 }
+

@@ -1,71 +1,81 @@
 use mem::MemoryIO;
-use cpu::registers::{ Regs};
+// use cpu::registers::{ Regs, RegEnum};
+use cpu::{Flags, Regs};
 
-// Addressing modes
+#[derive(Default)]
+#[derive(Debug)]
+pub struct InstructionDecoder {
+    pub op_code : u16,
+    pub cycles : usize,
+    pub addr : u16,
+    pub bytes : usize,
+    pub next_addr : u16,
+    pub mem : [u8; 4],
+    pub operand : u16,
+}
 
-trait AddressingMode<M : MemoryIO> {
+impl InstructionDecoder {
 
-    fn fetch8(&self, cpu: &mut Cpu<M>) -> u8 {
-        panic!("Unimplimneted fetch ")
+    pub fn new(addr: u16)-> Self {
+        InstructionDecoder {
+            addr : addr,
+            next_addr : addr,
+            .. Default::default()
+        }
     }
 
-    fn fetch16(&self, cpu: &mut Cpu<M>) -> u16 {
-        panic!("Unimplimneted fetch ")
+    pub fn inc_cycles(&mut self) -> usize {
+        self.cycles = self.cycles + 1;
+        self.cycles
     }
 
-    fn store8(&self, cpu: &mut Cpu<M>, val : u8) {
-        panic!("unimplemented")
+    pub fn fetch_byte<M : MemoryIO>(&mut self, mem: &M) -> u8 {
+        let b = mem.load_byte(self.next_addr);
+        self.next_addr = self.next_addr.wrapping_add(1);
+
+        self.mem[self.bytes] = b;
+        self.bytes = self.bytes + 1;
+
+        b
     }
 
-    fn store16(&self, cpu: &mut Cpu<M>, val : u16) {
-        panic!("unimplemented")
+    pub fn fetch_word<M : MemoryIO>(&mut self, mem: &M) -> u16 {
+        let w = mem.load_word(self.next_addr);
+        self.next_addr = self.next_addr.wrapping_add(2);
+
+        self.mem[self.bytes] = ((w >> 8) & 0xff) as u8;
+        self.mem[self.bytes+1] = w as u8;
+        self.bytes = self.bytes + 2;
+        w   
+    }
+
+    pub fn get_next_addr(&self) -> u16 {
+        self.next_addr
+    }
+
+    pub fn fetch_instruction<M: MemoryIO>(&mut self, mem: &M) -> u16 {
+
+        let a = self.fetch_byte(mem) as u16;
+
+        self.op_code = match a {
+            0x10 | 0x11 => {
+                (a << 8) + self.fetch_byte(mem) as u16
+            }
+            _ => a
+        };
+
+        self.op_code
     }
 }
 
 // {{{
-
-pub struct Cpu<M: MemoryIO> {
-    pub mem: M,
+pub struct Cpu {
     pub regs: Regs,
 }
 
-impl <M: MemoryIO> Cpu<M> {
-
-    pub fn add_pc(&mut self, to_add : u16) -> u16 {
-        // add 1 to the pc, return the old pc
-        let old_pc = self.regs.pc;
-        self.regs.pc = old_pc.wrapping_add(to_add);
-        old_pc
-    }
-
-    pub fn peek_u8_pc(&mut self) -> u8 {
-        let pc = self.regs.pc;
-        self.mem.load_byte(pc) as u8
-    }
-
-    pub fn peek_u16_pc(&mut self) -> u16 {
-        let pc = self.regs.pc;
-        self.mem.load_word(pc)
-    }
-
-    pub fn fetch_u8_bump_pc(&mut self) -> u8 {
-        let pc =  self.add_pc(1);
-        self.mem.load_byte(pc)
-    }
-
-    pub fn fetch_u16_bump_pc(&mut self) -> u16 {
-        let pc = self.add_pc(2);
-        self.mem.load_word(pc)
-    }
-
-    fn step(&mut self) -> &mut Self {
-        let op = self.fetch_u8_bump_pc();
-        self
-    }
-
-    pub fn new(mem : M) -> Cpu<M> {
+impl Cpu {
+    pub fn new() -> Cpu {
         Cpu {
-            mem: mem,
             regs: Regs::new(),
         }
     }
@@ -73,55 +83,44 @@ impl <M: MemoryIO> Cpu<M> {
 
 //{{{ Addressing modes
 
-struct ExtendedAddressingMode;
-struct MemoryAddressingMode(u16);
-struct IndexedAddressingMode;
-struct InherentAddressingMode;
-struct RelativeAddressingMode;
-
-impl <M: MemoryIO> AddressingMode<M> for MemoryAddressingMode { 
-    fn fetch8(&self, cpu: &mut Cpu<M>) -> u8 { cpu.mem.load_byte(self.0) }
-    fn fetch16(&self, cpu: &mut Cpu<M>) -> u16 { cpu.mem.load_word(self.0) }
-    fn store8(&self, cpu : &mut Cpu<M>, val : u8) { cpu.mem.store_byte(self.0, val) }
-    fn store16(&self, cpu : &mut Cpu<M>, val : u16) { cpu.mem.store_word(self.0, val) }
-}
-
-impl <M: MemoryIO> AddressingMode<M> for InherentAddressingMode {}
-impl <M: MemoryIO> AddressingMode<M> for ExtendedAddressingMode {}
-
-impl <M: MemoryIO> Cpu<M> {
-
-    fn direct(&mut self) -> MemoryAddressingMode {
-        let v = self.fetch_u8_bump_pc() as u16;
-        let addr = ((self.regs.dp as u16) << 8) + v;
-        MemoryAddressingMode( addr )
+impl Cpu {
+    fn direct<M: MemoryIO>(&mut self, mem : &M, ins : &mut InstructionDecoder) { 
+        let index = ins.fetch_byte(mem) as u16;
+        ins.operand = self.regs.get_dp_ptr().wrapping_add(index);
     }
 
-    fn extended(&mut self) -> ExtendedAddressingMode {
-        panic!("NO!")
+    fn extended<M: MemoryIO>(&mut self, mem : &M, ins : &mut InstructionDecoder) { 
+        ins.operand = ins.fetch_word(mem);
     }
 
-    fn immediate8(&mut self) -> MemoryAddressingMode {
-        MemoryAddressingMode( self.add_pc(1) )
+    fn immediate8<M: MemoryIO>(&mut self, mem : &M, ins : &mut InstructionDecoder) { 
+        ins.operand = ins.fetch_byte(mem) as u16;
     }
 
-    fn immediate16(&mut self) -> MemoryAddressingMode {
-        MemoryAddressingMode( self.add_pc(2) )
+    fn immediate16<M: MemoryIO>(&mut self, mem : &M, ins : &mut InstructionDecoder) { 
+        ins.operand = ins.fetch_word(mem);
     }
 
-    fn indexed(&mut self) -> MemoryAddressingMode {
-        panic!("NO!")
+    fn inherent<M: MemoryIO>(&mut self, mem : &M, ins : &mut InstructionDecoder) {
     }
 
-    fn inherent(&mut self) -> InherentAddressingMode {
-        panic!("NO!")
+    fn inherent_reg_stack<M: MemoryIO>(&mut self, mem : &M, ins : &mut InstructionDecoder) { 
+        panic!("not yet")
     }
 
-    fn relative8(&mut self) -> MemoryAddressingMode {
-        panic!("NO!")
+    fn inherent_reg_reg<M: MemoryIO>(&mut self, mem : &M, ins : &mut InstructionDecoder) { 
+        panic!("not yet")
     }
-    fn relative16(&mut self) -> MemoryAddressingMode {
-        panic!("NO!")
+
+    fn indexed<M: MemoryIO>(&mut self, mem : &M, ins : &mut InstructionDecoder) {
+    }
+
+    fn relative8<M: MemoryIO>(&mut self, mem : &M, ins : &mut InstructionDecoder) {
+        let offset = ins.fetch_byte(mem) as i8;
+    }
+
+    fn relative16<M: MemoryIO>(&mut self, mem: &M, ins : &mut InstructionDecoder) {
+        let offset = ins.fetch_word(mem) as i16;
     }
 
 
@@ -129,469 +128,426 @@ impl <M: MemoryIO> Cpu<M> {
 
 //}}}
 
+// {{{ Todo next!
+impl  Cpu {
+    fn orcc<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
+        self.regs.flags = Flags::new(ins.operand as u8);
+    }
+
+    fn ldx<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
+        self.regs.load_x(ins.operand);
+    }
+
+    fn stx<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
+        mem.store_word(ins.operand, self.regs.x);
+    }
+    fn sta<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
+        mem.store_byte(ins.operand, self.regs.a);
+    }
+
+    fn lda<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
+        self.regs.load_a(ins.operand as u8);
+    }
+    fn ldu<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
+        self.regs.load_u(ins.operand);
+    }
+    fn tfr<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
+        panic!("NO!")
+    }
+    fn lds<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
+        panic!("NO!")
+    }
+    fn abx<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder) {
+        panic!("NO!")
+    }
+    fn adca<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
+        panic!("NO!")
+    }
+}
+// }}}
+
 // {{{ Op Codes
-impl <M: MemoryIO> Cpu<M> {
-
-    fn abx<A : AddressingMode<M>>(&mut self, addr_mode : A) {
+impl  Cpu {
+    fn adcb<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
         panic!("NO!")
     }
-
-    fn adca<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
+    fn adda<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
         panic!("NO!")
     }
-    fn adcb<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
+    fn addb<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
         panic!("NO!")
     }
-    fn adda<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
+    fn addd<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
         panic!("NO!")
     }
-    fn addb<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
+    fn anda<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
         panic!("NO!")
     }
-    fn addd<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
+    fn andb<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
         panic!("NO!")
     }
-    fn anda<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
+    fn andcc<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
         panic!("NO!")
     }
-    fn andb<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
+    fn asr<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
         panic!("NO!")
     }
-    fn andcc<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
+    fn asra<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
         panic!("NO!")
     }
-    fn asr<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
+    fn asrb<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
         panic!("NO!")
     }
-    fn asra<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
+    fn beq<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
         panic!("NO!")
     }
-    fn asrb<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
+    fn bge<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
         panic!("NO!")
     }
-    fn beq<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
+    fn bgt<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
         panic!("NO!")
     }
-    fn bge<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
+    fn bhi<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
         panic!("NO!")
     }
-    fn bgt<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
+    fn bhs_bcc<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
         panic!("NO!")
     }
-    fn bhi<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
+    fn bita<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
         panic!("NO!")
     }
-    fn bhs_bcc<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
+    fn bitb<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
         panic!("NO!")
     }
-    fn bita<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
+    fn ble<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
         panic!("NO!")
     }
-    fn bitb<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
+    fn blo_bcs<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
         panic!("NO!")
     }
-    fn ble<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
+    fn bls<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
         panic!("NO!")
     }
-    fn blo_bcs<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
+    fn blt<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
         panic!("NO!")
     }
-    fn bls<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
+    fn bmi<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
         panic!("NO!")
     }
-    fn blt<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
+    fn bne<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
         panic!("NO!")
     }
-    fn bmi<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
+    fn bpl<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
         panic!("NO!")
     }
-    fn bne<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
+    fn bra<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
         panic!("NO!")
     }
-    fn bpl<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
+    fn brn<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
         panic!("NO!")
     }
-    fn bra<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
+    fn bsr<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
         panic!("NO!")
     }
-    fn brn<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
+    fn bvc<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
         panic!("NO!")
     }
-    fn bsr<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
+    fn bvs<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
         panic!("NO!")
     }
-    fn bvc<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
+    fn clr<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
         panic!("NO!")
     }
-    fn bvs<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
+    fn clra<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
         panic!("NO!")
     }
-    fn clr<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
+    fn clrb<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
         panic!("NO!")
     }
-    fn clra<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
+    fn cmpa<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
         panic!("NO!")
     }
-    fn clrb<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
+    fn cmpb<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
         panic!("NO!")
     }
-    fn cmpa<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
+    fn cmpx<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
         panic!("NO!")
     }
-    fn cmpb<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
+    fn com<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
         panic!("NO!")
     }
-    fn cmpx<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
+    fn coma<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
         panic!("NO!")
     }
-    fn com<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
+    fn comb<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
         panic!("NO!")
     }
-    fn coma<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
+    fn cwai<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
         panic!("NO!")
     }
-    fn comb<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
+    fn daa<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
         panic!("NO!")
     }
-    fn cwai<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
+    fn dec<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
         panic!("NO!")
     }
-    fn daa<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
+    fn deca<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
         panic!("NO!")
     }
-    fn dec<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
+    fn decb<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
         panic!("NO!")
     }
-    fn deca<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
+    fn eora<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
         panic!("NO!")
     }
-    fn decb<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
+    fn eorb<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
         panic!("NO!")
     }
-    fn eora<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
+    fn exg<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
         panic!("NO!")
     }
-    fn eorb<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
+    fn inc<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
         panic!("NO!")
     }
-    fn exg<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
-        panic!("NO!")
-    }
-    fn inc<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
-        panic!("NO!")
-    }
-    fn inca<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
+    fn inca<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
         panic!("noy fonr")
     }
-    fn incb<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
+    fn incb<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
         panic!("NO!")
     }
-    fn jmp<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
+    fn jmp<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
         panic!("NO!")
     }
-
-    fn jsr<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
+    fn jsr<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
         panic!("NO!")
     }
-
-    fn lbra<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
+    fn lbra<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
         panic!("NO!")
     }
-    fn lbsr<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
+    fn lbsr<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
         panic!("NO!")
     }
-
-    // Loads
-    fn lda<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
-        let operand = addr_mode.fetch8(self);
-        self.regs.load_a(operand)
-    }
-
-    fn ldb<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
-        let operand = addr_mode.fetch8(self);
-        self.regs.load_b(operand)
-    }
-
-    fn ldd<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
-        let operand = addr_mode.fetch16(self);
-        self.regs.load_d(operand)
-    }
-
-    fn ldu<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
-        let operand = addr_mode.fetch16(self);
-        self.regs.load_u(operand)
-    }
-
-    fn ldx<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
-        let operand = addr_mode.fetch16(self);
-        self.regs.load_x(operand)
-    }
-
-    fn leas<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
+    fn ldb<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
         panic!("NO!")
     }
-    fn leau<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
+    fn ldd<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
         panic!("NO!")
     }
-    fn leax<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
+    fn leas<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
         panic!("NO!")
     }
-    fn leay<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
+    fn leau<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
         panic!("NO!")
     }
-    fn lsl_asl<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
+    fn leax<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
         panic!("NO!")
     }
-    fn lsla_asla<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
+    fn leay<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
         panic!("NO!")
     }
-    fn lslb_aslb<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
+    fn lsl_asl<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
         panic!("NO!")
     }
-    fn lsr<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
+    fn lsla_asla<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
         panic!("NO!")
     }
-    fn lsra<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
+    fn lslb_aslb<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
         panic!("NO!")
     }
-    fn lsrb<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
+    fn lsr<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
         panic!("NO!")
     }
-    fn mul<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
+    fn lsra<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
         panic!("NO!")
     }
-    fn neg<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
+    fn lsrb<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
         panic!("NO!")
     }
-    fn nega<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
+    fn mul<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
         panic!("NO!")
     }
-    fn negb<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
+    fn neg<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
         panic!("NO!")
     }
-    fn nop<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
+    fn nega<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
         panic!("NO!")
     }
-    fn ora<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
+    fn negb<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
         panic!("NO!")
     }
-    fn orb<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
+    fn nop<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
         panic!("NO!")
     }
-    fn orcc<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
+    fn ora<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
         panic!("NO!")
     }
-
-    fn pshs<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
+    fn orb<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
         panic!("NO!")
     }
-    fn pshu<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
+    fn pshs<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
         panic!("NO!")
     }
-    fn puls<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
+    fn pshu<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
         panic!("NO!")
     }
-    fn pulu<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
+    fn puls<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
         panic!("NO!")
     }
-    fn reset<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
+    fn pulu<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
         panic!("NO!")
     }
-    fn rol<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
+    fn reset<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
         panic!("NO!")
     }
-    fn rola<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
+    fn rol<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
         panic!("NO!")
     }
-    fn rolb<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
+    fn rola<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
         panic!("NO!")
     }
-    fn ror<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
+    fn rolb<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
         panic!("NO!")
     }
-    fn rora<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
+    fn ror<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
         panic!("NO!")
     }
-    fn rorb<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
+    fn rora<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
         panic!("NO!")
     }
-    fn rti<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
+    fn rorb<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
         panic!("NO!")
     }
-    fn rts<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
+    fn rti<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
         panic!("NO!")
     }
-    fn sbca<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
+    fn rts<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
         panic!("NO!")
     }
-    fn sbcb<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
+    fn sbca<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
         panic!("NO!")
     }
-    fn sex<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
+    fn sbcb<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
         panic!("NO!")
     }
-    fn sta<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
+    fn sex<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
         panic!("NO!")
     }
-    fn stb<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
+    fn stb<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
         panic!("NO!")
     }
-    fn std<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
+    fn std<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
         panic!("NO!")
     }
-    fn stu<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
+    fn stu<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
         panic!("NO!")
     }
-    fn stx<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
+    fn suba<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
         panic!("NO!")
     }
-    fn suba<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
+    fn subb<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
         panic!("NO!")
     }
-    fn subb<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
+    fn subd<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
         panic!("NO!")
     }
-    fn subd<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
+    fn swi<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
         panic!("NO!")
     }
-    fn swi<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
+    fn sync<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
         panic!("NO!")
     }
-    fn sync<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
+    fn tst<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
         panic!("NO!")
     }
-    fn tfr<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
+    fn tsta<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
         panic!("NO!")
     }
-    fn tst<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
+    fn tstb<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
         panic!("NO!")
     }
-    fn tsta<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
+    fn swi3<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
         panic!("NO!")
     }
-    fn tstb<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
+    fn cmpu<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
         panic!("NO!")
     }
-
-    fn swi3<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
+    fn cmps<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
         panic!("NO!")
     }
-
-    fn cmpu<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
+    fn lbrn<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
         panic!("NO!")
     }
-
-    fn cmps<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
+    fn lbhi<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
         panic!("NO!")
     }
-
-    fn lbrn<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
+    fn lbls<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
         panic!("NO!")
     }
-
-    fn lbhi<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
+    fn lbhs_lbcc<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
         panic!("NO!")
     }
-
-    fn lbls<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
+    fn lblo_lbcs<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
         panic!("NO!")
     }
-
-    fn lbhs_lbcc<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
+    fn lbne<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
         panic!("NO!")
     }
-
-    fn lblo_lbcs<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
+    fn lbeq<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
         panic!("NO!")
     }
-
-    fn lbne<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
+    fn lbvc<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
         panic!("NO!")
     }
-
-    fn lbeq<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
+    fn lbvs<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
+        panic!("NO!")
+    }
+    fn lbpl<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
+        panic!("NO!")
+    }
+    fn lbmi<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
+        panic!("NO!")
+    }
+    fn lbge<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
+        panic!("NO!")
+    }
+    fn lblt<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
+        panic!("NO!")
+    }
+    fn lbgt<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
+        panic!("NO!")
+    }
+    fn swi2<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
+        panic!("NO!")
+    }
+    fn cmpd<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
+        panic!("NO!")
+    }
+    fn cmpy<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
+        panic!("NO!")
+    }
+    fn ldy<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
+        panic!("NO!")
+    }
+    fn lble<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
+        panic!("NO!")
+    }
+    fn sty<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
+        panic!("NO!")
+    }
+    fn sts<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
         panic!("NO!")
     }
 
-    fn lbvc<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
-        panic!("NO!")
-    }
-
-    fn lbvs<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
-        panic!("NO!")
-    }
-
-    fn lbpl<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
-        panic!("NO!")
-    }
-
-    fn lbmi<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
-        panic!("NO!")
-    }
-
-    fn lbge<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
-        panic!("NO!")
-    }
-
-    fn lblt<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
-        panic!("NO!")
-    }
-
-    fn lbgt<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
-        panic!("NO!")
-    }
-
-    fn swi2<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
-        panic!("NO!")
-    }
-
-    fn cmpd<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
-        panic!("NO!")
-    }
-
-    fn cmpy<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
-        panic!("NO!")
-    }
-
-    fn ldy<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
-        panic!("NO!")
-    }
-
-    fn lble<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
-        panic!("NO!")
-    }
-
-    fn sty<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
-        panic!("NO!")
-    }
-
-    fn lds<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
-        panic!("NO!")
-    }
-
-    fn sts<A : AddressingMode<M>>(&mut self, addr_mode : A)  {
-        panic!("NO!")
-    }
-
-    fn unimplemented(&mut self) {
+    fn unimplemented(&mut self, op_code: u16) {
         panic!("unimplemnted op code")
     }
 
-    pub fn fetch_instruction(&mut self) -> u16 {
-
-        let a = self.fetch_u8_bump_pc() as u16;
-
-        println!("fetch ins 0x{:04x}", a);
-
-        match a {
-            0x10 | 0x11 => (a << 8) + self.fetch_u8_bump_pc() as u16,
-            _ => a
-        }
-    }
-
-    pub fn exec(&mut self, num : usize) {
-        let a = self.fetch_instruction();
-        decode_op!(a, self)
+    pub fn step<M: MemoryIO>(&mut self, mem : &mut M) -> InstructionDecoder {
+        let mut ins = InstructionDecoder::new(self.regs.pc);
+        let op = ins.fetch_instruction(mem);
+        decode_op!(op, self, mem, &mut ins);
+        self.regs.pc = ins.next_addr;
+        ins
     }
 }
 

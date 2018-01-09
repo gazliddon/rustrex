@@ -50,13 +50,22 @@ impl Regs {
         } 
     }
 
-    fn get_d(&self) -> u16 { ( ( self.a as u16 ) << 8 ) | self.b as u16 }
-    fn set_d(&mut self, d : u16) { self.a = (d >> 8) as u8; self.b = d as u8; }
+    pub fn get_dp_ptr(&self) -> u16 {
+        let dp = (self.dp as u16) << 8;
+        dp
+    }
+
+    pub fn get_d(&self) -> u16 {
+        ( ( self.a as u16 ) << 8 ) | self.b as u16 
+    }
+
+    pub fn set_d(&mut self, d : u16) {
+        self.a = (d >> 8) as u8; self.b = d as u8; 
+    }
 
     pub fn new() -> Regs {
         Regs {
-            a : 0, b : 0, x : 0, y : 0, u : 0,
-            s : 0, pc: 0, dp: 0,
+            a : 0, b : 0, x : 0, y : 0, u : 0, s : 0, pc: 0, dp: 0,
             flags: Flags::new(0),
         }
     }
