@@ -1,27 +1,25 @@
 
 bitflags! {
     pub struct Flags: u8 {
-        const E  = 0b10000000;
-        const F  = 0b01000000;
-        const H  = 0b00100000;
-        const I  = 0b00010000;
-        const N  = 0b00001000;
-        const Z  = 0b00000100;
-        const V  = 0b00000010;
-        const C  = 0b00000001;
+        const E  = 1 << 7;
+        const F  = 1 << 6;
+        const H  = 1 << 5;
+        const I  = 1 << 4;
+        const N  = 1 << 3;
+        const Z  = 1 << 2;
+        const V  = 1 << 1;
+        const C  = 1 << 0;
     }
 }
 
-enum FlagsE {
-    E  = 0b10000000,
-    F  = 0b01000000,
-    H  = 0b00100000,
-    I  = 0b00010000,
-    N  = 0b00001000,
-    Z  = 0b00000100,
-    V  = 0b00000010,
-    C  = 0b00000001,
-}
+#[inline]
+fn test_n_b(val : u8) -> bool { val & 0x80 == 0x80 }
+#[inline]
+fn test_z_b(val : u8) -> bool { val == 0 }
+#[inline]
+fn test_n_w(val : u16) -> bool { val & 0x8000 == 0x8000 }
+#[inline]
+fn test_z_w(val : u16) -> bool { val == 0 }
 
 impl Flags {
     pub fn new(val : u8) -> Flags {
@@ -30,16 +28,35 @@ impl Flags {
         }
     }
 
-
-    pub fn test_8(&mut self, val : u8 ) {
-        self.set(Flags::N, (val&0x80 == 0x80));
-        self.set(Flags::Z, val == 0);
-        self.set(Flags::V, false);
+    #[inline]
+    pub fn set_flags( &mut self, flags: Flags, condition: bool ) {
+        let status = self.bits;
+        let new_status = if condition { status | flags.bits() } else { status & !flags.bits() };
+        self.bits = new_status;
     }
 
+    pub fn assign_flags(&mut self, val : u8) {
+        // basically the ORCC instruction
+        // doesn't affect the E flag
+
+        let mut new_flags = Flags::new(val);
+        new_flags.set(Flags::E, self.contains(Flags::E));
+        *self = new_flags;
+    }
+
+
+    #[inline]
+    pub fn test_8(&mut self, val : u8 ) {
+        self.set(Flags::N, test_n_b(val));
+        self.set(Flags::Z, test_z_b(val));
+        self.set(Flags::V, false);
+
+    }
+
+    #[inline]
     pub fn test_16(&mut self, val : u16 ) {
-        self.set(Flags::N, (val&0x80 == 0x8000));
-        self.set(Flags::Z, val == 0);
+        self.set(Flags::N, test_n_w(val));
+        self.set(Flags::Z, test_z_w(val));
         self.set(Flags::V, false);
     }
 

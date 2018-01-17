@@ -1,6 +1,6 @@
 use mem::MemoryIO;
 // use cpu::registers::{ Regs, RegEnum};
-use cpu::{Flags, Regs};
+use cpu::{ Regs};
 
 #[derive(Default)]
 #[derive(Debug)]
@@ -131,7 +131,7 @@ impl Cpu {
 // {{{ Todo next!
 impl  Cpu {
     fn orcc<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
-        self.regs.flags = Flags::new(ins.operand as u8);
+        self.regs.flags.assign_flags(ins.operand as u8);
     }
 
     fn ldx<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
@@ -542,11 +542,20 @@ impl  Cpu {
         panic!("unimplemnted op code")
     }
 
+    fn get_pc(&self) -> u16 {
+        self.regs.pc
+    }
+
     pub fn step<M: MemoryIO>(&mut self, mem : &mut M) -> InstructionDecoder {
+
         let mut ins = InstructionDecoder::new(self.regs.pc);
+
         let op = ins.fetch_instruction(mem);
+
         decode_op!(op, self, mem, &mut ins);
+
         self.regs.pc = ins.next_addr;
+
         ins
     }
 }

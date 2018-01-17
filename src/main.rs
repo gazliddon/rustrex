@@ -80,7 +80,9 @@ fn create_test_cpu() -> Cpu {
         r.s  = 0x02e0;
         r.u  = 0x7f34;
         r.dp = 0x0000;
-        r.flags = Flags::new(0b10000100);
+
+        r.flags.set_flags(Flags::E | Flags::Z, true);
+
     }
 
     cpu
