@@ -1,6 +1,6 @@
 use mem::MemoryIO;
 
-use cpu::{RegEnum, IndexedFlags, IndexModes, InstructionDecoder};
+use cpu::{RegEnum, IndexedFlags, IndexModes, InstructionDecoder, get_tfr_regs};
 
 pub trait SymTab {
     fn get_symbol(&self, val : u16) -> Option<String>;
@@ -103,28 +103,10 @@ fn stack_regs(op : u8 ) -> Vec<RegEnum>{
     res
 }
 
-fn tfr_one_reg(op : u8 ) -> RegEnum{
-
-    match op {
-        0 => RegEnum::D,
-        1 => RegEnum::X,
-        2 => RegEnum::Y,
-        3 => RegEnum::U,
-        4 => RegEnum::S,
-        5 => RegEnum::PC,
-        8 => RegEnum::A,
-        9 => RegEnum::B,
-        10 =>RegEnum::CC,
-        11 =>RegEnum::DP,
-        _ => {
-            println!("op of {:02X}", op);
-            panic!("illegal tfr regs")
-        },
-    }
-}
 
 fn tfr_regs(op : u8) -> Vec<RegEnum> {
-    vec![ (tfr_one_reg(op>>4)), (tfr_one_reg(op&0xf)), ]
+    let (a,b) = get_tfr_regs(op);
+    vec![a,b]
 }
 
 fn regs_to_str(byte : u8, f : fn(u8) -> Vec<RegEnum>) ->  String {
@@ -146,7 +128,9 @@ impl Disassembler {
 
     fn immediate16<M : MemoryIO>(&mut self, mem : &M, diss : &mut InstructionDecoder) { self.from_word_op("#OP", mem, diss) }
 
-    fn inherent<M : MemoryIO>(&mut self, mem : &M, diss : &mut InstructionDecoder) {}
+    fn inherent<M : MemoryIO>(&mut self, mem : &M, diss : &mut InstructionDecoder) {
+        self.text.clear();
+    }
 
     fn inherent_reg_stack<M : MemoryIO>(&mut self, mem : &M, diss : &mut InstructionDecoder) { 
         let byte = diss.fetch_byte(mem);

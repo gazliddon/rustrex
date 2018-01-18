@@ -81,8 +81,7 @@ fn create_test_cpu() -> Cpu {
         r.u  = 0x7f34;
         r.dp = 0x0000;
 
-        r.flags.set_flags(Flags::E | Flags::Z, true);
-
+        r.flags.insert(Flags::E | Flags::Z);
     }
 
     cpu
@@ -110,10 +109,7 @@ fn main() {
         println!("{} {:16} {} {:>8}", old_regs_str, txt.to_uppercase(), mem_str, cycles);
 
         cycles = cycles + ins.cycles;
-
     }
-
-
 
 }
 

@@ -29,16 +29,9 @@ impl Flags {
     }
 
     #[inline]
-    pub fn set_flags( &mut self, flags: Flags, condition: bool ) {
-        let status = self.bits;
-        let new_status = if condition { status | flags.bits() } else { status & !flags.bits() };
-        self.bits = new_status;
-    }
-
     pub fn assign_flags(&mut self, val : u8) {
         // basically the ORCC instruction
         // doesn't affect the E flag
-
         let mut new_flags = Flags::new(val);
         new_flags.set(Flags::E, self.contains(Flags::E));
         *self = new_flags;
@@ -52,6 +45,13 @@ impl Flags {
         self.set(Flags::V, false);
 
     }
+
+    pub fn get_v(i0: u8, i1 : u8, r : u8) -> bool {
+        let mut flag = !(i0 ^ i1);
+        flag = flag & (i0 ^ r);
+        flag & 0x80 == 0x80
+    }
+
 
     #[inline]
     pub fn test_16(&mut self, val : u16 ) {

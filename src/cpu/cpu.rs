@@ -1,6 +1,5 @@
 use mem::MemoryIO;
-// use cpu::registers::{ Regs, RegEnum};
-use cpu::{ Regs};
+use cpu::{ Regs, RegEnum, Flags };
 
 #[derive(Default)]
 #[derive(Debug)]
@@ -12,6 +11,30 @@ pub struct InstructionDecoder {
     pub next_addr : u16,
     pub mem : [u8; 4],
     pub operand : u16,
+}
+
+fn get_tfr_reg(op : u8 ) -> RegEnum {
+
+    match op {
+        0 => RegEnum::D,
+        1 => RegEnum::X,
+        2 => RegEnum::Y,
+        3 => RegEnum::U,
+        4 => RegEnum::S,
+        5 => RegEnum::PC,
+        8 => RegEnum::A,
+        9 => RegEnum::B,
+        10 =>RegEnum::CC,
+        11 =>RegEnum::DP,
+        _ => {
+            println!("op of {:02X}", op);
+            panic!("illegal tfr regs")
+        },
+    }
+}
+
+pub fn get_tfr_regs(op : u8) -> (RegEnum, RegEnum) {
+    ( get_tfr_reg(op>>4), get_tfr_reg(op&0xf) )
 }
 
 impl InstructionDecoder {
@@ -80,10 +103,29 @@ impl Cpu {
         }
     }
 }
+//{{{ Helpers
+impl Cpu {
+    fn adc_helper(&mut self, i0 : u8, i1 : u8) -> u8 {
+        let c  = self.regs.get_c();
+
+        let r = ( i0.wrapping_add(i1) ).wrapping_add(c);
+
+        let mut f = self.regs.flags;
+
+        f.set(Flags::H, false);
+        f.set(Flags::V, Flags::get_v(i0, i1, r));
+        f.set(Flags::C, false);
+
+        r
+    }
+}
+// }}}
 
 //{{{ Addressing modes
 
 impl Cpu {
+
+
     fn direct<M: MemoryIO>(&mut self, mem : &M, ins : &mut InstructionDecoder) { 
         let index = ins.fetch_byte(mem) as u16;
         ins.operand = self.regs.get_dp_ptr().wrapping_add(index);
@@ -102,17 +144,19 @@ impl Cpu {
     }
 
     fn inherent<M: MemoryIO>(&mut self, mem : &M, ins : &mut InstructionDecoder) {
+        //don't do anything with inherent
     }
 
     fn inherent_reg_stack<M: MemoryIO>(&mut self, mem : &M, ins : &mut InstructionDecoder) { 
-        panic!("not yet")
+        panic!("no inherent reg stack")
     }
 
     fn inherent_reg_reg<M: MemoryIO>(&mut self, mem : &M, ins : &mut InstructionDecoder) { 
-        panic!("not yet")
+        ins.operand = ins.fetch_byte(mem) as u16;
     }
 
     fn indexed<M: MemoryIO>(&mut self, mem : &M, ins : &mut InstructionDecoder) {
+        panic!("no indexed")
     }
 
     fn relative8<M: MemoryIO>(&mut self, mem : &M, ins : &mut InstructionDecoder) {
@@ -151,391 +195,409 @@ impl  Cpu {
     fn ldu<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
         self.regs.load_u(ins.operand);
     }
-    fn tfr<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
-        panic!("NO!")
+
+    fn adda<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
+        self.regs.clear_c();
+        let v  = self.regs.a;
+        let r = self.adc_helper(v, ins.operand as u8);
+        self.regs.load_a(r);
     }
-    fn lds<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
-        panic!("NO!")
-    }
-    fn abx<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder) {
-        panic!("NO!")
-    }
+
     fn adca<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
-        panic!("NO!")
+        let v  = self.regs.a;
+        let r = self.adc_helper(v, ins.operand as u8);
+        self.regs.load_a(r);
     }
+
+    fn tfr<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
+        let (a,b) = get_tfr_regs(ins.operand as u8);
+        let av = self.regs.get(a);
+        self.regs.set(b, av);
+    }
+
+    fn lds<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
+        self.regs.load_u( mem.load_word(ins.operand) );
+    }
+
+    fn abx<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder) {
+        let x = self.regs.x;
+        self.regs.x = x.wrapping_add(self.regs.b as u16);
+    }
+
 }
 // }}}
 
 // {{{ Op Codes
 impl  Cpu {
     fn adcb<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
-        panic!("NO!")
-    }
-    fn adda<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
-        panic!("NO!")
+        panic!("adcb NO!")
     }
     fn addb<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
-        panic!("NO!")
+        panic!("addb NO!")
     }
     fn addd<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
-        panic!("NO!")
+        panic!("addd NO!")
     }
     fn anda<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
-        panic!("NO!")
+        panic!("anda NO!")
     }
     fn andb<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
-        panic!("NO!")
+        panic!("andb NO!")
     }
     fn andcc<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
-        panic!("NO!")
+        panic!("andcc NO!")
     }
     fn asr<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
-        panic!("NO!")
+        panic!("asr NO!")
     }
     fn asra<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
-        panic!("NO!")
+        panic!("asra NO!")
     }
     fn asrb<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
-        panic!("NO!")
+        panic!("asrb NO!")
     }
     fn beq<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
-        panic!("NO!")
+        panic!("beq NO!")
     }
     fn bge<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
-        panic!("NO!")
+        panic!("bge NO!")
     }
     fn bgt<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
-        panic!("NO!")
+        panic!("bgt NO!")
     }
     fn bhi<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
-        panic!("NO!")
+        panic!("bhi NO!")
     }
     fn bhs_bcc<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
-        panic!("NO!")
+        panic!("bhs_bcc NO!")
     }
     fn bita<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
-        panic!("NO!")
+        panic!("bita NO!")
     }
     fn bitb<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
-        panic!("NO!")
+        panic!("bitb NO!")
     }
     fn ble<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
-        panic!("NO!")
+        panic!("ble NO!")
     }
     fn blo_bcs<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
-        panic!("NO!")
+        panic!("blo_bcs NO!")
     }
     fn bls<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
-        panic!("NO!")
+        panic!("bls NO!")
     }
     fn blt<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
-        panic!("NO!")
+        panic!("bmi NO!")
     }
     fn bmi<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
-        panic!("NO!")
+        panic!("bmi NO!")
     }
     fn bne<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
-        panic!("NO!")
+        panic!("bne NO!")
     }
     fn bpl<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
-        panic!("NO!")
+        panic!("bpl NO!")
     }
     fn bra<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
-        panic!("NO!")
+        panic!("bra NO!")
     }
     fn brn<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
-        panic!("NO!")
+        panic!("brn NO!")
     }
     fn bsr<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
-        panic!("NO!")
+        panic!("bsr NO!")
     }
     fn bvc<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
-        panic!("NO!")
+        panic!("bvc NO!")
     }
     fn bvs<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
-        panic!("NO!")
+        panic!("bvs NO!")
     }
     fn clr<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
-        panic!("NO!")
+        panic!("clr NO!")
     }
     fn clra<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
-        panic!("NO!")
+        panic!("clra NO!")
     }
     fn clrb<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
-        panic!("NO!")
+        panic!("clrb NO!")
     }
     fn cmpa<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
-        panic!("NO!")
+        panic!("cmpa NO!")
     }
     fn cmpb<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
-        panic!("NO!")
+        panic!("cmpb NO!")
     }
     fn cmpx<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
-        panic!("NO!")
+        panic!("com NO!")
     }
     fn com<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
-        panic!("NO!")
+        panic!("com NO!")
     }
     fn coma<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
-        panic!("NO!")
+        panic!("coma NO!")
     }
     fn comb<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
-        panic!("NO!")
+        panic!("comb NO!")
     }
     fn cwai<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
-        panic!("NO!")
+        panic!("cwai NO!")
     }
     fn daa<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
-        panic!("NO!")
+        panic!("daa NO!")
     }
     fn dec<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
-        panic!("NO!")
+        panic!("dec NO!")
     }
     fn deca<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
-        panic!("NO!")
+        panic!("deca NO!")
     }
     fn decb<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
-        panic!("NO!")
+        panic!("decb NO!")
     }
     fn eora<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
-        panic!("NO!")
+        panic!("eora NO!")
     }
     fn eorb<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
-        panic!("NO!")
+        panic!("eorb NO!")
     }
+
     fn exg<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
-        panic!("NO!")
+        panic!("EXG")
     }
+
     fn inc<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
-        panic!("NO!")
+        panic!("inc NO!")
     }
     fn inca<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
         panic!("noy fonr")
     }
     fn incb<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
-        panic!("NO!")
+        panic!("incb NO!")
     }
     fn jmp<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
-        panic!("NO!")
+        panic!("jmp NO!")
     }
     fn jsr<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
-        panic!("NO!")
+        panic!("jsr NO!")
     }
     fn lbra<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
-        panic!("NO!")
+        panic!("lbra NO!")
     }
     fn lbsr<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
-        panic!("NO!")
+        panic!("lbsr NO!")
     }
     fn ldb<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
-        panic!("NO!")
+        panic!("ldb NO!")
     }
     fn ldd<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
-        panic!("NO!")
+        panic!("ldd NO!")
     }
     fn leas<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
-        panic!("NO!")
+        panic!("leas NO!")
     }
     fn leau<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
-        panic!("NO!")
+        panic!("leau NO!")
     }
     fn leax<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
-        panic!("NO!")
+        panic!("leax NO!")
     }
     fn leay<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
-        panic!("NO!")
+        panic!("leay NO!")
     }
     fn lsl_asl<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
-        panic!("NO!")
+        panic!("lsl_asl NO!")
     }
     fn lsla_asla<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
-        panic!("NO!")
+        panic!("lsla_asla NO!")
     }
     fn lslb_aslb<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
-        panic!("NO!")
+        panic!("lslb_aslb NO!")
     }
     fn lsr<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
-        panic!("NO!")
+        panic!("lsr NO!")
     }
     fn lsra<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
-        panic!("NO!")
+        panic!("lsra NO!")
     }
     fn lsrb<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
-        panic!("NO!")
+        panic!("lsrb NO!")
     }
     fn mul<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
-        panic!("NO!")
+        panic!("mul NO!")
     }
     fn neg<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
-        panic!("NO!")
+        panic!("neg NO!")
     }
     fn nega<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
-        panic!("NO!")
+        panic!("nega NO!")
     }
     fn negb<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
-        panic!("NO!")
+        panic!("negb NO!")
     }
     fn nop<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
-        panic!("NO!")
+        panic!("nop NO!")
     }
     fn ora<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
-        panic!("NO!")
+        panic!("ora NO!")
     }
     fn orb<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
-        panic!("NO!")
+        panic!("orb NO!")
     }
     fn pshs<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
-        panic!("NO!")
+        panic!("pshs NO!")
     }
     fn pshu<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
-        panic!("NO!")
+        panic!("pshu NO!")
     }
     fn puls<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
-        panic!("NO!")
+        panic!("puls NO!")
     }
     fn pulu<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
-        panic!("NO!")
+        panic!("pulu NO!")
     }
     fn reset<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
-        panic!("NO!")
+        panic!("reset NO!")
     }
     fn rol<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
-        panic!("NO!")
+        panic!("rol NO!")
     }
     fn rola<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
-        panic!("NO!")
+        panic!("rola NO!")
     }
     fn rolb<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
-        panic!("NO!")
+        panic!("rolb NO!")
     }
     fn ror<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
-        panic!("NO!")
+        panic!("ror NO!")
     }
     fn rora<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
-        panic!("NO!")
+        panic!("rora NO!")
     }
     fn rorb<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
-        panic!("NO!")
+        panic!("rorb NO!")
     }
     fn rti<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
-        panic!("NO!")
+        panic!("rti NO!")
     }
     fn rts<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
-        panic!("NO!")
+        panic!("rts NO!")
     }
     fn sbca<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
-        panic!("NO!")
+        panic!("sbca NO!")
     }
     fn sbcb<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
-        panic!("NO!")
+        panic!("sbcb NO!")
     }
     fn sex<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
-        panic!("NO!")
+        panic!("sex NO!")
     }
     fn stb<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
-        panic!("NO!")
+        panic!("stb NO!")
     }
     fn std<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
-        panic!("NO!")
+        panic!("std NO!")
     }
     fn stu<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
-        panic!("NO!")
+        panic!("stu NO!")
     }
     fn suba<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
-        panic!("NO!")
+        panic!("suba NO!")
     }
     fn subb<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
-        panic!("NO!")
+        panic!("subb NO!")
     }
     fn subd<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
-        panic!("NO!")
+        panic!("subd NO!")
     }
     fn swi<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
-        panic!("NO!")
+        panic!("swi NO!")
     }
     fn sync<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
-        panic!("NO!")
+        panic!("sync NO!")
     }
     fn tst<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
-        panic!("NO!")
+        panic!("tst NO!")
     }
     fn tsta<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
-        panic!("NO!")
+        panic!("tsta NO!")
     }
     fn tstb<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
-        panic!("NO!")
+        panic!("tstb NO!")
     }
     fn swi3<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
-        panic!("NO!")
+        panic!("swi3 NO!")
     }
     fn cmpu<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
-        panic!("NO!")
+        panic!("cmpu NO!")
     }
     fn cmps<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
-        panic!("NO!")
+        panic!("cmps NO!")
     }
     fn lbrn<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
-        panic!("NO!")
+        panic!("lbrn NO!")
     }
     fn lbhi<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
-        panic!("NO!")
+        panic!("lbhi NO!")
     }
     fn lbls<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
-        panic!("NO!")
+        panic!("lbls NO!")
     }
     fn lbhs_lbcc<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
-        panic!("NO!")
+        panic!("lbhs_lbcc NO!")
     }
     fn lblo_lbcs<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
-        panic!("NO!")
+        panic!("lblo_lbcs NO!")
     }
     fn lbne<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
-        panic!("NO!")
+        panic!("lbne NO!")
     }
     fn lbeq<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
-        panic!("NO!")
+        panic!("lbeq NO!")
     }
     fn lbvc<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
-        panic!("NO!")
+        panic!("lbvc NO!")
     }
     fn lbvs<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
-        panic!("NO!")
+        panic!("lbvs NO!")
     }
     fn lbpl<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
-        panic!("NO!")
+        panic!("lbpl NO!")
     }
     fn lbmi<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
-        panic!("NO!")
+        panic!("lbmi NO!")
     }
     fn lbge<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
-        panic!("NO!")
+        panic!("lbge NO!")
     }
     fn lblt<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
-        panic!("NO!")
+        panic!("lblt NO!")
     }
     fn lbgt<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
-        panic!("NO!")
+        panic!("lbgt NO!")
     }
     fn swi2<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
-        panic!("NO!")
+        panic!("swi2 NO!")
     }
     fn cmpd<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
-        panic!("NO!")
+        panic!("cmpd NO!")
     }
     fn cmpy<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
-        panic!("NO!")
+        panic!("cmpy NO!")
     }
     fn ldy<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
-        panic!("NO!")
+        panic!("ldy NO!")
     }
     fn lble<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
-        panic!("NO!")
+        panic!("lble NO!")
     }
     fn sty<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
-        panic!("NO!")
+        panic!("sty NO!")
     }
+
     fn sts<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
-        panic!("NO!")
+        mem.store_word(ins.operand, self.regs.s);
+        self.regs.flags.test_16(self.regs.s)
     }
 
     fn unimplemented(&mut self, op_code: u16) {
