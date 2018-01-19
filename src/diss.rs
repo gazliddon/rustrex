@@ -128,9 +128,7 @@ impl Disassembler {
 
     fn immediate16<M : MemoryIO>(&mut self, mem : &M, diss : &mut InstructionDecoder) { self.from_word_op("#OP", mem, diss) }
 
-    fn inherent<M : MemoryIO>(&mut self, mem : &M, diss : &mut InstructionDecoder) {
-        self.text.clear();
-    }
+    fn inherent<M : MemoryIO>(&mut self, mem : &M, diss : &mut InstructionDecoder) { }
 
     fn inherent_reg_stack<M : MemoryIO>(&mut self, mem : &M, diss : &mut InstructionDecoder) { 
         let byte = diss.fetch_byte(mem);
@@ -379,6 +377,7 @@ impl Disassembler {
     fn unimplemented(&mut self, op : u16) { panic!("??? Unimplemented") }
 
     pub fn diss<M: MemoryIO>(&mut self, mem : &M, addr : u16, syms : Option<&SymTab> ) -> (InstructionDecoder, String) {
+        self.text.clear();
         let mut diss = InstructionDecoder::new(addr);
         let op = diss.fetch_instruction(mem);
         decode_op!(op, self, mem, &mut diss);
