@@ -1,13 +1,12 @@
 #![allow(dead_code)]
 #![allow(unused_variables)]
 
+#[macro_use] extern crate lazy_static;
 #[macro_use] extern crate bitflags;
 #[macro_use] extern crate serde_derive;
 extern crate serde_yaml;
 
 extern crate regex;
-
-#[macro_use] extern crate lazy_static;
 #[macro_use] mod cpu;
 
 mod mem;
@@ -18,9 +17,9 @@ mod diss;
 mod proclog;
 
 use proclog::{Step};
-use symtab::SymbolTable;
+// use symtab::SymbolTable;
 use mem::{MemoryIO, MemMap};
-use cpu::{Cpu, Flags};
+use cpu::{Cpu };
 
 // use mem::{MemoryIO};
 
@@ -67,56 +66,47 @@ static DEF_MACHINE: MachineInit = MachineInit {
         RomInit( "utils/6809/6809all.raw", 0x1000 ) ],
 };
 
-fn create_test_cpu() -> Cpu {
-
-    let mut cpu = Cpu::new();
-
-    {
-        let r = &mut cpu.regs;
-
-        r.set_d(0x44);
-
-        r.pc = 0x1000;
-        r.x  = 0xabab;
-        r.y  = 0xaaf1;
-        r.s  = 0x02e0;
-        r.u  = 0x7f34;
-        r.dp = 0x0000;
-
-        r.flags.insert(Flags::E | Flags::Z);
-    }
-
-    cpu
-}
-
-impl Step {
-
-
-}
-
 fn main() {
-    use proclog::read_step_log;
+
+    use proclog::{read_step_log, read_step_log_lines};
+
+    let log_file_name = "utils/6809/6809.log";
+
+    let steps = read_step_log(log_file_name);
+    let lines = read_step_log_lines(log_file_name);
 
     let mut mem = DEF_MACHINE.create_memmap();
-    let steps = read_step_log("utils/6809/6809.log");
+    let mut cpu = Cpu::from_regs(&steps[0].regs);
 
-    let mut cpu = Cpu::new();
     let mut cycles = 0;
 
-    cpu.regs = steps[0].regs.clone();
-
     for s in 0..20 {
+
+        let log_step = &steps[s];
         let sim_step = Step::from_sim(&mem, &cpu.regs, cycles);
+
         let ins = cpu.step(&mut mem);
 
-        println!("{}", steps[s]);
-        println!("{}", sim_step);
-        println!("");
+        let comp = log_step.compare(&sim_step);
+
+
+        if comp.regs == false {
+            println!("{}", log_step);
+            println!("{}", sim_step);
+            println!("");
+
+            println!("log: {:?} {}", log_step.regs, log_step.regs.flags.bits());
+            println!("sim: {:?} {}", sim_step.regs, sim_step.regs.flags.bits() );
+            println!("");
+
+            println!("{:?}", comp );
+
+            panic!("fix this!")
+
+        }
 
         cycles = cycles + ins.cycles;
     }
-
-
 
 }
 

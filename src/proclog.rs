@@ -11,10 +11,18 @@ use diss::Disassembler;
 use std::fmt;
 
 #[derive(Debug, Clone, Default)]
+pub struct StepError {
+    pub regs         : bool,
+    pub disassembly  : bool,
+    pub mem          : bool,
+    pub cycles_so_far: bool,
+}
+
+#[derive(Debug, Clone, Default)]
 pub struct Step {
-    pub regs : Regs,
-    pub disassembly: String,
-    pub mem : [ u8; 5],
+    pub regs         : Regs,
+    pub disassembly  : String,
+    pub mem          : [ u8; 5],
     pub cycles_so_far: usize,
 }
 
@@ -22,40 +30,34 @@ impl fmt::Display for Step {
 
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
 
-        let r  = &self.regs;
-
         let mem_str = format!("{:02x} {:02x} {:02x} {:02x} {:02x}", 
-                              self.mem[0],
-                              self.mem[1],
-                              self.mem[2],
-                              self.mem[3],
-                              self.mem[4]);
-
-        // pc d x y s u dp
+                              self.mem[0], self.mem[1],
+                              self.mem[2], self.mem[3], self.mem[4]);
 
         write!(f,
-               "{:04x} {:04x} {:04x} {:04x} {:04x} {:04x} {:02x} {:08b} {} {} {}",
-               r.pc,
-               r.get_d(),
-               r.x,
-               r.y,
-               r.u,
-               r.u,
-               r.dp,
-               r.flags.bits(),
+               "{} {:16} {} {:>8}",
+               self.regs,
                self.disassembly.to_uppercase(),
                mem_str,
-               self.cycles_so_far
-              )
+               self.cycles_so_far)
     }
 }
 
 
 impl Step {
 
+    pub fn compare(&self, other : &Self) -> StepError {
+
+        StepError {
+            regs         : self.regs == other.regs,
+            disassembly  : self.disassembly == other.disassembly,
+            mem          : self.mem == other.mem,
+            cycles_so_far: self.cycles_so_far == other.cycles_so_far,
+        }
+    }
 
     fn grab_mem<M : MemoryIO>(&mut self, mem : &M, addr : u16) {
-        for i in 0..6 {
+        for i in 0..5 {
             self.mem[i] = mem.load_byte(addr.wrapping_add(i as u16));
         }
     }
@@ -78,7 +80,6 @@ impl Step {
     }
 
     pub fn from_string(text :&String) -> Result<Step, String> {
-
         lazy_static!{
             static ref RE : Regex =
                 Regex::new(r"(?x)^
@@ -107,7 +108,7 @@ impl Step {
         let as_u8_from_bin = |i:&str| u32::from_str_radix(&captures[i], 2).unwrap() as u8;
         let as_u8 = |i:&str| u32::from_str_radix(&captures[i], 16).unwrap() as u8;
         let as_u16 = |i:&str| u32::from_str_radix(&captures[i], 16).unwrap() as u16;
-        let as_usize = |i:&str| usize::from_str_radix(&captures[i], 16).unwrap();
+        let as_usize = |i:&str| usize::from_str_radix(&captures[i], 10).unwrap();
         let as_string = |i:&str| captures[i].to_string();
 
         let mut regs = Regs {
@@ -141,6 +142,16 @@ impl Step {
     fn to_string(&self) -> String {
         panic!("fucked!")
     }
+}
+pub fn read_step_log_lines( file_name : &str) -> Vec<String> {
+    let f = File::open(file_name).unwrap();
+
+    let r = BufReader::new(&f)
+        .lines()
+        .filter_map(|l| l.ok())
+        .collect();
+
+    r
 }
 
 pub fn read_step_log( file_name : &str) -> Vec<Step> {

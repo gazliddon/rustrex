@@ -39,6 +39,7 @@ pub fn get_tfr_regs(op : u8) -> (RegEnum, RegEnum) {
 
 impl InstructionDecoder {
 
+
     pub fn new(addr: u16)-> Self {
         InstructionDecoder {
             addr : addr,
@@ -102,6 +103,13 @@ impl Cpu {
             regs: Regs::new(),
         }
     }
+
+    pub fn from_regs(regs : &Regs) ->  Cpu {
+        Cpu {
+            regs : regs.clone(),
+        }
+    }
+
 }
 //{{{ Helpers
 impl Cpu {
@@ -175,7 +183,7 @@ impl Cpu {
 // {{{ Todo next!
 impl  Cpu {
     fn orcc<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
-        self.regs.flags.assign_flags(ins.operand as u8);
+        self.regs.flags.or_flags(ins.operand as u8);
     }
 
     fn ldx<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {

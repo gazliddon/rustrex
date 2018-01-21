@@ -31,12 +31,8 @@ impl Flags {
     }
 
     #[inline]
-    pub fn assign_flags(&mut self, val : u8) {
-        // basically the ORCC instruction
-        // doesn't affect the E flag
-        let mut new_flags = Flags::new(val);
-        new_flags.set(Flags::E, self.contains(Flags::E));
-        *self = new_flags;
+    pub fn or_flags(&mut self, val : u8) {
+        self.bits = self.bits | val;
     }
 
 
