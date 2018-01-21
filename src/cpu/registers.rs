@@ -5,7 +5,7 @@ pub enum RegEnum {
     A, B, X, Y, U, S, D, DP, CC, PC
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Default)]
 pub struct Regs {
     pub a : u8,
     pub b : u8,

@@ -17,14 +17,12 @@ mod utils;
 mod diss;
 mod proclog;
 
+use proclog::{Step};
 use symtab::SymbolTable;
-use diss::Disassembler;
 use mem::{MemoryIO, MemMap};
-
 use cpu::{Cpu, Flags};
 
 // use mem::{MemoryIO};
-
 
 ////////////////////////////////////////////////////////////////////////////////
 struct MemInit(&'static str, bool, u16, u16);
@@ -91,41 +89,32 @@ fn create_test_cpu() -> Cpu {
     cpu
 }
 
+impl Step {
+
+
+}
+
 fn main() {
     use proclog::read_step_log;
+
+    let mut mem = DEF_MACHINE.create_memmap();
     let steps = read_step_log("utils/6809/6809.log");
 
-    for s in steps {
-        println!("{:?}", s)
+    let mut cpu = Cpu::new();
+    let mut cycles = 0;
 
+    cpu.regs = steps[0].regs.clone();
+
+    for s in 0..20 {
+        let sim_step = Step::from_sim(&mem, &cpu.regs, cycles);
+        let ins = cpu.step(&mut mem);
+
+        println!("{}", steps[s]);
+        println!("{}", sim_step);
+        println!("");
+
+        cycles = cycles + ins.cycles;
     }
-
-    if false {
-
-        let syms = SymbolTable::new("resources/syms.yaml");
-
-        let mut mm = DEF_MACHINE.create_memmap();
-        let mut diss = Disassembler::new();
-
-        let mut cpu = create_test_cpu();
-
-        let mut cycles = 0;
-
-        for i in 0..30 {
-
-            let old_regs_str = format!("{}", cpu.regs);
-            let mem_str = mm.get_mem_as_str(cpu.regs.pc, 5).to_lowercase();
-
-            let (ins, txt) =  diss.diss(&mm, cpu.regs.pc,Some(&syms));
-
-            let i = cpu.step(&mut mm);
-
-            println!("{} {:16} {} {:>8}", old_regs_str, txt.to_uppercase(), mem_str, cycles);
-
-            cycles = cycles + ins.cycles;
-        }
-    }
-
 
 
 
