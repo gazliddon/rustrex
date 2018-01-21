@@ -80,23 +80,22 @@ fn main() {
 
     let mut cycles = 0;
 
-    for s in 0..20 {
+    for log_step in steps {
 
-        let log_step = &steps[s];
         let sim_step = Step::from_sim(&mem, &cpu.regs, cycles);
 
         let ins = cpu.step(&mut mem);
 
         let comp = log_step.compare(&sim_step);
 
+        println!("{} {:?}", log_step, log_step.regs.flags);
+        println!("{} {:?}", sim_step, sim_step.regs.flags);
+        println!("");
 
         if comp.regs == false {
-            println!("{}", log_step);
-            println!("{}", sim_step);
-            println!("");
 
-            println!("log: {:?} {}", log_step.regs, log_step.regs.flags.bits());
-            println!("sim: {:?} {}", sim_step.regs, sim_step.regs.flags.bits() );
+            println!("log: {:?} {} {:?}", log_step.regs, log_step.regs.flags.bits(), log_step.regs.flags);
+            println!("sim: {:?} {} {:?}", sim_step.regs, sim_step.regs.flags.bits(), sim_step.regs.flags );
             println!("");
 
             println!("{:?}", comp );

@@ -136,11 +136,14 @@ impl Cpu {
 
     fn direct<M: MemoryIO>(&mut self, mem : &M, ins : &mut InstructionDecoder) { 
         let index = ins.fetch_byte(mem) as u16;
-        ins.operand = self.regs.get_dp_ptr().wrapping_add(index);
+        let addr = self.regs.get_dp_ptr().wrapping_add(index);
+
+        ins.operand = mem.load_byte(addr) as u16;
     }
 
     fn extended<M: MemoryIO>(&mut self, mem : &M, ins : &mut InstructionDecoder) { 
-        ins.operand = ins.fetch_word(mem);
+        let addr = ins.fetch_word(mem);
+        ins.operand = mem.load_byte(addr) as u16;
     }
 
     fn immediate8<M: MemoryIO>(&mut self, mem : &M, ins : &mut InstructionDecoder) { 
@@ -224,7 +227,7 @@ impl  Cpu {
     }
 
     fn lds<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
-        self.regs.load_u( mem.load_word(ins.operand) );
+        self.regs.load_s(ins.operand );
     }
 
     fn abx<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder) {
