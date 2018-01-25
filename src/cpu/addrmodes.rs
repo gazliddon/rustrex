@@ -4,16 +4,16 @@ use cpu::{ Regs, InstructionDecoder };
 trait AddressLines {
     fn get(&self) -> u16;
 
-    fn load_byte<M: MemoryIO>(&self, mem : &M, regs : &mut Regs) -> u8 {
+    fn load_byte<M: MemoryIO>(&self, mem : &M, regs : &mut Regs, ins : &InstructionDecoder) -> u8 {
         mem.load_byte(self.get())
     }
 
-    fn load_word<M: MemoryIO>(&self, mem : &M, regs : &mut Regs) -> u16 {
+    fn load_word<M: MemoryIO>(&self, mem : &M, regs : &mut Regs, ins : &InstructionDecoder) -> u16 {
         mem.load_word(self.get())
     }
 }
 
-
+////////////////////////////////////////////////////////////////////////////////
 struct Direct {
     addr : u16,
 }
@@ -34,15 +34,137 @@ impl AddressLines for Direct {
 }
 
 
-struct Extended {}
+////////////////////////////////////////////////////////////////////////////////
+struct Extended {
 
-struct Immediate {}
+}
+impl Extended {
+    fn new<M: MemoryIO>(mem : &M, regs : &Regs, ins : &mut InstructionDecoder) -> Extended {
+        Extended {
+        }
+    }
+}
 
-struct Inherent {}
+impl AddressLines for Extended {
+    fn get(&self) -> u16 {
+        panic!("no")
+    }
 
-struct Indexed {}
+    fn load_byte<M: MemoryIO>(&self, mem : &M, regs : &mut Regs, ins : &InstructionDecoder) -> u8 {
+        panic!("no")
+    }
 
-struct Relative {}
+    fn load_word<M: MemoryIO>(&self, mem : &M, regs : &mut Regs, ins : &InstructionDecoder) -> u16 {
+        panic!("no")
+    }
 
+}
+
+////////////////////////////////////////////////////////////////////////////////
+struct Immediate {
+
+}
+impl Immediate {
+    fn new<M: MemoryIO>(mem : &M, regs : &Regs, ins : &mut InstructionDecoder) -> Immediate {
+        Immediate {
+        }
+    }
+}
+
+impl AddressLines for Immediate {
+    fn get(&self) -> u16 {
+        panic!("no")
+    }
+
+    fn load_byte<M: MemoryIO>(&self, mem : &M, regs : &mut Regs, ins : &InstructionDecoder) -> u8 {
+        panic!("no")
+    }
+
+    fn load_word<M: MemoryIO>(&self, mem : &M, regs : &mut Regs, ins : &InstructionDecoder) -> u16 {
+        panic!("no")
+    }
+
+}
+
+////////////////////////////////////////////////////////////////////////////////
+struct Inherent {
+
+}
+impl Inherent {
+    fn new<M: MemoryIO>(mem : &M, regs : &Regs, ins : &mut InstructionDecoder) -> Inherent {
+        Inherent {
+        }
+    }
+
+}
+impl AddressLines for Inherent {
+    fn get(&self) -> u16 {
+        panic!("no")
+    }
+
+    fn load_byte<M: MemoryIO>(&self, mem : &M, regs : &mut Regs, ins : &InstructionDecoder) -> u8 {
+        panic!("no")
+    }
+
+    fn load_word<M: MemoryIO>(&self, mem : &M, regs : &mut Regs, ins : &InstructionDecoder) -> u16 {
+        panic!("no")
+    }
+
+}
+
+////////////////////////////////////////////////////////////////////////////////
+struct Indexed {
+}
+
+impl Indexed {
+    fn new<M: MemoryIO>(mem : &M, regs : &Regs, ins : &mut InstructionDecoder) -> Indexed {
+        Indexed {
+        }
+
+    }
+}
+
+impl AddressLines for Indexed {
+    fn get(&self) -> u16 {
+        panic!("no")
+    }
+
+    fn load_byte<M: MemoryIO>(&self, mem : &M, regs : &mut Regs, ins : &InstructionDecoder) -> u8 {
+        panic!("no")
+    }
+
+    fn load_word<M: MemoryIO>(&self, mem : &M, regs : &mut Regs, ins : &InstructionDecoder) -> u16 {
+        panic!("no")
+    }
+
+}
+
+////////////////////////////////////////////////////////////////////////////////
+struct Relative {
+
+}
+impl Relative {
+    fn new<M: MemoryIO>(mem : &M, regs : &Regs, ins : &mut InstructionDecoder) -> Relative {
+        Relative {
+        }
+
+    }
+}
+impl AddressLines for Relative {
+    fn get(&self) -> u16 {
+        panic!("no")
+    }
+
+    fn load_byte<M: MemoryIO>(&self, mem : &M, regs : &mut Regs, ins : &InstructionDecoder) -> u8 {
+        panic!("no")
+    }
+
+    fn load_word<M: MemoryIO>(&self, mem : &M, regs : &mut Regs, ins : &InstructionDecoder) -> u16 {
+        panic!("no")
+    }
+
+}
+
+////////////////////////////////////////////////////////////////////////////////
 
 
