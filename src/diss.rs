@@ -122,7 +122,8 @@ fn regs_to_str(byte : u8, f : fn(u8) -> Vec<RegEnum>) ->  String {
 impl Disassembler {
     fn direct<M : MemoryIO>(&mut self, mem : &M, diss : &mut InstructionDecoder) { self.from_byte_op("<OP", mem,diss) }
 
-    fn extended<M : MemoryIO>(&mut self, mem : &M, diss : &mut InstructionDecoder) { self.from_word_op("OP", mem, diss) }
+    fn extended_16<M : MemoryIO>(&mut self, mem : &M, diss : &mut InstructionDecoder) { self.from_word_op("OP", mem, diss) }
+    fn extended_8<M : MemoryIO>(&mut self, mem : &M, diss : &mut InstructionDecoder) { self.from_word_op("OP", mem, diss) }
 
     fn immediate8<M : MemoryIO>(&mut self, mem : &M, diss : &mut InstructionDecoder) { self.from_byte_op("#OP", mem, diss) }
 

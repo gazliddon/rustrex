@@ -131,19 +131,31 @@ impl Cpu {
 
 //{{{ Addressing modes
 
+
 impl Cpu {
 
+    fn direct_ea<M: MemoryIO>(&mut self, mem : &M, ins : &mut InstructionDecoder) -> u16 {
+        let index = ins.fetch_byte(mem) as u16;
+        self.regs.get_dp_ptr().wrapping_add(index)
+    }
+
+    fn extended_ea<M: MemoryIO>(&mut self, mem : &M, ins : &mut InstructionDecoder) -> u16 {
+        ins.fetch_word(mem)
+    }
 
     fn direct<M: MemoryIO>(&mut self, mem : &M, ins : &mut InstructionDecoder) { 
-        let index = ins.fetch_byte(mem) as u16;
-        let addr = self.regs.get_dp_ptr().wrapping_add(index);
-
+        let addr = self.direct_ea(mem, ins);
         ins.operand = mem.load_byte(addr) as u16;
     }
 
-    fn extended<M: MemoryIO>(&mut self, mem : &M, ins : &mut InstructionDecoder) { 
-        let addr = ins.fetch_word(mem);
+    fn extended_8<M: MemoryIO>(&mut self, mem : &M, ins : &mut InstructionDecoder) { 
+        let addr = self.extended_ea(mem, ins);
         ins.operand = mem.load_byte(addr) as u16;
+    }
+
+    fn extended_16<M: MemoryIO>(&mut self, mem : &M, ins : &mut InstructionDecoder) { 
+        let addr = self.extended_ea(mem, ins);
+        ins.operand = mem.load_word(addr) as u16;
     }
 
     fn immediate8<M: MemoryIO>(&mut self, mem : &M, ins : &mut InstructionDecoder) { 

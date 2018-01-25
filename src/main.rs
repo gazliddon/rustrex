@@ -67,7 +67,6 @@ static DEF_MACHINE: MachineInit = MachineInit {
 };
 
 fn main() {
-
     use proclog::{read_step_log, read_step_log_lines};
 
     let log_file_name = "utils/6809/6809.log";
@@ -79,6 +78,8 @@ fn main() {
     let mut cpu = Cpu::from_regs(&steps[0].regs);
 
     let mut cycles = 0;
+
+    let mut step_i = 0;
 
     for log_step in steps {
 
@@ -105,6 +106,8 @@ fn main() {
         }
 
         cycles = cycles + ins.cycles;
+
+        step_i = step_i + 1;
     }
 
 }
