@@ -142,6 +142,14 @@ impl Disassembler {
         self.text = regs_to_str(byte,tfr_regs)
     }
 
+    fn indexed_8<M : MemoryIO>(&mut self, mem : &M, diss : &mut InstructionDecoder) {
+        self.indexed(mem,diss)
+    }
+
+    fn indexed_16<M : MemoryIO>(&mut self, mem : &M, diss : &mut InstructionDecoder) {
+        self.indexed(mem,diss)
+    }
+
     fn indexed<M : MemoryIO>(&mut self, mem : &M, diss : &mut InstructionDecoder) {
 
         let iflags = IndexedFlags::new(diss.fetch_byte(mem));
