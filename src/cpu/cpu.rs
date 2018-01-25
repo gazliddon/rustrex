@@ -143,9 +143,14 @@ impl Cpu {
         ins.fetch_word(mem)
     }
 
-    fn direct<M: MemoryIO>(&mut self, mem : &M, ins : &mut InstructionDecoder) { 
+    fn direct_8<M: MemoryIO>(&mut self, mem : &M, ins : &mut InstructionDecoder) { 
         let addr = self.direct_ea(mem, ins);
         ins.operand = mem.load_byte(addr) as u16;
+    }
+
+    fn direct_16<M: MemoryIO>(&mut self, mem : &M, ins : &mut InstructionDecoder) { 
+        let addr = self.direct_ea(mem, ins);
+        ins.operand = mem.load_word(addr);
     }
 
     fn extended_8<M: MemoryIO>(&mut self, mem : &M, ins : &mut InstructionDecoder) { 
