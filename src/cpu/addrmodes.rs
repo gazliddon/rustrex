@@ -1,166 +1,121 @@
 use mem::MemoryIO;
 use cpu::{ Regs, InstructionDecoder };
 
-trait AddressLines {
-    fn get(&self) -> u16;
-
-    fn load_byte<M: MemoryIO>(&self, mem : &M, regs : &mut Regs, ins : &InstructionDecoder) -> u8 {
-        mem.load_byte(self.get())
-    }
-
-    fn load_word<M: MemoryIO>(&self, mem : &M, regs : &mut Regs, ins : &InstructionDecoder) -> u16 {
-        mem.load_word(self.get())
-    }
+pub trait AddressLines {
+    #[inline(always)]
+    fn fetch_byte<M: MemoryIO>(mem : &M, regs : &mut Regs, ins : &mut InstructionDecoder) -> u8;
+    #[inline(always)]
+    fn fetch_word<M: MemoryIO>(mem : &M, regs : &mut Regs, ins : &mut InstructionDecoder) -> u16;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-struct Direct {
-    addr : u16,
-}
+pub struct Direct { }
 
 impl Direct {
-    fn new<M: MemoryIO>(mem : &M, regs : &Regs, ins : &mut InstructionDecoder) -> Direct {
+
+    #[inline(always)]
+    fn ea<M: MemoryIO>(mem : &M, regs : &mut Regs, ins : &mut InstructionDecoder) -> u16 {
         let index = ins.fetch_byte(mem) as u16;
-        Direct { 
-            addr: regs.get_dp_ptr().wrapping_add(index)
-        }
+        regs.get_dp_ptr().wrapping_add(index)
     }
 }
 
 impl AddressLines for Direct {
-    fn get(&self) -> u16 {
-        self.addr
+    #[inline(always)]
+    fn fetch_byte<M: MemoryIO>( mem : &M, regs : &mut Regs, ins : &mut InstructionDecoder) -> u8 {
+        mem.load_byte(Self::ea(mem,regs,ins))
+    }
+
+    #[inline(always)]
+    fn fetch_word<M: MemoryIO>( mem : &M, regs : &mut Regs, ins : &mut InstructionDecoder) -> u16 {
+        mem.load_word(Self::ea(mem,regs,ins))
     }
 }
 
 
 ////////////////////////////////////////////////////////////////////////////////
-struct Extended {
+pub struct Extended { }
 
-}
 impl Extended {
-    fn new<M: MemoryIO>(mem : &M, regs : &Regs, ins : &mut InstructionDecoder) -> Extended {
-        Extended {
-        }
+    #[inline(always)]
+    fn ea<M: MemoryIO>(mem : &M, regs : &mut Regs, ins : &mut InstructionDecoder) -> u16 {
+        ins.fetch_word(mem)
     }
 }
 
 impl AddressLines for Extended {
-    fn get(&self) -> u16 {
-        panic!("no")
+    #[inline(always)]
+    fn fetch_byte<M: MemoryIO>( mem : &M, regs : &mut Regs, ins : &mut InstructionDecoder) -> u8 {
+        let addr = Self::ea(mem,regs,ins);
+        mem.load_byte(addr)
     }
 
-    fn load_byte<M: MemoryIO>(&self, mem : &M, regs : &mut Regs, ins : &InstructionDecoder) -> u8 {
-        panic!("no")
+    #[inline(always)]
+    fn fetch_word<M: MemoryIO>(mem : &M, regs : &mut Regs, ins : &mut InstructionDecoder) -> u16 {
+        let addr = Self::ea(mem,regs,ins);
+        mem.load_word(addr)
     }
-
-    fn load_word<M: MemoryIO>(&self, mem : &M, regs : &mut Regs, ins : &InstructionDecoder) -> u16 {
-        panic!("no")
-    }
-
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-struct Immediate {
-
-}
-impl Immediate {
-    fn new<M: MemoryIO>(mem : &M, regs : &Regs, ins : &mut InstructionDecoder) -> Immediate {
-        Immediate {
-        }
-    }
-}
+pub struct Immediate { }
 
 impl AddressLines for Immediate {
-    fn get(&self) -> u16 {
-        panic!("no")
+    #[inline(always)]
+    fn fetch_byte<M: MemoryIO>(mem : &M, regs : &mut Regs, ins : &mut InstructionDecoder) -> u8 {
+        ins.fetch_byte(mem)
     }
 
-    fn load_byte<M: MemoryIO>(&self, mem : &M, regs : &mut Regs, ins : &InstructionDecoder) -> u8 {
-        panic!("no")
-    }
-
-    fn load_word<M: MemoryIO>(&self, mem : &M, regs : &mut Regs, ins : &InstructionDecoder) -> u16 {
-        panic!("no")
+    #[inline(always)]
+    fn fetch_word<M: MemoryIO>(mem : &M, regs : &mut Regs, ins : &mut InstructionDecoder) -> u16 {
+        ins.fetch_word(mem)
     }
 
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-struct Inherent {
+pub struct Inherent { }
 
-}
-impl Inherent {
-    fn new<M: MemoryIO>(mem : &M, regs : &Regs, ins : &mut InstructionDecoder) -> Inherent {
-        Inherent {
-        }
-    }
-
-}
 impl AddressLines for Inherent {
-    fn get(&self) -> u16 {
+    #[inline(always)]
+    fn fetch_byte<M: MemoryIO>(mem : &M, regs : &mut Regs, ins : &mut InstructionDecoder) -> u8 {
         panic!("no")
     }
 
-    fn load_byte<M: MemoryIO>(&self, mem : &M, regs : &mut Regs, ins : &InstructionDecoder) -> u8 {
-        panic!("no")
-    }
-
-    fn load_word<M: MemoryIO>(&self, mem : &M, regs : &mut Regs, ins : &InstructionDecoder) -> u16 {
+    #[inline(always)]
+    fn fetch_word<M: MemoryIO>(mem : &M, regs : &mut Regs, ins : &mut InstructionDecoder) -> u16 {
         panic!("no")
     }
 
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-struct Indexed {
-}
-
-impl Indexed {
-    fn new<M: MemoryIO>(mem : &M, regs : &Regs, ins : &mut InstructionDecoder) -> Indexed {
-        Indexed {
-        }
-
-    }
-}
+pub struct Indexed { }
 
 impl AddressLines for Indexed {
-    fn get(&self) -> u16 {
+    #[inline(always)]
+    fn fetch_byte<M: MemoryIO>(mem : &M, regs : &mut Regs, ins : &mut InstructionDecoder) -> u8 {
         panic!("no")
     }
 
-    fn load_byte<M: MemoryIO>(&self, mem : &M, regs : &mut Regs, ins : &InstructionDecoder) -> u8 {
+    #[inline(always)]
+    fn fetch_word<M: MemoryIO>(mem : &M, regs : &mut Regs, ins : &mut InstructionDecoder) -> u16 {
         panic!("no")
     }
-
-    fn load_word<M: MemoryIO>(&self, mem : &M, regs : &mut Regs, ins : &InstructionDecoder) -> u16 {
-        panic!("no")
-    }
-
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-struct Relative {
+pub struct Relative { }
 
-}
-impl Relative {
-    fn new<M: MemoryIO>(mem : &M, regs : &Regs, ins : &mut InstructionDecoder) -> Relative {
-        Relative {
-        }
-
-    }
-}
 impl AddressLines for Relative {
-    fn get(&self) -> u16 {
-        panic!("no")
+    #[inline(always)]
+    fn fetch_byte<M: MemoryIO>(mem : &M, regs : &mut Regs, ins : &mut InstructionDecoder) -> u8 {
+        ins.fetch_byte(mem)
     }
 
-    fn load_byte<M: MemoryIO>(&self, mem : &M, regs : &mut Regs, ins : &InstructionDecoder) -> u8 {
-        panic!("no")
-    }
-
-    fn load_word<M: MemoryIO>(&self, mem : &M, regs : &mut Regs, ins : &InstructionDecoder) -> u16 {
-        panic!("no")
+    #[inline(always)]
+    fn fetch_word<M: MemoryIO>(mem : &M, regs : &mut Regs, ins : &mut InstructionDecoder) -> u16 {
+        ins.fetch_word(mem)
     }
 
 }

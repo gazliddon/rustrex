@@ -75,7 +75,7 @@ fn main() {
     let lines = read_step_log_lines(log_file_name);
 
     let mut mem = DEF_MACHINE.create_memmap();
-    let mut cpu = Cpu::from_regs(&steps[0].regs);
+    let mut cpu = Cpu::from_regs(steps[0].regs.clone());
 
     let mut cycles = 0;
 
@@ -102,7 +102,6 @@ fn main() {
             println!("{:?}", comp );
 
             panic!("fix this!")
-
         }
 
         cycles = cycles + ins.cycles;

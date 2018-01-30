@@ -1,6 +1,7 @@
 use mem::MemoryIO;
-use cpu::{ Regs, RegEnum, Flags, InstructionDecoder };
+use cpu::{ Regs, RegEnum, Flags, InstructionDecoder};
 
+use cpu::{AddressLines, Direct, Extended, Immediate, Inherent, Relative, Indexed};
 
 pub fn get_tfr_regs(op : u8) -> (RegEnum, RegEnum) {
     ( get_tfr_reg(op>>4), get_tfr_reg(op&0xf) )
@@ -26,6 +27,15 @@ fn get_tfr_reg(op : u8 ) -> RegEnum {
     }
 }
 
+pub fn test1<A: AddressLines>() -> u8 {
+    0
+}
+
+pub fn test2() {
+    let a = test1::<Direct>();
+
+}
+
 
 // {{{
 pub struct Cpu {
@@ -39,9 +49,9 @@ impl Cpu {
         }
     }
 
-    pub fn from_regs(regs : &Regs) ->  Cpu {
+    pub fn from_regs(regs : Regs) ->  Cpu {
         Cpu {
-            regs : regs.clone(),
+            regs : regs,
         }
     }
 
@@ -65,512 +75,454 @@ impl Cpu {
 // }}}
 
 
-
-
-//{{{ Addressing modes
-
-
-impl Cpu {
-
-    fn direct_ea<M: MemoryIO>(&mut self, mem : &M, ins : &mut InstructionDecoder) -> u16 {
-        let index = ins.fetch_byte(mem) as u16;
-        self.regs.get_dp_ptr().wrapping_add(index)
-    }
-
-    fn extended_ea<M: MemoryIO>(&mut self, mem : &M, ins : &mut InstructionDecoder) -> u16 {
-        ins.fetch_word(mem)
-    }
-
-    fn direct_8<M: MemoryIO>(&mut self, mem : &M, ins : &mut InstructionDecoder) { 
-        let addr = self.direct_ea(mem, ins);
-        ins.operand = mem.load_byte(addr) as u16;
-    }
-
-    fn direct_16<M: MemoryIO>(&mut self, mem : &M, ins : &mut InstructionDecoder) { 
-        let addr = self.direct_ea(mem, ins);
-        ins.operand = mem.load_word(addr);
-    }
-
-    fn extended_8<M: MemoryIO>(&mut self, mem : &M, ins : &mut InstructionDecoder) { 
-        let addr = self.extended_ea(mem, ins);
-        ins.operand = mem.load_byte(addr) as u16;
-    }
-
-    fn extended_16<M: MemoryIO>(&mut self, mem : &M, ins : &mut InstructionDecoder) { 
-        let addr = self.extended_ea(mem, ins);
-        ins.operand = mem.load_word(addr) as u16;
-    }
-
-    fn immediate8<M: MemoryIO>(&mut self, mem : &M, ins : &mut InstructionDecoder) { 
-        ins.operand = ins.fetch_byte(mem) as u16;
-    }
-
-    fn immediate16<M: MemoryIO>(&mut self, mem : &M, ins : &mut InstructionDecoder) { 
-        ins.operand = ins.fetch_word(mem);
-    }
-
-    fn inherent<M: MemoryIO>(&mut self, mem : &M, ins : &mut InstructionDecoder) {
-        //don't do anything with inherent
-    }
-
-    fn inherent_reg_stack<M: MemoryIO>(&mut self, mem : &M, ins : &mut InstructionDecoder) { 
-        panic!("no inherent reg stack")
-    }
-
-    fn inherent_reg_reg<M: MemoryIO>(&mut self, mem : &M, ins : &mut InstructionDecoder) { 
-        ins.operand = ins.fetch_byte(mem) as u16;
-    }
-
-    fn indexed_8<M: MemoryIO>(&mut self, mem : &M, ins : &mut InstructionDecoder) {
-        panic!("no indexed 8")
-    }
-
-    fn indexed_16<M: MemoryIO>(&mut self, mem : &M, ins : &mut InstructionDecoder) {
-        panic!("no indexed 16")
-    }
-
-    fn relative8<M: MemoryIO>(&mut self, mem : &M, ins : &mut InstructionDecoder) {
-        let offset = ins.fetch_byte(mem) as i8;
-    }
-
-    fn relative16<M: MemoryIO>(&mut self, mem: &M, ins : &mut InstructionDecoder) {
-        let offset = ins.fetch_word(mem) as i16;
-    }
-
-
-}
-
-//}}}
-
 // {{{ Todo next!
 impl  Cpu {
-    fn orcc<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
-        self.regs.flags.or_flags(ins.operand as u8);
+    #[inline(always)]
+    fn orcc<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
+        let v = A::fetch_byte(mem, &mut self.regs, ins);
+        self.regs.flags.or_flags(v);
     }
 
-    fn ldx<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
-        self.regs.load_x(ins.operand);
+    #[inline(always)]
+    fn ldx<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
+        let v =  A::fetch_word(mem, &mut self.regs, ins);
+        self.regs.load_x(v);
     }
 
-    fn stx<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
-        mem.store_word(ins.operand, self.regs.x);
-    }
-    fn sta<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
-        mem.store_byte(ins.operand, self.regs.a);
-    }
-
-    fn lda<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
-        self.regs.load_a(ins.operand as u8);
-    }
-    fn ldu<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
-        self.regs.load_u(ins.operand);
+    #[inline(always)]
+    fn stx<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
+        let addr = A::fetch_word(mem, &mut self.regs, ins);
+        mem.store_word(addr, self.regs.x);
     }
 
-    fn adda<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
+    #[inline(always)]
+    fn sta<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
+        let addr = A::fetch_word(mem, &mut self.regs, ins);
+        mem.store_byte(addr, self.regs.a);
+    }
+
+    #[inline(always)]
+    fn lda<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
+        let v = A::fetch_byte(mem, &mut self.regs, ins);
+        self.regs.load_a(v);
+    }
+
+    #[inline(always)]
+    fn ldu<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
+        let v =  A::fetch_word(mem, &mut self.regs, ins);
+        self.regs.load_u(v);
+    }
+
+    #[inline(always)]
+    fn adda<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
         self.regs.clear_c();
+        self.adca::<M,A>(mem,ins);
+    }
+
+    #[inline(always)]
+    fn adca<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
+        let operand = A::fetch_byte(mem, &mut self.regs, ins);
         let v  = self.regs.a;
-        let r = self.adc_helper(v, ins.operand as u8);
+        let r = self.adc_helper(v, operand);
         self.regs.load_a(r);
     }
 
-    fn adca<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
-        let v  = self.regs.a;
-        let r = self.adc_helper(v, ins.operand as u8);
-        self.regs.load_a(r);
-    }
-
-    fn tfr<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
-        let (a,b) = get_tfr_regs(ins.operand as u8);
+    #[inline(always)]
+    fn tfr<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
+        let operand = A::fetch_byte(mem, &mut self.regs, ins);
+        let (a,b) = get_tfr_regs(operand as u8);
         let av = self.regs.get(a);
         self.regs.set(b, av);
     }
 
-    fn lds<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
-        self.regs.load_s(ins.operand );
+    #[inline(always)]
+    fn lds<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
+        let v =  A::fetch_word(mem, &mut self.regs, ins);
+        self.regs.load_s(v);
     }
 
-    fn abx<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder) {
+    #[inline(always)]
+    fn abx<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
         let x = self.regs.x;
         self.regs.x = x.wrapping_add(self.regs.b as u16);
     }
-
 }
 // }}}
 
 // {{{ Op Codes
 impl  Cpu {
-    fn adcb<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
+
+    fn adcb<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
         panic!("adcb NO!")
     }
-    fn addb<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
+
+    fn addb<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
         panic!("addb NO!")
     }
-    fn addd<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
+    fn addd<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
         panic!("addd NO!")
     }
-    fn anda<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
+    fn anda<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
         panic!("anda NO!")
     }
-    fn andb<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
+    fn andb<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
         panic!("andb NO!")
     }
-    fn andcc<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
+    fn andcc<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
         panic!("andcc NO!")
     }
-    fn asr<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
+    fn asr<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
         panic!("asr NO!")
     }
-    fn asra<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
+    fn asra<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
         panic!("asra NO!")
     }
-    fn asrb<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
+    fn asrb<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
         panic!("asrb NO!")
     }
-    fn beq<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
+    fn beq<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
         panic!("beq NO!")
     }
-    fn bge<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
+    fn bge<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
         panic!("bge NO!")
     }
-    fn bgt<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
+    fn bgt<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
         panic!("bgt NO!")
     }
-    fn bhi<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
+    fn bhi<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
         panic!("bhi NO!")
     }
-    fn bhs_bcc<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
+    fn bhs_bcc<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
         panic!("bhs_bcc NO!")
     }
-    fn bita<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
+    fn bita<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
         panic!("bita NO!")
     }
-    fn bitb<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
+    fn bitb<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
         panic!("bitb NO!")
     }
-    fn ble<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
+    fn ble<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
         panic!("ble NO!")
     }
-    fn blo_bcs<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
+    fn blo_bcs<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
         panic!("blo_bcs NO!")
     }
-    fn bls<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
+    fn bls<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
         panic!("bls NO!")
     }
-    fn blt<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
+    fn blt<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
         panic!("bmi NO!")
     }
-    fn bmi<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
+    fn bmi<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
         panic!("bmi NO!")
     }
-    fn bne<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
+    fn bne<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
         panic!("bne NO!")
     }
-    fn bpl<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
+    fn bpl<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
         panic!("bpl NO!")
     }
-    fn bra<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
+    fn bra<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
         panic!("bra NO!")
     }
-    fn brn<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
+    fn brn<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
         panic!("brn NO!")
     }
-    fn bsr<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
+    fn bsr<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
         panic!("bsr NO!")
     }
-    fn bvc<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
+    fn bvc<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
         panic!("bvc NO!")
     }
-    fn bvs<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
+    fn bvs<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
         panic!("bvs NO!")
     }
-    fn clr<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
+    fn clr<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
         panic!("clr NO!")
     }
-    fn clra<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
+    fn clra<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
         panic!("clra NO!")
     }
-    fn clrb<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
+    fn clrb<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
         panic!("clrb NO!")
     }
-    fn cmpa<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
+    fn cmpa<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
         panic!("cmpa NO!")
     }
-    fn cmpb<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
+    fn cmpb<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
         panic!("cmpb NO!")
     }
-    fn cmpx<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
+    fn cmpx<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
         panic!("com NO!")
     }
-    fn com<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
+    fn com<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
         panic!("com NO!")
     }
-    fn coma<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
+    fn coma<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
         panic!("coma NO!")
     }
-    fn comb<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
+    fn comb<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
         panic!("comb NO!")
     }
-    fn cwai<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
+    fn cwai<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
         panic!("cwai NO!")
     }
-    fn daa<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
+    fn daa<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
         panic!("daa NO!")
     }
-    fn dec<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
+    fn dec<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
         panic!("dec NO!")
     }
-    fn deca<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
+    fn deca<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
         panic!("deca NO!")
     }
-    fn decb<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
+    fn decb<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
         panic!("decb NO!")
     }
-    fn eora<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
+    fn eora<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
         panic!("eora NO!")
     }
-    fn eorb<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
+    fn eorb<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
         panic!("eorb NO!")
     }
-
-    fn exg<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
+    fn exg<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
         panic!("EXG")
     }
-
-    fn inc<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
+    fn inc<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
         panic!("inc NO!")
     }
-    fn inca<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
+    fn inca<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
         panic!("noy fonr")
     }
-    fn incb<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
+    fn incb<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
         panic!("incb NO!")
     }
-    fn jmp<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
+    fn jmp<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
         panic!("jmp NO!")
     }
-    fn jsr<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
+    fn jsr<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
         panic!("jsr NO!")
     }
-    fn lbra<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
+    fn lbra<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
         panic!("lbra NO!")
     }
-    fn lbsr<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
+    fn lbsr<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
         panic!("lbsr NO!")
     }
-    fn ldb<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
+    fn ldb<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
         panic!("ldb NO!")
     }
-    fn ldd<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
+    fn ldd<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
         panic!("ldd NO!")
     }
-    fn leas<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
+    fn leas<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
         panic!("leas NO!")
     }
-    fn leau<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
+    fn leau<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
         panic!("leau NO!")
     }
-    fn leax<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
+    fn leax<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
         panic!("leax NO!")
     }
-    fn leay<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
+    fn leay<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
         panic!("leay NO!")
     }
-    fn lsl_asl<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
+    fn lsl_asl<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
         panic!("lsl_asl NO!")
     }
-    fn lsla_asla<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
+    fn lsla_asla<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
         panic!("lsla_asla NO!")
     }
-    fn lslb_aslb<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
+    fn lslb_aslb<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
         panic!("lslb_aslb NO!")
     }
-    fn lsr<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
+    fn lsr<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
         panic!("lsr NO!")
     }
-    fn lsra<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
+    fn lsra<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
         panic!("lsra NO!")
     }
-    fn lsrb<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
+    fn lsrb<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
         panic!("lsrb NO!")
     }
-    fn mul<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
+    fn mul<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
         panic!("mul NO!")
     }
-    fn neg<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
+    fn neg<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
         panic!("neg NO!")
     }
-    fn nega<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
+    fn nega<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
         panic!("nega NO!")
     }
-    fn negb<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
+    fn negb<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
         panic!("negb NO!")
     }
-    fn nop<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
+    fn nop<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
         panic!("nop NO!")
     }
-    fn ora<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
+    fn ora<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
         panic!("ora NO!")
     }
-    fn orb<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
+    fn orb<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
         panic!("orb NO!")
     }
-    fn pshs<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
+    fn pshs<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
         panic!("pshs NO!")
     }
-    fn pshu<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
+    fn pshu<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
         panic!("pshu NO!")
     }
-    fn puls<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
+    fn puls<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
         panic!("puls NO!")
     }
-    fn pulu<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
+    fn pulu<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
         panic!("pulu NO!")
     }
-    fn reset<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
+    fn reset<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
         panic!("reset NO!")
     }
-    fn rol<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
+    fn rol<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
         panic!("rol NO!")
     }
-    fn rola<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
+    fn rola<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
         panic!("rola NO!")
     }
-    fn rolb<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
+    fn rolb<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
         panic!("rolb NO!")
     }
-    fn ror<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
+    fn ror<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
         panic!("ror NO!")
     }
-    fn rora<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
+    fn rora<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
         panic!("rora NO!")
     }
-    fn rorb<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
+    fn rorb<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
         panic!("rorb NO!")
     }
-    fn rti<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
+    fn rti<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
         panic!("rti NO!")
     }
-    fn rts<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
+    fn rts<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
         panic!("rts NO!")
     }
-    fn sbca<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
+    fn sbca<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
         panic!("sbca NO!")
     }
-    fn sbcb<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
+    fn sbcb<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
         panic!("sbcb NO!")
     }
-    fn sex<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
+    fn sex<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
         panic!("sex NO!")
     }
-    fn stb<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
+    fn stb<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
         panic!("stb NO!")
     }
-    fn std<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
+    fn std<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
         panic!("std NO!")
     }
-    fn stu<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
+    fn stu<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
         panic!("stu NO!")
     }
-    fn suba<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
+    fn suba<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
         panic!("suba NO!")
     }
-    fn subb<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
+    fn subb<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
         panic!("subb NO!")
     }
-    fn subd<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
+    fn subd<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
         panic!("subd NO!")
     }
-    fn swi<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
+    fn swi<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
         panic!("swi NO!")
     }
-    fn sync<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
+    fn sync<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
         panic!("sync NO!")
     }
-    fn tst<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
+    fn tst<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
         panic!("tst NO!")
     }
-    fn tsta<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
+    fn tsta<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
         panic!("tsta NO!")
     }
-    fn tstb<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
+    fn tstb<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
         panic!("tstb NO!")
     }
-    fn swi3<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
+    fn swi3<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
         panic!("swi3 NO!")
     }
-    fn cmpu<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
+    fn cmpu<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
         panic!("cmpu NO!")
     }
-    fn cmps<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
+    fn cmps<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
         panic!("cmps NO!")
     }
-    fn lbrn<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
+    fn lbrn<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
         panic!("lbrn NO!")
     }
-    fn lbhi<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
+    fn lbhi<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
         panic!("lbhi NO!")
     }
-    fn lbls<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
+    fn lbls<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
         panic!("lbls NO!")
     }
-    fn lbhs_lbcc<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
+    fn lbhs_lbcc<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
         panic!("lbhs_lbcc NO!")
     }
-    fn lblo_lbcs<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
+    fn lblo_lbcs<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
         panic!("lblo_lbcs NO!")
     }
-    fn lbne<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
+    fn lbne<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
         panic!("lbne NO!")
     }
-    fn lbeq<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
+    fn lbeq<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
         panic!("lbeq NO!")
     }
-    fn lbvc<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
+    fn lbvc<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
         panic!("lbvc NO!")
     }
-    fn lbvs<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
+    fn lbvs<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
         panic!("lbvs NO!")
     }
-    fn lbpl<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
+    fn lbpl<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
         panic!("lbpl NO!")
     }
-    fn lbmi<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
+    fn lbmi<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
         panic!("lbmi NO!")
     }
-    fn lbge<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
+    fn lbge<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
         panic!("lbge NO!")
     }
-    fn lblt<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
+    fn lblt<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
         panic!("lblt NO!")
     }
-    fn lbgt<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
+    fn lbgt<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
         panic!("lbgt NO!")
     }
-    fn swi2<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
+    fn swi2<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
         panic!("swi2 NO!")
     }
-    fn cmpd<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
+    fn cmpd<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
         panic!("cmpd NO!")
     }
-    fn cmpy<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
+    fn cmpy<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
         panic!("cmpy NO!")
     }
-    fn ldy<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
+    fn ldy<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
         panic!("ldy NO!")
     }
-    fn lble<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
+    fn lble<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
         panic!("lble NO!")
     }
-    fn sty<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
+    fn sty<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
         panic!("sty NO!")
     }
 
-    fn sts<M: MemoryIO>(&mut self, mem : &mut M, ins : &InstructionDecoder)  {
+    fn sts<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
         mem.store_word(ins.operand, self.regs.s);
         self.regs.flags.test_16(self.regs.s)
     }
 
-    fn unimplemented(&mut self, op_code: u16) {
+    fn unimplemented(&mut self, ins : &mut InstructionDecoder) {
         panic!("unimplemnted op code")
     }
 
@@ -584,7 +536,17 @@ impl  Cpu {
 
         let op = ins.fetch_instruction(mem);
 
-        decode_op!(op, self, mem, &mut ins);
+        macro_rules! handle_op {
+            ($addr:ident, $action:ident) => (
+                {
+                    self.$action::<M, $addr>(mem, &mut ins);
+                }
+            )
+        }
+
+        op_table!(op, 
+                  {self.unimplemented(&mut ins)}
+                  );
 
         self.regs.pc = ins.next_addr;
 
