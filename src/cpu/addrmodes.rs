@@ -119,7 +119,7 @@ impl Indexed {
                 regs.dec(&r)
             },
 
-            IndexModes::RSubSub(r) =>{
+            IndexModes::RSubSub(r) => {
                 regs.decdec(&r)
             },
 
@@ -141,12 +141,15 @@ impl Indexed {
 
             IndexModes::RAddi8(r) => {
                 // format!("{},{:?}",diss.fetch_byte(mem) as i8, r)
-                panic!("IndexModes::RAddi8(r)")
+                let v = ins.fetch_byte_as_i16(mem) as u16;
+                regs.get(&r).wrapping_add(v)
             },
 
             IndexModes::RAddi16(r) => {
                 // format!("{},{:?}",diss.fetch_word(mem) as i16, r)
-                panic!("IndexModes::RAddi16(r)")
+                //
+                let v = ins.fetch_word(mem);
+                regs.get(&r).wrapping_add(v)
             },
 
             IndexModes::RAddD(r) => {
@@ -157,12 +160,14 @@ impl Indexed {
 
             IndexModes::PCAddi8 => {
                 // format!("PC,{:?}",diss.fetch_byte(mem) as i8)
-                panic!("IndexModes::PCAddi8");
+                let offset = ins.fetch_byte_as_i16(mem) as u16;
+                regs.pc.wrapping_add(offset)
             },
 
             IndexModes::PCAddi16 => {
-                panic!("IndexModes::PCAddi16")
                 // format!("PC,{:?}",diss.fetch_word(mem) as i16)
+                let offset = ins.fetch_word(mem);
+                regs.pc.wrapping_add(offset)
             },
 
             IndexModes::Illegal => { 
@@ -177,18 +182,16 @@ impl Indexed {
 
             IndexModes::ROff(r,offset)=> {
                 // format!("{}, {:?}", offset, r) 
-                // regs.get(&r).wrapping_add(offset);
-                panic!("IndexModes::ROff(r,offset)=>")
+                regs.get(&r).wrapping_add((offset as i16) as u16);
             },
 
         };
 
         if index_mode.is_indirect() {
-
-        };
-
-        // ea 
-        panic!("final bit of ea calc todo");
+            mem.load_word(ea)
+        } else {
+            ea 
+        }
     }
 }
 
