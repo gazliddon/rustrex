@@ -131,8 +131,8 @@ impl  Cpu {
     fn tfr<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
         let operand = A::fetch_byte(mem, &mut self.regs, ins);
         let (a,b) = get_tfr_regs(operand as u8);
-        let av = self.regs.get(a);
-        self.regs.set(b, av);
+        let av = self.regs.get(&a);
+        self.regs.set(&b, av);
     }
 
     #[inline(always)]

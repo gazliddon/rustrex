@@ -20,8 +20,8 @@ pub struct Regs {
 
 impl Regs {
 
-    pub fn set(&mut self, r : RegEnum, val : u16)  {
-        match r {
+    pub fn set(&mut self, r : &RegEnum, val : u16)  {
+        match *r {
             RegEnum::A => self.a = val as u8,
             RegEnum::B => self.b = val as u8,
             RegEnum::X => self.x = val,
@@ -35,8 +35,8 @@ impl Regs {
         } 
     }
 
-    pub fn get(&self, r: RegEnum) -> u16 {
-        match r {
+    pub fn get(&self, r: &RegEnum) -> u16 {
+        match *r {
             RegEnum::A => self.a as u16,
             RegEnum::B => self.b as u16,
             RegEnum::X => self.x,
@@ -50,15 +50,47 @@ impl Regs {
         } 
     }
 
+    #[inline(always)]
+    pub fn wrapping_add_and_set(&mut self, r : &RegEnum, v : u16) -> u16{
+        let mut v = self.get(r);
+        v = v.wrapping_add(v);
+        self.set(r, v);
+        v
+    }
+
+
+    #[inline(always)]
+    pub fn inc(&mut self, r: &RegEnum) -> u16 {
+        self.wrapping_add_and_set(r, 1)
+    }
+
+    #[inline(always)]
+    pub fn incinc(&mut self, r: &RegEnum) -> u16{
+        self.wrapping_add_and_set(r, 2)
+    }
+
+    #[inline(always)]
+    pub fn dec(&mut self, r: &RegEnum) -> u16{
+        self.wrapping_add_and_set(r, 0xffff)
+    }
+
+    #[inline(always)]
+    pub fn decdec(&mut self, r: &RegEnum) -> u16{
+        self.wrapping_add_and_set(r, 0xfffe)
+    }
+
+    #[inline(always)]
     pub fn get_dp_ptr(&self) -> u16 {
         let dp = (self.dp as u16) << 8;
         dp
     }
 
+    #[inline(always)]
     pub fn get_d(&self) -> u16 {
         ( ( self.a as u16 ) << 8 ) | self.b as u16 
     }
 
+    #[inline(always)]
     pub fn set_d(&mut self, d : u16) {
         self.a = (d >> 8) as u8; self.b = d as u8; 
     }

@@ -100,39 +100,43 @@ impl Indexed {
         let index_mode = IndexedFlags::new(index_mode_id) ;
 
         let ea = match index_mode.get_index_type() {
+
             IndexModes::RPlus(r) => { 
                 // format!(",{:?}+",r)
-                panic!("IndexModes::RPlus(r)")
+                let addr = regs.get(&r);
+                regs.inc(&r);
+                addr 
             },
 
             IndexModes::RPlusPlus(r) => {
                 // format!(",{:?}++",r)
-                panic!("IndexModes::RPlusPlus(r)")
+                let addr = regs.get(&r);
+                regs.incinc(&r);
+                addr 
             },
 
             IndexModes::RSub(r) => {
-                // format!(",-{:?}",r) 
-                panic!("IndexModes::RSub(r)")
+                regs.dec(&r)
             },
 
             IndexModes::RSubSub(r) =>{
-                // format!(",--{:?}",r)
-                panic!("IndexModes::RSubSub(r)")
+                regs.decdec(&r)
             },
 
             IndexModes::RZero(r) => { 
-                // format!(",{:?}",r) 
-                panic!("IndexModes::RZero(r)")
+                regs.get(&r)
             },
 
             IndexModes::RAddB(r) => { 
                 // format!("B,{:?}", r) 
-                panic!("IndexModes::RAddB(r)")
+                let add_r = regs.b as u16;
+                regs.get(&r).wrapping_add(add_r)
             },
 
             IndexModes::RAddA(r) => {
                 // format!("A,{:?}", r) 
-                panic!("IndexModes::RAddA(r)")
+                let add_r = regs.a as u16;
+                regs.get(&r).wrapping_add(add_r)
             },
 
             IndexModes::RAddi8(r) => {
@@ -147,7 +151,8 @@ impl Indexed {
 
             IndexModes::RAddD(r) => {
                 // format!("D,{:?}", r) 
-                panic!("IndexModes::RAddD(r)")
+                let add_r = regs.get_d();
+                regs.get(&r).wrapping_add(add_r)
             },
 
             IndexModes::PCAddi8 => {
@@ -167,21 +172,23 @@ impl Indexed {
 
             IndexModes::Ea=> {
                 // format!("0x{:04X}", diss.fetch_word(mem))
-                panic!("IndexModes::Ea=>")
+                ins.fetch_word(mem)
             },
 
             IndexModes::ROff(r,offset)=> {
                 // format!("{}, {:?}", offset, r) 
-                panic!("IndexModes::ROff(r,offset)")
+                // regs.get(&r).wrapping_add(offset);
+                panic!("IndexModes::ROff(r,offset)=>")
             },
 
         };
 
-        // if index_mode.is_indirect() {
+        if index_mode.is_indirect() {
 
-        // };
+        };
 
         // ea 
+        panic!("final bit of ea calc todo");
     }
 }
 
