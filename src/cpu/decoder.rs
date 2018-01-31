@@ -16,7 +16,6 @@ pub struct InstructionDecoder {
 
 impl InstructionDecoder {
 
-
     pub fn new(addr: u16)-> Self {
         InstructionDecoder {
             addr : addr,

@@ -532,20 +532,19 @@ impl  Cpu {
 
     pub fn step<M: MemoryIO>(&mut self, mem : &mut M) -> InstructionDecoder {
 
-        let mut ins = InstructionDecoder::new(self.regs.pc);
+        let mut ins = InstructionDecoder::new(self.get_pc());
 
         let op = ins.fetch_instruction(mem);
 
         macro_rules! handle_op {
             ($addr:ident, $action:ident) => (
                 {
-                    self.$action::<M, $addr>(mem, &mut ins);
-                }
+                    self.$action::<M, $addr>(mem, &mut ins); }
             )
         }
 
-        op_table!(op, 
-                  {self.unimplemented(&mut ins)}
+        op_table!(op, {
+                      self.unimplemented(&mut ins)}
                   );
 
         self.regs.pc = ins.next_addr;
