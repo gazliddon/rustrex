@@ -211,7 +211,7 @@ impl Disassembler {
             },
 
             IndexModes::Ea=> {
-                format!("0x{:04X}", diss.fetch_word(mem))
+                format!("${:04X}", diss.fetch_word(mem))
             },
 
             IndexModes::ROff(r,offset)=> {
@@ -388,9 +388,21 @@ impl Disassembler {
 
     pub fn diss<M: MemoryIO>(&mut self, mem : &M, addr : u16, syms : Option<&SymTab> ) -> (InstructionDecoder, String) {
         self.text.clear();
+
         let mut diss = InstructionDecoder::new(addr);
+
         let op = diss.fetch_instruction(mem);
+
+        // macro_rules! handle_op {
+        //     ($addr:ident, $action:ident) => (
+        //         {
+        //             self.add_op(mem,&mut diss, stringify!($action))
+        //             self.$action::<M, $addr>(mem, &mut ins); }
+        //     )
+        // }
+
         decode_op!(op, self, mem, &mut diss);
+
         (diss, self.text.clone())
     }
 

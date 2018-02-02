@@ -1,11 +1,20 @@
 use mem::MemoryIO;
-use cpu::{ Regs, InstructionDecoder, IndexedFlags, IndexModes };
+use cpu::{ Regs, InstructionDecoder, IndexedFlags, IndexModes};
 
 pub trait AddressLines {
+
     #[inline(always)]
     fn fetch_byte<M: MemoryIO>(mem : &M, regs : &mut Regs, ins : &mut InstructionDecoder) -> u8;
     #[inline(always)]
     fn fetch_word<M: MemoryIO>(mem : &M, regs : &mut Regs, ins : &mut InstructionDecoder) -> u16;
+
+    #[inline(always)]
+    fn fetch_byte_as_i16<M: MemoryIO>(mem : &M, regs : &mut Regs, ins : &mut InstructionDecoder) -> i16 {
+        let byte = Self::fetch_byte(mem,regs,ins) as i8;
+        byte as i16
+    }
+
+
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -44,6 +53,7 @@ impl Extended {
 }
 
 impl AddressLines for Extended {
+
     #[inline(always)]
     fn fetch_byte<M: MemoryIO>( mem : &M, regs : &mut Regs, ins : &mut InstructionDecoder) -> u8 {
         let addr = Self::ea(mem,regs,ins);
@@ -182,7 +192,7 @@ impl Indexed {
 
             IndexModes::ROff(r,offset)=> {
                 // format!("{}, {:?}", offset, r) 
-                regs.get(&r).wrapping_add((offset as i16) as u16);
+                regs.get(&r).wrapping_add((offset as i16) as u16)
             },
 
         };
@@ -215,14 +225,12 @@ pub struct Relative { }
 impl AddressLines for Relative {
     #[inline(always)]
     fn fetch_byte<M: MemoryIO>(mem : &M, regs : &mut Regs, ins : &mut InstructionDecoder) -> u8 {
-        ins.fetch_byte(mem);
-        panic!("Relative byte")
+        ins.fetch_byte(mem)
     }
 
     #[inline(always)]
     fn fetch_word<M: MemoryIO>(mem : &M, regs : &mut Regs, ins : &mut InstructionDecoder) -> u16 {
-        ins.fetch_word(mem);
-        panic!("Relative word")
+        ins.fetch_word(mem)
     }
 
 }

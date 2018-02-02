@@ -129,7 +129,7 @@ impl  Cpu {
 
     #[inline(always)]
     fn tfr<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
-        let operand = A::fetch_byte(mem, &mut self.regs, ins);
+        let operand = ins.fetch_byte(mem); 
         let (a,b) = get_tfr_regs(operand as u8);
         let av = self.regs.get(&a);
         self.regs.set(&b, av);
@@ -146,6 +146,21 @@ impl  Cpu {
         let x = self.regs.x;
         self.regs.x = x.wrapping_add(self.regs.b as u16);
     }
+
+    fn sts<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
+        let addr =A::fetch_word(mem, &mut self.regs, ins);
+        mem.store_word(addr, self.regs.s);
+        self.regs.flags.test_16(self.regs.s)
+    }
+
+    #[inline(always)]
+    fn brn<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
+        let offset = A::fetch_byte_as_i16(mem, &mut self.regs, ins);
+
+        if self.regs.flags.contains(Flags::N) {
+            ins.next_addr = ins.next_addr.wrapping_add(offset as u16);
+        }
+    }
 }
 // }}}
 
@@ -153,80 +168,77 @@ impl  Cpu {
 impl  Cpu {
 
     fn adcb<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
-        panic!("adcb NO!")
+        panic!("adcb Nfetch_reg_rel_byteO!")
     }
 
     fn addb<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
-        panic!("addb NO!")
+        panic!("addb Nfetch_reg_rel_byteO!")
     }
     fn addd<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
-        panic!("addd NO!")
+        panic!("addd Nfetch_reg_rel_byteO!")
     }
     fn anda<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
-        panic!("anda NO!")
+        panic!("anda Nfetch_reg_rel_byteO!")
     }
     fn andb<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
-        panic!("andb NO!")
+        panic!("andb Nfetch_reg_rel_byteO!")
     }
     fn andcc<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
-        panic!("andcc NO!")
+        panic!("andcc fetch_reg_rel_byteNO!")
     }
     fn asr<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
-        panic!("asr NO!")
+        panic!("asr NOfetch_reg_rel_byte!")
     }
     fn asra<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
-        panic!("asra NO!")
+        panic!("asra Nfetch_reg_rel_byteO!")
     }
     fn asrb<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
-        panic!("asrb NO!")
+        panic!("asrb Nfetch_reg_rel_byteO!")
     }
     fn beq<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
-        panic!("beq NO!")
+        panic!("beq NOfetch_reg_rel_byte!")
     }
     fn bge<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
-        panic!("bge NO!")
+        panic!("bge NOfetch_reg_rel_byte!")
     }
     fn bgt<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
-        panic!("bgt NO!")
+        panic!("bgt NOfetch_reg_rel_byte!")
     }
     fn bhi<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
-        panic!("bhi NO!")
+        panic!("bhi NOfetch_reg_rel_byte!")
     }
     fn bhs_bcc<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
-        panic!("bhs_bcc NO!")
+        panic!("bhs_bcfetch_reg_rel_bytec NO!")
     }
     fn bita<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
-        panic!("bita NO!")
+        panic!("bita Nfetch_reg_rel_byteO!")
     }
     fn bitb<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
-        panic!("bitb NO!")
+        panic!("bitb Nfetch_reg_rel_byteO!")
     }
     fn ble<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
-        panic!("ble NO!")
+        panic!("ble NOfetch_reg_rel_byte!")
     }
     fn blo_bcs<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
-        panic!("blo_bcs NO!")
+        panic!("blo_bcfetch_reg_rel_bytes NO!")
     }
     fn bls<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
-        panic!("bls NO!")
+        panic!("bls NOfetch_reg_rel_byte!")
     }
     fn blt<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
-        panic!("bmi NO!")
+        panic!("bmi NOfetch_reg_rel_byte!")
     }
     fn bmi<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
-        panic!("bmi NO!")
+        panic!("bmi NOfetch_reg_rel_byte!")
     }
     fn bne<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
-        panic!("bne NO!")
+        panic!("bne NOfetch_reg_rel_byte!")
     }
     fn bpl<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
-        panic!("bpl NO!")
+        panic!("bpl NOfetch_reg_rel_byte!")
     }
     fn bra<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
-        panic!("bra NO!")
-    }
-    fn brn<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
-        panic!("brn NO!")
+        panic!("bra NOfetch_reg_rel_byte!")
     }
     fn bsr<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
         panic!("bsr NO!")
@@ -517,10 +529,6 @@ impl  Cpu {
         panic!("sty NO!")
     }
 
-    fn sts<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
-        mem.store_word(ins.operand, self.regs.s);
-        self.regs.flags.test_16(self.regs.s)
-    }
 
     fn unimplemented(&mut self, ins : &mut InstructionDecoder) {
         panic!("unimplemnted op code")

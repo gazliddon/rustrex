@@ -15,10 +15,11 @@ mod symtab;
 mod utils;
 mod diss;
 mod proclog;
+mod breakpoints;
 
 use proclog::{Step};
 // use symtab::SymbolTable;
-use mem::{MemoryIO, MemMap};
+use mem::{MemoryIO, MemMap, LoggingMemMap};
 use cpu::{Cpu };
 
 // use mem::{MemoryIO};
@@ -67,6 +68,11 @@ static DEF_MACHINE: MachineInit = MachineInit {
 };
 
 fn main() {
+
+    let do_logging = true;
+    let base_mem = DEF_MACHINE.create_memmap();
+    let mut mem = LoggingMemMap::new(base_mem);
+
     use proclog::{read_step_log, read_step_log_lines};
 
     let log_file_name = "utils/6809/6809.log";
@@ -74,26 +80,33 @@ fn main() {
     let steps = read_step_log(log_file_name);
     let lines = read_step_log_lines(log_file_name);
 
-    let mut mem = DEF_MACHINE.create_memmap();
     let mut cpu = Cpu::from_regs(steps[0].regs.clone());
-
     let mut cycles = 0;
-
     let mut step_i = 0;
 
     for log_step in steps {
 
         let sim_step = Step::from_sim(&mem, &cpu.regs, cycles);
-
-        let ins = cpu.step(&mut mem);
-
         let comp = log_step.compare(&sim_step);
 
+        println!("");
+        println!("PC   D    X    Y    U    S    DP");
         println!("{} {:?}", log_step, log_step.regs.flags);
         println!("{} {:?}", sim_step, sim_step.regs.flags);
-        println!("");
+
+
+        mem.clear_log();
+
+        let ins = cpu.step(&mut mem);
+        let log = mem.get_log();
+
+        for msg in log {
+            println!("{}", msg);
+        }
 
         if comp.regs == false {
+
+            println!("");
 
             println!("log: {:?} {} {:?}", log_step.regs, log_step.regs.flags.bits(), log_step.regs.flags);
             println!("sim: {:?} {} {:?}", sim_step.regs, sim_step.regs.flags.bits(), sim_step.regs.flags );
@@ -101,7 +114,8 @@ fn main() {
 
             println!("{:?}", comp );
 
-            panic!("fix this!")
+
+            panic!("fix this!");
         }
 
         cycles = cycles + ins.cycles;

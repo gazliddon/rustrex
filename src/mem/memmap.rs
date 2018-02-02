@@ -1,5 +1,5 @@
 // use mem::Memory;
-use mem::MemoryIO;
+use mem::{ MemoryIO };
 use std::fmt;
 
 pub trait MemMapIO {
@@ -66,7 +66,6 @@ impl MemMap {
             all_memory : Vec::new()
         }
     }
-
 
     pub fn load_roms(&mut self, roms : &[(&'static str, u16)]) -> &mut Self{
         use utils::load_file;
