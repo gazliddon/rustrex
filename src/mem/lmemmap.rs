@@ -1,10 +1,91 @@
 use mem::{MemMap, MemoryIO};
 use std::cell::RefCell;
+use std::fmt;
+
+#[derive(Debug, Clone, Default)]
+
+pub struct LogEntry {
+    pub addr : u16,
+    pub write : bool,
+    pub val : u16,
+    pub word : bool,
+}
+
+impl LogEntry {
+    fn write_byte(addr : u16, val : u8) -> LogEntry {
+        LogEntry {
+            addr: addr,
+            write: true,
+            val : val as u16,
+            word : false,
+        }
+    }
+
+    fn read_byte(addr : u16, val : u8) -> LogEntry {
+        LogEntry {
+            addr: addr,
+            write: false,
+            val : val as u16,
+            word : false,
+        }
+    }
+
+    fn write_word(addr : u16, val : u16) -> LogEntry {
+        LogEntry {
+            addr: addr,
+            write: true,
+            val : val,
+            word : true,
+        }
+
+    }
+
+    fn read_word(addr : u16, val : u16) -> LogEntry {
+        LogEntry {
+            addr: addr,
+            write: false,
+            val : val,
+            word : true,
+        }
+
+    }
+
+}
+
+impl fmt::Display for LogEntry {
+
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+
+        let width_str = if self.word {
+            "16"
+        } else {
+            "8 "
+        };
+
+        let (op_str, arr_str) = if self.write {
+            ("W", "->")
+        } else {
+            ("R", "<-")
+        };
+
+        let pre_str = format!("{}{} ", op_str, width_str);
+
+        let val_str = if self.word {
+            format!("{:04x}", self.val)
+        } else {
+            format!("  {:02x}", self.val)
+        };
+
+        write!(f, "{}{} {} {} {:04x}", op_str, width_str,val_str, arr_str, self.addr)
+    }
+
+}
+
 
 pub struct LoggingMemMap {
     max_log_size : usize,
     mem_map: MemMap,
-    log_cell : RefCell<Vec<String>>,
+    log_cell : RefCell<Vec<LogEntry>>,
 }
 
 impl LoggingMemMap {
@@ -17,11 +98,11 @@ impl LoggingMemMap {
         }
     }
 
-    pub fn get_log(&self) -> Vec<String> {
+    pub fn get_log(&self) -> Vec<LogEntry> {
         self.log_cell.borrow().clone()
     }
 
-    fn log(&self, txt : String) {
+    fn log(&self, txt : LogEntry) {
         let mut v = self.log_cell.borrow_mut();
 
         v.push(txt);
@@ -54,27 +135,27 @@ impl MemoryIO for LoggingMemMap {
 
     fn load_byte(&self, addr:u16) -> u8 {
         let val = self.mem_map.load_byte(addr);
-        let msg = format!("R8          {:02x} -> {:02x}", addr, val);
+        let msg = LogEntry::read_byte(addr, val);
         self.log(msg);
         val
     }
 
     fn store_byte(&mut self, addr:u16, val:u8) {
         self.mem_map.store_byte(addr, val);
-        let msg = format!("W8  {:02x} -> {:04x}", val, addr);
+        let msg = LogEntry::write_byte(addr, val);
         self.log(msg);
     }
 
     fn store_word(&mut self, addr:u16, val:u16) {
         self.mem_map.store_word(addr,val);
-        let msg = format!("W16 {:04x} -> {:04x}", val, addr);
+        let msg = LogEntry::write_word(addr, val);
         self.log(msg);
     }
 
     fn load_word(&self, addr:u16) -> u16 {
         let val = self.mem_map.load_word(addr);
 
-        let msg = format!("R16         {:04x} -> {:04x}", addr, val);
+        let msg = LogEntry::read_word(addr, val);
         self.log(msg);
         val
     }

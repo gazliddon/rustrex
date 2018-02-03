@@ -26,6 +26,7 @@ pub struct Step {
     pub cycles_so_far: usize,
 }
 
+
 impl fmt::Display for Step {
 
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -163,9 +164,36 @@ pub fn read_step_log( file_name : &str) -> Vec<Step> {
         .filter_map(|l| l.ok())
         .filter_map(|l| Step::from_string(&l).ok())
         .collect();
-
     r
 }
 
+pub struct Step2 {
+    pub disassembly : String,
+    pub regs_before : Regs,
+    pub regs_after : Regs,
+}
+
+pub fn read_step2_log( file_name : &str) -> Vec<Step2> {
+
+    let steps = read_step_log(file_name);
+
+    let mut it = steps.iter().peekable();
+
+    let mut ret = vec![];
+
+    for i in 0 .. steps.len()/2 {
+        let before = it.next().unwrap();
+        let after = it.peek().unwrap();
+
+        ret.push(Step2 {
+            disassembly: before.disassembly.clone(),
+            regs_before : before.regs.clone(),
+            regs_after : after.regs.clone(),
+
+        });
+    }
+
+    ret
+}
 
 

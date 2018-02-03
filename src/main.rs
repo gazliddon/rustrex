@@ -17,10 +17,11 @@ mod diss;
 mod proclog;
 mod breakpoints;
 
-use proclog::{Step};
+// use proclog::{Step2};
 // use symtab::SymbolTable;
-use mem::{MemoryIO, MemMap, LoggingMemMap};
+use mem::{MemoryIO, MemMap, LoggingMemMap, LogEntry};
 use cpu::{Cpu };
+use diss::Disassembler;
 
 // use mem::{MemoryIO};
 
@@ -73,55 +74,107 @@ fn main() {
     let base_mem = DEF_MACHINE.create_memmap();
     let mut mem = LoggingMemMap::new(base_mem);
 
-    use proclog::{read_step_log, read_step_log_lines};
+    use proclog::{read_step2_log};
 
     let log_file_name = "utils/6809/6809.log";
 
-    let steps = read_step_log(log_file_name);
-    let lines = read_step_log_lines(log_file_name);
+    let steps = read_step2_log(log_file_name);
 
-    let mut cpu = Cpu::from_regs(steps[0].regs.clone());
+    let mut cpu = Cpu::from_regs(steps[0].regs_before.clone());
+
     let mut cycles = 0;
-    let mut step_i = 0;
+    let mut diss = Disassembler::new();
 
-    for log_step in steps {
+    for step in steps {
 
-        let sim_step = Step::from_sim(&mem, &cpu.regs, cycles);
-        let comp = log_step.compare(&sim_step);
-
-        println!("");
-        println!("PC   D    X    Y    U    S    DP");
-        println!("{} {:?}", log_step, log_step.regs.flags);
-        println!("{} {:?}", sim_step, sim_step.regs.flags);
-
+        let (ins, txt) =  diss.diss(&mem, cpu.regs.pc, None);
 
         mem.clear_log();
 
         let ins = cpu.step(&mut mem);
-        let log = mem.get_log();
 
-        for msg in log {
-            println!("{}", msg);
-        }
 
-        if comp.regs == false {
+        let sim = &cpu.regs;
+
+        let log = &step.regs_after;
+
+
+        let writes : Vec<LogEntry>= mem.get_log()
+            .iter()
+            .filter(|&msg| msg.write)
+            .map(|msg| msg.clone())
+            .collect();
+
+        let writes_str = if writes.len() != 0 {
+            writes[0].to_string()
+        } else {
+            "".to_string()
+        };;
+
+        println!("{:04x}   {:20}{}", cpu.regs.pc, txt, writes_str);
+
+        if sim != log {
+            println!("");
+
+            println!("     PC   D    A   B   X    Y    U    S    DP");
+            println!("sim: {}", sim);
+            println!("log: {}", log);
 
             println!("");
 
-            println!("log: {:?} {} {:?}", log_step.regs, log_step.regs.flags.bits(), log_step.regs.flags);
-            println!("sim: {:?} {} {:?}", sim_step.regs, sim_step.regs.flags.bits(), sim_step.regs.flags );
+            for msg in mem.get_log() {
+                println!("{}", msg);
+            }
+
             println!("");
 
-            println!("{:?}", comp );
-
-
-            panic!("fix this!");
+            panic!("");
         }
 
-        cycles = cycles + ins.cycles;
+        cycles = cycles + 1;
 
-        step_i = step_i + 1;
     }
+
+
+
+    // for log_step in steps {
+
+    //     let sim_step = Step::from_sim(&mem, &cpu.regs, cycles);
+    //     let comp = log_step.compare(&sim_step);
+
+    //     println!("");
+    //     println!("PC   D    X    Y    U    S    DP");
+    //     println!("{} {:?}", log_step, log_step.regs.flags);
+    //     println!("{} {:?}", sim_step, sim_step.regs.flags);
+
+
+    //     mem.clear_log();
+
+    //     let ins = cpu.step(&mut mem);
+    //     let log = mem.get_log();
+
+    //     for msg in log {
+    //         println!("{}", msg);
+    //     }
+
+    //     if comp.regs == false {
+
+    //         println!("");
+
+    //         println!("log: {:?} {} {:?}", log_step.regs, log_step.regs.flags.bits(), log_step.regs.flags);
+    //         println!("sim: {:?} {} {:?}", sim_step.regs, sim_step.regs.flags.bits(), sim_step.regs.flags );
+    //         println!("");
+
+    //         println!("{:?}", comp );
+
+
+    //         panic!("fix this!");
+    //     }
+
+    //     cycles = cycles + ins.cycles;
+
+    //     step_i = step_i + 1;
+    // }
 
 }
 

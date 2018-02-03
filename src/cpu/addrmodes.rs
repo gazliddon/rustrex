@@ -9,11 +9,19 @@ pub trait AddressLines {
     fn fetch_word<M: MemoryIO>(mem : &M, regs : &mut Regs, ins : &mut InstructionDecoder) -> u16;
 
     #[inline(always)]
+    fn store_byte<M: MemoryIO>(mem : &mut M, regs : &mut Regs, ins : &mut InstructionDecoder, val : u8 ) -> u16;
+
+    #[inline(always)]
+    fn store_word<M: MemoryIO>(mem : &mut M, regs : &mut Regs, ins : &mut InstructionDecoder, val : u16 ) -> u16;
+
+    #[inline(always)]
     fn fetch_byte_as_i16<M: MemoryIO>(mem : &M, regs : &mut Regs, ins : &mut InstructionDecoder) -> i16 {
         let byte = Self::fetch_byte(mem,regs,ins) as i8;
         byte as i16
     }
 
+    #[inline(always)]
+    fn name() -> String;
 
 }
 
@@ -30,6 +38,11 @@ impl Direct {
 }
 
 impl AddressLines for Direct {
+
+    fn name() -> String {
+        "Direct".to_string()
+    }
+
     #[inline(always)]
     fn fetch_byte<M: MemoryIO>( mem : &M, regs : &mut Regs, ins : &mut InstructionDecoder) -> u8 {
         mem.load_byte(Self::ea(mem,regs,ins))
@@ -38,6 +51,16 @@ impl AddressLines for Direct {
     #[inline(always)]
     fn fetch_word<M: MemoryIO>( mem : &M, regs : &mut Regs, ins : &mut InstructionDecoder) -> u16 {
         mem.load_word(Self::ea(mem,regs,ins))
+    }
+    #[inline(always)]
+    fn store_byte<M: MemoryIO>(mem : &mut M, regs : &mut Regs, ins : &mut InstructionDecoder, val : u8 ) -> u16{
+        panic!("tbd")
+    }
+
+    #[inline(always)]
+    fn store_word<M: MemoryIO>(mem : &mut M, regs : &mut Regs, ins : &mut InstructionDecoder, val : u16 ) -> u16 {
+        panic!("tbd")
+
     }
 }
 
@@ -53,6 +76,9 @@ impl Extended {
 }
 
 impl AddressLines for Extended {
+    fn name() -> String {
+        "Extended".to_string()
+    }
 
     #[inline(always)]
     fn fetch_byte<M: MemoryIO>( mem : &M, regs : &mut Regs, ins : &mut InstructionDecoder) -> u8 {
@@ -65,12 +91,27 @@ impl AddressLines for Extended {
         let addr = Self::ea(mem,regs,ins);
         mem.load_word(addr)
     }
+    #[inline(always)]
+    fn store_byte<M: MemoryIO>(mem : &mut M, regs : &mut Regs, ins : &mut InstructionDecoder, val : u8 ) -> u16{
+        let addr = Self::ea(mem,regs,ins);
+        mem.store_byte(addr, val);
+        addr
+    }
+    #[inline(always)]
+    fn store_word<M: MemoryIO>(mem : &mut M, regs : &mut Regs, ins : &mut InstructionDecoder, val : u16 ) -> u16 {
+        let addr = Self::ea(mem,regs,ins);
+        mem.store_word(addr, val);
+        addr
+    }
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 pub struct Immediate { }
 
 impl AddressLines for Immediate {
+    fn name() -> String {
+        "Immediate".to_string()
+    }
     #[inline(always)]
     fn fetch_byte<M: MemoryIO>(mem : &M, regs : &mut Regs, ins : &mut InstructionDecoder) -> u8 {
         ins.fetch_byte(mem)
@@ -81,12 +122,25 @@ impl AddressLines for Immediate {
         ins.fetch_word(mem)
     }
 
+    #[inline(always)]
+    fn store_byte<M: MemoryIO>(mem : &mut M, regs : &mut Regs, ins : &mut InstructionDecoder, val : u8 ) -> u16{
+        panic!("tbd")
+    }
+
+    #[inline(always)]
+    fn store_word<M: MemoryIO>(mem : &mut M, regs : &mut Regs, ins : &mut InstructionDecoder, val : u16 ) -> u16 {
+        panic!("tbd")
+
+    }
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 pub struct Inherent { }
 
 impl AddressLines for Inherent {
+    fn name() -> String {
+        "Inherent".to_string()
+    }
     #[inline(always)]
     fn fetch_byte<M: MemoryIO>(mem : &M, regs : &mut Regs, ins : &mut InstructionDecoder) -> u8 {
         panic!("no")
@@ -97,12 +151,23 @@ impl AddressLines for Inherent {
         panic!("no")
     }
 
+    #[inline(always)]
+    fn store_byte<M: MemoryIO>(mem : &mut M, regs : &mut Regs, ins : &mut InstructionDecoder, val : u8 ) -> u16{
+        panic!("tbd")
+    }
+
+    #[inline(always)]
+    fn store_word<M: MemoryIO>(mem : &mut M, regs : &mut Regs, ins : &mut InstructionDecoder, val : u16 ) -> u16 {
+        panic!("tbd")
+
+    }
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 pub struct Indexed { }
 
 impl Indexed {
+
 
     fn ea<M: MemoryIO>(mem : &M, regs : &mut Regs, ins : &mut InstructionDecoder) -> u16 {
 
@@ -206,6 +271,10 @@ impl Indexed {
 }
 
 impl AddressLines for Indexed {
+    fn name() -> String {
+        "Indexed".to_string()
+    }
+
     #[inline(always)]
     fn fetch_byte<M: MemoryIO>(mem : &M, regs : &mut Regs, ins : &mut InstructionDecoder) -> u8 {
         let ea = Self::ea(mem , regs , ins );
@@ -217,12 +286,26 @@ impl AddressLines for Indexed {
         let ea = Self::ea(mem , regs , ins );
         mem.load_word(ea)
     }
+    #[inline(always)]
+    fn store_byte<M: MemoryIO>(mem : &mut M, regs : &mut Regs, ins : &mut InstructionDecoder, val : u8 ) -> u16{
+        panic!("tbd")
+    }
+
+    #[inline(always)]
+    fn store_word<M: MemoryIO>(mem : &mut M, regs : &mut Regs, ins : &mut InstructionDecoder, val : u16 ) -> u16 {
+        panic!("tbd")
+
+    }
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 pub struct Relative { }
 
 impl AddressLines for Relative {
+    fn name() -> String {
+        "Relative".to_string()
+    }
+
     #[inline(always)]
     fn fetch_byte<M: MemoryIO>(mem : &M, regs : &mut Regs, ins : &mut InstructionDecoder) -> u8 {
         ins.fetch_byte(mem)
@@ -233,6 +316,16 @@ impl AddressLines for Relative {
         ins.fetch_word(mem)
     }
 
+    #[inline(always)]
+    fn store_byte<M: MemoryIO>(mem : &mut M, regs : &mut Regs, ins : &mut InstructionDecoder, val : u8 ) -> u16{
+        panic!("tbd")
+    }
+
+    #[inline(always)]
+    fn store_word<M: MemoryIO>(mem : &mut M, regs : &mut Regs, ins : &mut InstructionDecoder, val : u16 ) -> u16 {
+        panic!("tbd")
+
+    }
 }
 
 ////////////////////////////////////////////////////////////////////////////////

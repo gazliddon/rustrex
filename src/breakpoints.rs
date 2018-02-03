@@ -1,4 +1,3 @@
-
 #[derive(PartialEq, PartialOrd)]
 enum BreakpointTypes {
     READ8,
@@ -45,7 +44,6 @@ impl BreakpointT for Breakpoints {
     }
 
     fn clear_breakpoint(&mut self,  addr : u16, kind : BreakpointTypes ) {
-
         let exists = self.find(addr, kind);
 
         if  exists.is_some() {
@@ -56,6 +54,5 @@ impl BreakpointT for Breakpoints {
     fn action(&mut self, addr : u16, kind : BreakpointTypes ) -> bool {
         self.find(addr, kind).is_some()
     }
-
 }
 

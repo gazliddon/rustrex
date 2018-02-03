@@ -27,16 +27,6 @@ fn get_tfr_reg(op : u8 ) -> RegEnum {
     }
 }
 
-pub fn test1<A: AddressLines>() -> u8 {
-    0
-}
-
-pub fn test2() {
-    let a = test1::<Direct>();
-
-}
-
-
 // {{{
 pub struct Cpu {
     pub regs: Regs,
@@ -77,6 +67,7 @@ impl Cpu {
 
 // {{{ Todo next!
 impl  Cpu {
+
     #[inline(always)]
     fn orcc<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
         let v = A::fetch_byte(mem, &mut self.regs, ins);
@@ -85,20 +76,20 @@ impl  Cpu {
 
     #[inline(always)]
     fn ldx<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
-        let v =  A::fetch_word(mem, &mut self.regs, ins);
-        self.regs.load_x(v);
+        let val =  A::fetch_word(mem, &mut self.regs, ins);
+        self.regs.load_x(val);
     }
 
     #[inline(always)]
     fn stx<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
-        let addr = A::fetch_word(mem, &mut self.regs, ins);
-        mem.store_word(addr, self.regs.x);
+        let x = self.regs.x;
+        A::store_word(mem, &mut self.regs, ins, x);
     }
 
     #[inline(always)]
     fn sta<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
-        let addr = A::fetch_word(mem, &mut self.regs, ins);
-        mem.store_byte(addr, self.regs.a);
+        let r = self.regs.a;
+        A::store_byte(mem, &mut self.regs, ins, r);
     }
 
     #[inline(always)]
@@ -148,9 +139,9 @@ impl  Cpu {
     }
 
     fn sts<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
-        let addr =A::fetch_word(mem, &mut self.regs, ins);
-        mem.store_word(addr, self.regs.s);
-        self.regs.flags.test_16(self.regs.s)
+        let r = self.regs.s;
+        A::store_word(mem, &mut self.regs, ins, r);
+        self.regs.flags.test_16(r)
     }
 
     #[inline(always)]
@@ -546,14 +537,9 @@ impl  Cpu {
 
         macro_rules! handle_op {
             ($addr:ident, $action:ident) => (
-                {
-                    self.$action::<M, $addr>(mem, &mut ins); }
-            )
-        }
+                { self.$action::<M, $addr>(mem, &mut ins); }) }
 
-        op_table!(op, {
-                      self.unimplemented(&mut ins)}
-                  );
+        op_table!(op, { self.unimplemented(&mut ins)});
 
         self.regs.pc = ins.next_addr;
 
