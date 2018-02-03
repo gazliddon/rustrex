@@ -138,6 +138,7 @@ impl  Cpu {
         self.regs.x = x.wrapping_add(self.regs.b as u16);
     }
 
+    #[inline(always)]
     fn sts<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
         let r = self.regs.s;
         A::store_word(mem, &mut self.regs, ins, r);
@@ -519,7 +520,6 @@ impl  Cpu {
     fn sty<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
         panic!("sty NO!")
     }
-
 
     fn unimplemented(&mut self, ins : &mut InstructionDecoder) {
         panic!("unimplemnted op code")

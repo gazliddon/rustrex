@@ -64,13 +64,11 @@ static DEF_MACHINE: MachineInit = MachineInit {
     ],
 
     roms: &[
-        RomInit( "resources/rom.dat", 0xe000 ),
         RomInit( "utils/6809/6809all.raw", 0x1000 ) ],
 };
 
 fn main() {
 
-    let do_logging = true;
     let base_mem = DEF_MACHINE.create_memmap();
     let mut mem = LoggingMemMap::new(base_mem);
 
@@ -90,6 +88,8 @@ fn main() {
         let (ins, txt) =  diss.diss(&mem, cpu.regs.pc, None);
 
         mem.clear_log();
+
+        let prev_sim = cpu.regs.clone();
 
         let ins = cpu.step(&mut mem);
 
@@ -116,9 +116,10 @@ fn main() {
         if sim != log {
             println!("");
 
-            println!("     PC   D    A   B   X    Y    U    S    DP");
-            println!("sim: {}", sim);
-            println!("log: {}", log);
+            println!("          {}", cpu::Regs::get_hdr());
+            println!("prev_sim: {}", prev_sim);
+            println!("     sim: {}", sim);
+            println!("     log: {}", log);
 
             println!("");
 

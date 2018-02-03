@@ -168,7 +168,6 @@ pub struct Indexed { }
 
 impl Indexed {
 
-
     fn ea<M: MemoryIO>(mem : &M, regs : &mut Regs, ins : &mut InstructionDecoder) -> u16 {
 
         let index_mode_id = ins.fetch_byte(mem);
@@ -324,7 +323,6 @@ impl AddressLines for Relative {
     #[inline(always)]
     fn store_word<M: MemoryIO>(mem : &mut M, regs : &mut Regs, ins : &mut InstructionDecoder, val : u16 ) -> u16 {
         panic!("tbd")
-
     }
 }
 
