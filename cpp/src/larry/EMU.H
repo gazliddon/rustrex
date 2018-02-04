@@ -4,6 +4,17 @@
 /* Project started 1/7/98 */
 
 // #define PORTABLE /* Used for compiling no ASM code into the project */
+//
+#define _cdecl
+typedef int HANDLE;
+typedef int HWND;
+typedef bool BOOL;
+typedef int HDC;
+typedef int PALETTEENTRY;
+typedef HANDLE HPALETTE;
+typedef unsigned int RGBQUAD;
+#define TRUE true
+#define FALSE false
 
 /* Joystick bitfield values */
 #define JOY_BUT1   1

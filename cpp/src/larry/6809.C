@@ -8,9 +8,9 @@
 /* Change history:                                                 */
 /* 1/7/98 Wrote it - Larry B.                                      */
 /*******************************************************************/
-#include <windows.h>
+/* #include <windows.h> */
 #include <string.h>
-#include "emu.h"
+#include "EMU.H"
 
 #define F_CARRY     1
 #define F_OVERFLOW  2
@@ -104,7 +104,7 @@ __inline unsigned short M6809PULLWU(unsigned char *, REGS6809 *);
  *  PURPOSE    : Get the 6809 after a reset.                                *
  *                                                                          *
  ****************************************************************************/
-void RESET6809(char *mem, REGS6809 *regs)
+void RESET6809(unsigned char *mem, REGS6809 *regs)
 {
    m_map09 = mem;
    memset(regs, 0, sizeof(REGS6809)); /* Start with a clean slate at reset */
@@ -456,7 +456,7 @@ unsigned char ucTemp, *pcSReg, *pcDReg;
  ****************************************************************************/
 __inline unsigned short M6809PostByte(REGS6809 *regs, unsigned char *m_map09, unsigned short *PC, int *iClocks)
 {
-register unsigned char ucPostByte;
+unsigned char ucPostByte;
 signed char sByte;
 unsigned short *pReg, usAddr;
 signed short sTemp;
@@ -617,7 +617,7 @@ __inline unsigned char M6809DEC(REGS6809 *regs, unsigned char ucByte)
  ****************************************************************************/
 __inline unsigned char M6809SUB(REGS6809 *regs, unsigned char ucByte1, unsigned char ucByte2)
 {
-register unsigned short sTemp;
+unsigned short sTemp;
    sTemp = (unsigned short)ucByte1 - (unsigned short)ucByte2;
    regs->ucRegCC &= ~(F_ZERO | F_CARRY | F_OVERFLOW | F_NEGATIVE);
    regs->ucRegCC |= c6809NZ[sTemp & 0xff];
@@ -639,7 +639,7 @@ register unsigned short sTemp;
  ****************************************************************************/
 __inline unsigned short M6809SUB16(REGS6809 *regs, unsigned short usWord1, unsigned short usWord2)
 {
-register unsigned long lTemp;
+unsigned long lTemp;
    lTemp = (unsigned long)usWord1 - (unsigned long)usWord2;
    regs->ucRegCC &= ~(F_ZERO | F_CARRY | F_OVERFLOW | F_NEGATIVE);
    if ((lTemp & 0xffff)== 0) /* DEBUG - probably don't need this */
@@ -664,7 +664,7 @@ register unsigned long lTemp;
  ****************************************************************************/
 __inline unsigned char M6809ADD(REGS6809 *regs, unsigned char ucByte1, unsigned char ucByte2)
 {
-register unsigned short sTemp;
+unsigned short sTemp;
    sTemp = (unsigned short)ucByte1 + (unsigned short)ucByte2;
    regs->ucRegCC &= ~(F_HALFCARRY | F_CARRY | F_OVERFLOW | F_NEGATIVE | F_ZERO);
    regs->ucRegCC |= c6809NZ[sTemp & 0xff];
@@ -688,7 +688,7 @@ register unsigned short sTemp;
  ****************************************************************************/
 __inline unsigned short M6809ADD16(REGS6809 *regs, unsigned short usWord1, unsigned short usWord2)
 {
-register unsigned long lTemp;
+unsigned long lTemp;
    lTemp = (unsigned long)usWord1 + (unsigned long)usWord2;
    regs->ucRegCC &= ~(F_ZERO | F_CARRY | F_OVERFLOW | F_NEGATIVE);
    if ((lTemp & 0xffff)== 0)
@@ -713,7 +713,7 @@ register unsigned long lTemp;
  ****************************************************************************/
 __inline unsigned char M6809ADC(REGS6809 *regs, unsigned char ucByte1, unsigned char ucByte2)
 {
-register unsigned short sTemp;
+unsigned short sTemp;
    sTemp = (unsigned short)ucByte1 + (unsigned short)ucByte2 + (regs->ucRegCC & 1);
    regs->ucRegCC &= ~(F_HALFCARRY | F_ZERO | F_CARRY | F_OVERFLOW | F_NEGATIVE);
    regs->ucRegCC |= c6809NZ[sTemp & 0xff];
@@ -737,7 +737,7 @@ register unsigned short sTemp;
  ****************************************************************************/
 __inline unsigned char M6809SBC(REGS6809 *regs, unsigned char ucByte1, unsigned char ucByte2)
 {
-register unsigned short sTemp;
+unsigned short sTemp;
    sTemp = (unsigned short)ucByte1 - (unsigned short)ucByte2 - (regs->ucRegCC & 1);
    regs->ucRegCC &= ~(F_ZERO | F_CARRY | F_OVERFLOW | F_NEGATIVE);
    regs->ucRegCC |= c6809NZ[sTemp & 0xff];
@@ -759,7 +759,7 @@ register unsigned short sTemp;
  ****************************************************************************/
 __inline void M6809CMP(REGS6809 *regs, unsigned char ucByte1, unsigned char ucByte2)
 {
-register unsigned short sTemp;
+unsigned short sTemp;
    sTemp = (unsigned short)ucByte1 - (unsigned short)ucByte2;
    regs->ucRegCC &= ~(F_ZERO | F_CARRY | F_OVERFLOW | F_NEGATIVE);
    regs->ucRegCC |= c6809NZ[sTemp & 0xff];
@@ -780,7 +780,7 @@ register unsigned short sTemp;
  ****************************************************************************/
 __inline void M6809CMP16(REGS6809 *regs, unsigned short usWord1, unsigned short usWord2)
 {
-register unsigned long lTemp;
+unsigned long lTemp;
    lTemp = (unsigned long)usWord1 - (unsigned long)usWord2;
    regs->ucRegCC &= ~(F_ZERO | F_CARRY | F_OVERFLOW | F_NEGATIVE);
    if (lTemp == 0)
@@ -828,7 +828,7 @@ __inline unsigned char M6809ASR(REGS6809 *regs, unsigned char ucByte)
    regs->ucRegCC &= ~(F_ZERO | F_CARRY | F_NEGATIVE);
    if (ucByte & 0x01)
       regs->ucRegCC |= F_CARRY;
-   ucByte = ucByte & 0x80 | ucByte >>1;
+   ucByte = ( ucByte & 0x80 ) | ucByte >>1;
    regs->ucRegCC |= c6809NZ[ucByte];
 
    return ucByte;
@@ -890,7 +890,7 @@ unsigned char uc;
  ****************************************************************************/
 __inline unsigned char M6809EOR(REGS6809 *regs, unsigned char ucByte1, char ucByte2)
 {
-register unsigned char ucTemp;
+unsigned char ucTemp;
 
    regs->ucRegCC &= ~(F_ZERO | F_OVERFLOW | F_NEGATIVE);
    ucTemp = ucByte1 ^ ucByte2;
@@ -908,7 +908,7 @@ register unsigned char ucTemp;
  ****************************************************************************/
 __inline unsigned char M6809OR(REGS6809 *regs, unsigned char ucByte1, char ucByte2)
 {
-register unsigned char ucTemp;
+unsigned char ucTemp;
 
    regs->ucRegCC &= ~(F_ZERO | F_OVERFLOW | F_NEGATIVE);
    ucTemp = ucByte1 | ucByte2;
@@ -926,7 +926,7 @@ register unsigned char ucTemp;
  ****************************************************************************/
 __inline unsigned char M6809AND(REGS6809 *regs, unsigned char ucByte1, char ucByte2)
 {
-register unsigned char ucTemp;
+unsigned char ucTemp;
 
    regs->ucRegCC &= ~(F_ZERO | F_OVERFLOW | F_NEGATIVE);
    ucTemp = ucByte1 & ucByte2;
@@ -1342,14 +1342,14 @@ unsigned char hi, lo;
  *  PURPOSE    : Emulate the M6809 microprocessor for N clock cycles.       *
  *                                                                          *
  ****************************************************************************/
-void EXEC6809(char *mem, REGS6809 *regs, EMUHANDLERS *emuh, int *iClocks, unsigned char *ucIRQs)
+void EXEC6809(unsigned char *mem, REGS6809 *regs, EMUHANDLERS *emuh, int *iClocks, unsigned char *ucIRQs)
 {
 unsigned short PC;  /* Current Program Counter address */
 unsigned char ucOpcode;
-register unsigned short usAddr; /* Temp address */
-register unsigned char ucTemp;
-register unsigned short usTemp;
-register signed short sTemp;
+unsigned short usAddr; /* Temp address */
+unsigned char ucTemp;
+unsigned short usTemp;
+signed short sTemp;
 int oldPC; // DEBUG
    mem_handlers09 = emuh; /* Assign to static for faster execution */
    m_map09 = mem; /* ditto */
@@ -1917,9 +1917,11 @@ doexecute:
             break;
 
          /* Relative conditional branches */
-         case 0x20: /* BRA */
-            PC += (signed short)(signed char)M6809ReadByte(m_map09, PC++);
+         case 0x20: /* BRA */ {
+            unsigned short offset = (signed short)(signed char)M6809ReadByte(m_map09, PC++);
+            PC += offset;
             break;
+            }
 
          case 0x21: /* BRN - another NOP */
             PC++; /* skip the offset */
