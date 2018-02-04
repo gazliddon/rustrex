@@ -1,0 +1,13 @@
+build --cxxopt "-Werror"
+build --cxxopt "-Wno-unused-variable" 
+build --cxxopt "-std=c++1z" 
+build --show_progress_rate_limit -1
+build --jobs 10
+build --cxxopt "-U_FORTIFY_SOURCE"
+build --symlink_prefix=.bazel/
+build --ram_utilization_factor=45
+build --verbose_failures
+build --apple_generate_dsym
+build --spawn_strategy=standalone
+build --genrule_strategy=standalone
+
