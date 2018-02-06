@@ -7,6 +7,8 @@
 #include <assert.h>
 #include <experimental/optional>
 
+#include "sha1.hpp"
+
 struct regs_t {
     uint8_t a, b, cc, dp;
 
@@ -29,10 +31,7 @@ class cMemIO {
 
         virtual uint16_t read_word(uint16_t _addr) const;
 
-        virtual uint32_t get_hash() const {
-            assert(!"TBD");
-            return 0;
-        }
+        virtual sha1 get_hash() const = 0;
 };
 
 class cMemBlock : public cMemIO {
@@ -43,6 +42,7 @@ class cMemBlock : public cMemIO {
         uint8_t read_byte(uint16_t _addr) const override; 
         void write_byte(uint16_t _addr, uint8_t _val) override; 
         std::pair<uint16_t, uint16_t> getRange() const override; 
+        sha1 get_hash() const override;
 
     protected:
         unsigned m_first, m_last, m_size;
@@ -62,6 +62,7 @@ class cMemMap : public cMemIO {
         bool inRange(uint16_t _addr) const override ;
 
         std::pair<uint16_t, uint16_t> getRange() const override ;
+        sha1 get_hash() const override;
 
     protected:
         std::experimental::optional<unsigned int> find_block_index(

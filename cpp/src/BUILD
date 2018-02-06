@@ -13,6 +13,7 @@ cc_binary(
         srcs = ["core/main.cpp", 
                 "core/mem.cpp", "core/c6809base.cpp", "core/c6809Larry.cpp",
                 "core/mem.h", "core/c6809base.h","core/c6809Larry.h",
+                "core/sha1.hpp",
                 ],
         deps = [":larry"]
         )

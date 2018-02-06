@@ -1,6 +1,10 @@
 #include "mem.h"
 
 ////////////////////////////////////////////////////////////////////////////////
+static sha1 from_vector(std::vector<uint8_t> const & _mem) {
+    return sha1().add(_mem.data(), _mem.size());
+}
+////////////////////////////////////////////////////////////////////////////////
 
 bool cMemIO::inRange(uint16_t _addr) const {
     auto x = getRange();
@@ -44,51 +48,68 @@ std::pair<uint16_t, uint16_t> cMemBlock::getRange() const  {
     return {m_first, m_last};
 }
 
+sha1 cMemBlock::get_hash() const {
+    return from_vector(m_mem);
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 
 cMemMap::cMemMap() {}
 
-        void cMemMap::add_mem(std::unique_ptr<cMemIO> _mem) {
-            m_memblocks.push_back(std::move(_mem));
+void cMemMap::add_mem(std::unique_ptr<cMemIO> _mem) {
+    m_memblocks.push_back(std::move(_mem));
+}
+
+uint8_t cMemMap::read_byte(uint16_t _addr) const  {
+    auto b = find_block_index(_addr);
+
+    if (b) {
+        return m_memblocks[*b]->read_byte(_addr);
+    } else {
+        return 0;
+    }
+}
+
+void cMemMap::write_byte(uint16_t _addr, uint8_t _val)  {
+    auto b = find_block_index(_addr);
+
+    if (b) {
+        m_memblocks[*b]->write_byte(_addr, _val);
+    }
+}
+
+bool cMemMap::inRange(uint16_t _addr) const  {
+    if (find_block_index(_addr)) {
+        return true;
+    } else {
+        return false;
+    }
+}
+
+std::pair<uint16_t, uint16_t> cMemMap::getRange() const  {
+    return {0, 0xfff};
+}
+
+std::experimental::optional<unsigned int> cMemMap::find_block_index(
+        uint16_t _addr) const {
+    for (auto i = 0u; i < m_memblocks.size(); i++) {
+        if (m_memblocks[i]->inRange(_addr)) {
+            return i;
         }
+    }
 
-        uint8_t cMemMap::read_byte(uint16_t _addr) const  {
-            auto b = find_block_index(_addr);
+    return {};
+}
 
-            if (b) {
-                return m_memblocks[*b]->read_byte(_addr);
-            } else {
-                return 0;
-            }
-        }
+sha1 cMemMap::get_hash() const {
 
-        void cMemMap::write_byte(uint16_t _addr, uint8_t _val)  {
-            auto b = find_block_index(_addr);
+    std::vector<uint8_t> hashes;
 
-            if (b) {
-                m_memblocks[*b]->write_byte(_addr, _val);
-            }
-        }
+    for (auto i = 0u; i < m_memblocks.size(); i++) {
+        auto hash = m_memblocks[i]->get_hash();
+        assert(!"TBV");
+    }
 
-        bool cMemMap::inRange(uint16_t _addr) const  {
-            if (find_block_index(_addr)) {
-                return true;
-            } else {
-                return false;
-            }
-        }
+    return from_vector(hashes).finalize();
+}
 
-        std::pair<uint16_t, uint16_t> cMemMap::getRange() const  {
-            return {0, 0xfff};
-        }
-
-        std::experimental::optional<unsigned int> cMemMap::find_block_index(
-                uint16_t _addr) const {
-            for (auto i = 0u; i < m_memblocks.size(); i++) {
-                if (m_memblocks[i]->inRange(_addr)) {
-                    return i;
-                }
-            }
-
-            return {};
-        }
