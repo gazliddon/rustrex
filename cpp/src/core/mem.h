@@ -1,11 +1,11 @@
 #ifndef MEM_H_PCHU3R9M
 #define MEM_H_PCHU3R9M
 
+#include <assert.h>
 #include <cstdint>
+#include <experimental/optional>
 #include <memory>
 #include <vector>
-#include <assert.h>
-#include <experimental/optional>
 
 #include "sha1.hpp"
 
@@ -15,70 +15,67 @@ struct regs_t {
     uint16_t x, y, s, u, pc;
 };
 
-
 class cMemIO {
-    public:
-        cMemIO() = default;
-        virtual ~cMemIO() = default;
+   public:
+    cMemIO() = default;
+    virtual ~cMemIO() = default;
 
-        virtual void write_byte(uint16_t _addr, uint8_t _val) = 0;
-        virtual uint8_t read_byte(uint16_t _addr) const = 0;
-        virtual std::pair<uint16_t, uint16_t> getRange() const = 0;
+    virtual void write_byte(uint16_t _addr, uint8_t _val) = 0;
+    virtual uint8_t read_byte(uint16_t _addr) const = 0;
+    virtual std::pair<uint16_t, uint16_t> getRange() const = 0;
 
-        virtual bool inRange(uint16_t _addr) const;
+    virtual bool inRange(uint16_t _addr) const;
 
-        virtual void write_word(uint16_t _addr, uint16_t _val);
+    virtual void write_word(uint16_t _addr, uint16_t _val);
 
-        virtual uint16_t read_word(uint16_t _addr) const;
+    virtual uint16_t read_word(uint16_t _addr) const;
 
-        virtual void add_hash(sha1 & _hash) const = 0;
+    virtual void add_hash(sha1& _hash) const = 0;
 
-        virtual sha1 get_hash() const {
-            sha1 hash;
-            add_hash(hash);
-            return hash;
-        }
-
+    virtual sha1 get_hash() const {
+        sha1 hash;
+        add_hash(hash);
+        return hash;
+    }
 };
 
 class cMemBlock : public cMemIO {
+   public:
+    cMemBlock(uint16_t _first, uint16_t _size);
 
-    public:
-        cMemBlock(uint16_t _first, uint16_t _size);
+    uint8_t read_byte(uint16_t _addr) const override;
+    void write_byte(uint16_t _addr, uint8_t _val) override;
+    std::pair<uint16_t, uint16_t> getRange() const override;
+    virtual void add_hash(sha1& _hash) const override;
 
-        uint8_t read_byte(uint16_t _addr) const override; 
-        void write_byte(uint16_t _addr, uint8_t _val) override; 
-        std::pair<uint16_t, uint16_t> getRange() const override; 
-        virtual void add_hash(sha1 & _hash) const override;
-
-    protected:
-        unsigned m_first, m_last, m_size;
-        std::vector<uint8_t> m_mem;
+   protected:
+    unsigned m_first, m_last, m_size;
+    std::vector<uint8_t> m_mem;
 };
 
 class cMemMap : public cMemIO {
-    public:
-        cMemMap() ;
+   public:
+    cMemMap();
 
-        void add_mem(std::unique_ptr<cMemIO> _mem) ;
+    void add_mem(std::unique_ptr<cMemIO> _mem);
 
-        uint8_t read_byte(uint16_t _addr) const override ;
+    uint8_t read_byte(uint16_t _addr) const override;
 
-        void write_byte(uint16_t _addr, uint8_t _val) override ;
+    void write_byte(uint16_t _addr, uint8_t _val) override;
 
-        bool inRange(uint16_t _addr) const override ;
+    bool inRange(uint16_t _addr) const override;
 
-        std::pair<uint16_t, uint16_t> getRange() const override ;
-        virtual void add_hash(sha1 & _hash) const override;
+    std::pair<uint16_t, uint16_t> getRange() const override;
+    virtual void add_hash(sha1& _hash) const override;
 
-    protected:
-        std::experimental::optional<unsigned int> find_block_index(
-                uint16_t _addr) const ;
+   protected:
+    std::experimental::optional<unsigned int> find_block_index(
+        uint16_t _addr) const;
 
-        unsigned m_first = 0;
-        unsigned m_last = 0xffff;
+    unsigned m_first = 0;
+    unsigned m_last = 0xffff;
 
-        std::vector<std::unique_ptr<cMemIO>> m_memblocks;
+    std::vector<std::unique_ptr<cMemIO>> m_memblocks;
 };
 
 #endif /* end of include guard: MEM_H_PCHU3R9M */
