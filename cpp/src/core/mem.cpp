@@ -1,10 +1,6 @@
 #include "mem.h"
 
 ////////////////////////////////////////////////////////////////////////////////
-static sha1 from_vector(std::vector<uint8_t> const & _mem) {
-    return sha1().add(_mem.data(), _mem.size());
-}
-////////////////////////////////////////////////////////////////////////////////
 
 bool cMemIO::inRange(uint16_t _addr) const {
     auto x = getRange();
@@ -23,7 +19,6 @@ uint16_t cMemIO::read_word(uint16_t _addr) const {
     auto lo = read_byte(_addr);
     return lo + (hi << 8);
 }
-
 
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -48,8 +43,8 @@ std::pair<uint16_t, uint16_t> cMemBlock::getRange() const  {
     return {m_first, m_last};
 }
 
-sha1 cMemBlock::get_hash() const {
-    return from_vector(m_mem);
+void cMemBlock::add_hash(sha1 & _hash) const {
+    _hash.add(m_mem.data(), m_mem.size());
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -90,8 +85,7 @@ std::pair<uint16_t, uint16_t> cMemMap::getRange() const  {
     return {0, 0xfff};
 }
 
-std::experimental::optional<unsigned int> cMemMap::find_block_index(
-        uint16_t _addr) const {
+std::experimental::optional<unsigned int> cMemMap::find_block_index( uint16_t _addr) const {
     for (auto i = 0u; i < m_memblocks.size(); i++) {
         if (m_memblocks[i]->inRange(_addr)) {
             return i;
@@ -101,15 +95,10 @@ std::experimental::optional<unsigned int> cMemMap::find_block_index(
     return {};
 }
 
-sha1 cMemMap::get_hash() const {
-
-    std::vector<uint8_t> hashes;
-
-    for (auto i = 0u; i < m_memblocks.size(); i++) {
-        auto hash = m_memblocks[i]->get_hash();
-        assert(!"TBV");
-    }
-
-    return from_vector(hashes).finalize();
+void cMemMap::add_hash(sha1 & _hash) const {
+    for (auto const & b : m_memblocks) {
+        b->add_hash(_hash);
+    };
+    
 }
 
