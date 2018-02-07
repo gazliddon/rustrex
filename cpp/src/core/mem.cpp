@@ -22,8 +22,8 @@ uint16_t cMemIO::read_word(uint16_t _addr) const {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-cMemBlock::cMemBlock(uint16_t _first, uint16_t _size)
-    : m_first(_first), m_last(_first + _size), m_size(_size) {
+cMemBlock::cMemBlock(uint16_t _first, size_t _size)
+    : m_first(_first), m_last(( _first + _size ) -1), m_size(_size) {
     assert(m_last < 0x10000);
     m_mem.resize(m_size);
 }
@@ -82,7 +82,7 @@ bool cMemMap::inRange(uint16_t _addr) const {
 
 std::pair<uint16_t, uint16_t> cMemMap::getRange() const { return {0, 0xfff}; }
 
-std::experimental::optional<unsigned int> cMemMap::find_block_index(
+opt::optional<unsigned int> cMemMap::find_block_index(
     uint16_t _addr) const {
     for (auto i = 0u; i < m_memblocks.size(); i++) {
         if (m_memblocks[i]->inRange(_addr)) {

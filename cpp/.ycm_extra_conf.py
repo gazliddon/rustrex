@@ -68,6 +68,8 @@ flags = [
 
     "-I","src/larry",
 
+    "-I",".bazel/cpp/external/gsl/include"
+
     # "-I", "third_party/gflags/build/k8/include/",
 
     # "-I", "src",

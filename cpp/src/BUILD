@@ -10,11 +10,7 @@ cc_library(
 
 cc_binary(
         name = "core",
-        srcs = ["core/main.cpp", 
-                "core/mem.cpp", "core/c6809base.cpp", "core/c6809Larry.cpp",
-                "core/mem.h", "core/c6809base.h","core/c6809Larry.h",
-                "core/sha1.hpp",
-                ],
-        deps = [":larry"]
+        srcs = glob(["core/*.cpp", "core/*.h", "core/*.hpp"]),
+        deps = [":larry", "@gsl//:gsl"]
         )
 

@@ -1,0 +1,16 @@
+new_http_archive (
+        name = "gsl",
+        url = "https://github.com/Microsoft/GSL/archive/64a7dae4c6fb218a23b3d48db0eec56a3c4d5234.zip",
+        strip_prefix = "GSL-64a7dae4c6fb218a23b3d48db0eec56a3c4d5234",
+        sha256 = "7fa59a76b0a7f8f27af60af7b64bec6cd26b69a6f8fd2e678954b8626fe20840",
+        build_file_content = """
+cc_library(
+  name = "gsl",
+  hdrs = glob([ "include/gsl/*" ]),
+  includes = ["include"],
+  visibility = ["//visibility:public"]
+)
+        """,
+        )
+
+

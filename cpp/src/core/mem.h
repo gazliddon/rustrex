@@ -9,9 +9,12 @@
 
 #include "sha1.hpp"
 
+#include <gsl/gsl>
+
+namespace opt = std::experimental;
+
 struct regs_t {
     uint8_t a, b, cc, dp;
-
     uint16_t x, y, s, u, pc;
 };
 
@@ -32,6 +35,15 @@ class cMemIO {
 
     virtual void add_hash(sha1& _hash) const = 0;
 
+    /* void copy_memory(uint16_t _addr, ); */
+
+    void transfer_memory(uint16_t _addr, gsl::span<uint8_t> _data) {
+        for (auto i : _data) {
+            write_byte(_addr, i);
+            i++;
+        }
+    }
+
     virtual sha1 get_hash() const {
         sha1 hash;
         add_hash(hash);
@@ -41,7 +53,7 @@ class cMemIO {
 
 class cMemBlock : public cMemIO {
    public:
-    cMemBlock(uint16_t _first, uint16_t _size);
+    cMemBlock(uint16_t _first, size_t _size);
 
     uint8_t read_byte(uint16_t _addr) const override;
     void write_byte(uint16_t _addr, uint8_t _val) override;
@@ -69,7 +81,7 @@ class cMemMap : public cMemIO {
     virtual void add_hash(sha1& _hash) const override;
 
    protected:
-    std::experimental::optional<unsigned int> find_block_index(
+    opt::optional<unsigned int> find_block_index(
         uint16_t _addr) const;
 
     unsigned m_first = 0;
