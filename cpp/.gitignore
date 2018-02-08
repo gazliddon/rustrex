@@ -1,3 +1,7 @@
 bazel-out
+bazel-bin
+bazel-cpp
+bazel-genfiles
+bazel-testlogs
 .bazel
 
