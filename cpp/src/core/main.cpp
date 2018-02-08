@@ -8,6 +8,7 @@
 #include <fstream>
 #include <assert.h>
 #include <iostream>
+#include <spdlog/spdlog.h>
 
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -20,6 +21,7 @@ size_t get_file_size(char const * _fileName) {
 }
 
 std::vector<uint8_t> load_file(char const * _name) {
+
     auto size = get_file_size(_name);
 
     std::vector<char> chars;
@@ -37,32 +39,40 @@ std::vector<uint8_t> load_file(char const * _name) {
 }
 
 int main(int argc, char *argv[]) { 
-    using std::cout;
 
-    cout << "starting!\n";
+    using fmt::print;
+
+    print("starting");
 
     auto file = "../utils/6809/6809all.raw";
-    cout << "loading " << file << "\n";
+
+    print("loading {}\n", file);
+
     auto mem = load_file(file);
 
-    cout << "making memory maps "<< "\n";
+    print("making memory maps\n" );
+
     cMemMap memMap;
 
-    memMap.add_mem( std::make_unique<cMemBlock>(0,0x10000));
+    auto ptr =  std::make_unique<cMemBlock>(0,0x10000);
 
-    /* cout << "getting hashes"<< "\n"; */
-    /* char txt[1000]; */
-    /* memMap.get_hash().print_hex(txt); */
-    /* std::cout << "Before: " << txt << "\n"; */
+    sha1 hash;
 
-    cout << "transferring memory"<< "\n";
+    ptr->add_hash(hash);
 
-    memMap.transfer_memory(0,mem);
+    memMap.add_mem(std::move(ptr));
 
-    /* memMap.get_hash().print_hex(txt); */
-    /* std::cout << "after: " << txt << "\n"; */
+    auto hex = memMap.get_hash().get_hex();
+    print("before {}\n", hex);
 
-    cout << "complete"<< "\n";
+    print("transferring memory\n" );
+
+    memMap.set_memory(0,mem);
+
+    hex = memMap.get_hash().get_hex();
+    print("after {}\n", hex);
+
+    print("complete\n");
 
     return 0; 
 }

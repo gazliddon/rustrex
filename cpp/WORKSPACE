@@ -8,8 +8,44 @@ cc_library(
   name = "gsl",
   hdrs = glob([ "include/gsl/*" ]),
   includes = ["include"],
-  visibility = ["//visibility:public"]
+  visibility = ["//visibility:public"],
 )
+        """,
+        )
+
+# TODO gaz
+# Change to this when I get version of bazel that allows symlinks within zip files that 
+# don't leak outside of their own directory structure
+# https://github.com/bazelbuild/bazel/commit/79ebb32e77f134e2f6496dd532bf9574d4198676
+
+# new_http_archive (
+#         name = "spdlog",
+#         url = "https://github.com/gabime/spdlog/archive/5ab033fba5710fc9fc7fbff901e27a8d9d92778e.zip",
+#         strip_prefix = "spdlog-5ab033fba5710fc9fc7fbff901e27a8d9d92778e",
+#         sha256 = "9349dfe3a81d4ff3c732f3d1e7d64a003545be39030eb8e92ddee7ea57ad2c8e",
+#         build_file_content = """
+# cc_library(
+#         name = "spdlog",
+#         hdrs     = glob([
+#             "include/spdlog/**/*.h",
+#             "include/spdlog/**/*.cc",
+#             ]),
+#         includes = ["include"],
+#         visibility = ["//visibility:public"],
+#         )
+#         """,
+#         )
+
+# Hold spdlog locally for now
+new_local_repository (
+        name = "spdlog",
+        path = "third_party/spdlog-5ab033fba5710fc9fc7fbff901e27a8d9d92778e",
+        build_file_content = """
+cc_library(
+        name = "spdlog",
+        hdrs = glob([ "include/spdlog/**/*.h", "include/spdlog/**/*.cc", ]),
+        includes = ["include"],
+        visibility = ["//visibility:public"])
         """,
         )
 

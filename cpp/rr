@@ -1,0 +1,1 @@
+bazel --bazelrc=macbaz.rc run -c dbg src:core

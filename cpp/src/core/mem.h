@@ -37,11 +37,24 @@ class cMemIO {
 
     /* void copy_memory(uint16_t _addr, ); */
 
-    void transfer_memory(uint16_t _addr, gsl::span<uint8_t> _data) {
+    void set_memory(uint16_t _addr, gsl::span<uint8_t> _data) {
+
         for (auto i : _data) {
             write_byte(_addr, i);
-            i++;
+            _addr++;
         }
+    }
+
+    std::vector<uint8_t> get_memory(uint16_t _addr, size_t _size) {
+        assert(_addr + _size < 0x10000);
+        std::vector<uint8_t> ret;
+        ret.resize(_size);
+
+        for (auto i = 0u; i < _size; i++) {
+            ret[i] = read_byte(i + _addr);
+        }
+
+        return ret;
     }
 
     virtual sha1 get_hash() const {

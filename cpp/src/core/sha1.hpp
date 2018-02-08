@@ -1,8 +1,11 @@
 #include <stdint.h>
 #include <string.h>
+#include <string>
 
 #define SHA1_HEX_SIZE (40 + 1)
 #define SHA1_BASE64_SIZE (28 + 1)
+
+
 
 class sha1 {
 private:
@@ -153,12 +156,15 @@ public:
     uint32_t i;
     uint64_t n_bits;
 
-    sha1(const char *text = NULL): i(0), n_bits(0){
+    sha1() : i(0), n_bits(0) {
         state[0] = 0x67452301;
         state[1] = 0xEFCDAB89;
         state[2] = 0x98BADCFE;
         state[3] = 0x10325476;
         state[4] = 0xC3D2E1F0;
+    }
+
+    sha1(const char *text ): sha1(){
         add(text);
     }
 
@@ -204,6 +210,12 @@ public:
         for (int j = 7; j >= 0; j--) add_byte_dont_count_bits(n_bits >> j * 8);
 
         return *this;
+    }
+
+    std::string get_hex() {
+        char hex[SHA1_HEX_SIZE];
+        print_hex(hex);
+        return std::string(hex);
     }
 
     const sha1& print_hex(
