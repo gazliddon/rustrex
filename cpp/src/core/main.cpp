@@ -12,8 +12,7 @@
 
 ////////////////////////////////////////////////////////////////////////////////
 
-size_t get_file_size(char const* _fileName)
-{
+size_t get_file_size(char const* _fileName) {
     std::ifstream f1(_fileName, std::fstream::binary);
     assert(f1);
     f1.seekg(0, f1.end);
@@ -21,8 +20,7 @@ size_t get_file_size(char const* _fileName)
     return f1.tellg();
 }
 
-std::vector<uint8_t> load_file(char const* _name)
-{
+std::vector<uint8_t> load_file(char const* _name) {
     auto size = get_file_size(_name);
 
     std::vector<char> chars;
@@ -39,14 +37,12 @@ std::vector<uint8_t> load_file(char const* _name)
     return ret;
 }
 
-void load_file(char const* _fileName, cMemIO& _mem, uint16_t _addr)
-{
+void load_file(char const* _fileName, cMemIO& _mem, uint16_t _addr) {
     auto mem = load_file(_fileName);
     _mem.set_memory(_addr, mem);
 }
 
-int main(int argc, char* argv[])
-{
+int main(int argc, char* argv[]) {
     using fmt::print;
     using std::make_unique;
 
