@@ -20,10 +20,42 @@ uint16_t cMemIO::read_word(uint16_t _addr) const {
     return lo + (hi << 8);
 }
 
+void cMemIO::set_memory(uint16_t _addr, gsl::span<uint8_t> _data) {
+    for (auto i : _data) {
+        write_byte(_addr, i);
+        _addr++;
+    }
+}
+
+std::vector<uint8_t> cMemIO::get_memory(uint16_t _addr, size_t _size) const {
+    assert(_addr + _size < 0x10000);
+    std::vector<uint8_t> ret;
+    ret.resize(_size);
+
+    for (auto i = 0u; i < _size; i++) {
+        ret[i] = read_byte(i + _addr);
+    }
+
+    return ret;
+}
+
+sha1 cMemIO::get_hash() const {
+    sha1 hash;
+    add_hash(hash);
+    hash.finalize();
+    return hash;
+}
+
+std::string cMemIO::get_hash_hex() const {
+    sha1 hash;
+    add_hash(hash);
+    hash.finalize();
+    return hash.get_hex();
+}
 ////////////////////////////////////////////////////////////////////////////////
 
 cMemBlock::cMemBlock(uint16_t _first, size_t _size)
-    : m_first(_first), m_last(( _first + _size ) -1), m_size(_size) {
+    : m_first(_first), m_last((_first + _size) - 1), m_size(_size) {
     assert(m_last < 0x10000);
     m_mem.resize(m_size);
 }
@@ -48,7 +80,8 @@ void cMemBlock::add_hash(sha1& _hash) const {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-cMemMap::cMemMap() {}
+cMemMap::cMemMap() {
+}
 
 void cMemMap::add_mem(std::unique_ptr<cMemIO> _mem) {
     m_memblocks.push_back(std::move(_mem));
@@ -80,10 +113,11 @@ bool cMemMap::inRange(uint16_t _addr) const {
     }
 }
 
-std::pair<uint16_t, uint16_t> cMemMap::getRange() const { return {0, 0xfff}; }
+std::pair<uint16_t, uint16_t> cMemMap::getRange() const {
+    return {0, 0xfff};
+}
 
-opt::optional<unsigned int> cMemMap::find_block_index(
-    uint16_t _addr) const {
+opt::optional<unsigned int> cMemMap::find_block_index(uint16_t _addr) const {
     for (auto i = 0u; i < m_memblocks.size(); i++) {
         if (m_memblocks[i]->inRange(_addr)) {
             return i;
