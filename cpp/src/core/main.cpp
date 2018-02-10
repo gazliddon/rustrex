@@ -43,6 +43,7 @@ void load_file(char const* _fileName, cMemIO& _mem, uint16_t _addr) {
 }
 
 int main(int argc, char* argv[]) {
+
     using fmt::print;
     using std::make_unique;
 
@@ -69,6 +70,10 @@ int main(int argc, char* argv[]) {
     print("after:  {}\n", after);
 
     print("complete\n");
+
+    c6809Larry cpu(
+            make_unique<cMemMap>(
+                make_unique<cMemBlock>(0, 0x10000)));
 
     return 0;
 }

@@ -1,46 +1,5 @@
 #include "c6809Larry.h"
 
-c6809Larry::c6809Larry(std::unique_ptr<cMemIO> _mem)
-    : c6809Base(std::move(_mem)) 
-{
-}
-
-c6809Larry::~c6809Larry() {
-}
-
-regs_t c6809Larry::getRegs() const {
-
-    regs_t regs;
-
-    regs.a = m_larryRegs.ucRegA;
-    regs.b = m_larryRegs.ucRegA;
-
-    regs.x = m_larryRegs.usRegX;
-    regs.y = m_larryRegs.usRegY;
-
-    regs.s = m_larryRegs.usRegS;
-    regs.u = m_larryRegs.usRegU;
-
-    regs.dp = m_larryRegs.ucRegDP;
-    regs.cc = m_larryRegs.ucRegCC;
-
-    return regs;
-}
-
-void c6809Larry::setRegs(regs_t const &_regs) {
-
-    m_larryRegs.ucRegA = _regs.a ;
-    m_larryRegs.ucRegA = _regs.b ;
-
-    m_larryRegs.usRegX = _regs.x ;
-    m_larryRegs.usRegY = _regs.y ;
-
-    m_larryRegs.usRegS = _regs.s ;
-    m_larryRegs.usRegU = _regs.u ;
-
-    m_larryRegs.ucRegDP = _regs.dp ;
-    m_larryRegs.ucRegCC = _regs.cc ;
-}
 /* MC6809 Emulator */
 
 /* void EXEC6809(char *, REGS6809 *, EMUHANDLERS *, int *, unsigned char *); */
@@ -50,10 +9,77 @@ void c6809Larry::setRegs(regs_t const &_regs) {
 /* int DIS6809(char *, REGS6809 *, int *, int *, char *); */
 /* void M6809Debug(HANDLE, HWND, REGS6809 *); */
 
-void c6809Larry::step() {
+/* Structure to pass to CPU emulator with memory handler routines */
+/* typedef struct tagEMUHANDLERS */
+/* { */
+/*    MEMRPROC pfn_read; */
+/*    MEMWPROC pfn_write; */
 
+/* } EMUHANDLERS; */
+
+/* typedef unsigned char (_cdecl *MEMRPROC)(unsigned short); */
+/* typedef void (_cdecl *MEMWPROC)(unsigned short, unsigned char); */
+
+// Static vars
+
+c6809Larry* c6809Larry::s_larry = nullptr;
+REGS6809 c6809Larry::s_larry_regs;
+unsigned char* c6809Larry::s_mem = {0};
+EMUHANDLERS c6809Larry::s_emu_handlers{&c6809Larry::read_byte, &c6809Larry::write_byte};
+
+unsigned char c6809Larry::read_byte(unsigned short _addr) {
+    assert(0);
+    return 0;
+}
+
+void c6809Larry::write_byte(unsigned short _addr, unsigned char _byte) {
+    assert(0);
+}
+
+c6809Larry::c6809Larry(std::unique_ptr<cMemIO> _mem) : c6809Base(std::move(_mem)) {
+    assert(s_larry == nullptr);
+    s_larry = this;
+}
+
+c6809Larry::~c6809Larry() {
+    s_larry = nullptr;
+}
+
+regs_t c6809Larry::getRegs() const {
+    regs_t regs;
+
+    regs.a = s_larry_regs.ucRegA;
+    regs.b = s_larry_regs.ucRegA;
+
+    regs.x = s_larry_regs.usRegX;
+    regs.y = s_larry_regs.usRegY;
+
+    regs.s = s_larry_regs.usRegS;
+    regs.u = s_larry_regs.usRegU;
+
+    regs.dp = s_larry_regs.ucRegDP;
+    regs.cc = s_larry_regs.ucRegCC;
+
+    return regs;
+}
+
+void c6809Larry::setRegs(regs_t const& _regs) {
+
+    s_larry_regs.ucRegA = _regs.a;
+    s_larry_regs.ucRegA = _regs.b;
+
+    s_larry_regs.usRegX = _regs.x;
+    s_larry_regs.usRegY = _regs.y;
+
+    s_larry_regs.usRegS = _regs.s;
+    s_larry_regs.usRegU = _regs.u;
+
+    s_larry_regs.ucRegDP = _regs.dp;
+    s_larry_regs.ucRegCC = _regs.cc;
+}
+
+void c6809Larry::step() {
 }
 
 void c6809Larry::reset() {
-
 }

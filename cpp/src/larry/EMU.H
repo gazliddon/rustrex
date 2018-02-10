@@ -282,10 +282,10 @@ void ARESET6800(char *, REGS6800 *);
 int DIS6800(char *, REGS6800 *, int *, int *, char *);
 
 /* MC6809 Emulator */
-void EXEC6809(char *, REGS6809 *, EMUHANDLERS *, int *, unsigned char *);
-void RESET6809(char *, REGS6809 *);
-void AEXEC6809(char *, REGS6809 *, EMUHANDLERS *, int *, unsigned char *);
-void ARESET6809(char *, REGS6809 *);
+void EXEC6809(REGS6809 *, EMUHANDLERS *, int *, unsigned char *);
+void RESET6809(REGS6809 *);
+void AEXEC6809(REGS6809 *, EMUHANDLERS *, int *, unsigned char *);
+void ARESET6809(REGS6809 *);
 int DIS6809(char *, REGS6809 *, int *, int *, char *);
 void M6809Debug(HANDLE, HWND, REGS6809 *);
 
