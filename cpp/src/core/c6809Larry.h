@@ -10,10 +10,10 @@ class c6809Larry : public c6809Base {
     c6809Larry(std::unique_ptr<cMemIO> _mem);
     ~c6809Larry();
 
-    regs_t getRegs() const override;
+    regs_t get_regs() const override;
 
-    void setRegs(regs_t const& _regs) override;
-    void step() override;
+    void set_regs(regs_t const& _regs) override;
+    void step(int _cycles = 0) override;
     void reset() override;
 
   protected:

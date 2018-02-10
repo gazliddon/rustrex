@@ -10,12 +10,24 @@
 #include "sha1.hpp"
 
 #include <gsl/gsl>
+#include <spdlog/spdlog.h>
 
 namespace opt = std::experimental;
 
 struct regs_t {
+
     uint8_t a, b, cc, dp;
     uint16_t x, y, s, u, pc;
+
+    friend std::ostream& operator<<(std::ostream& out, regs_t const& lhs) {
+        auto x = fmt::format(
+            "{:04x} {:04x} {:02x} {:02x} {:04x} {:04x} {:04x} {:04x} {:02x} : {:08b}", lhs.pc,
+            lhs.a, lhs.b, (lhs.a << 8) + lhs.b, lhs.x, lhs.y, lhs.u, lhs.s, lhs.dp, lhs.cc);
+
+        out << x;
+
+        return out;
+    }
 };
 
 class cMemIO {

@@ -45,6 +45,8 @@ void load_file(char const* _fileName, cMemIO& _mem, uint16_t _addr) {
 int main(int argc, char* argv[]) {
 
     using fmt::print;
+    using std::cout;
+    using std::endl;
     using std::make_unique;
 
     print("starting\n");
@@ -71,9 +73,34 @@ int main(int argc, char* argv[]) {
 
     print("complete\n");
 
-    c6809Larry cpu(
-            make_unique<cMemMap>(
-                make_unique<cMemBlock>(0, 0x10000)));
+    print("Simulating\n");
+    c6809Larry cpu(make_unique<cMemMap>(make_unique<cMemBlock>(0, 0x10000)));
+
+    regs_t regs;
+
+    regs.pc = 0x1000;
+    regs.a  = 0x00;
+    regs.b  = 0x44;
+    regs.x  = 0xabab;
+    regs.y  = 0x02e0;
+    regs.u  = 0x02e0;
+    regs.s  = 0x7f34;
+    regs.dp = 0;
+    regs.cc = 0x84;
+
+    cout << "        PC   D    A  B  X    Y    U    S    DP : flags" << endl;
+    print(  "before: " );
+    cout << regs << endl;
+
+    cpu.set_regs(regs);
+
+    regs = cpu.get_regs();
+    print(  "after:  ");
+    cout << regs << endl;
+
+    cpu.step(1);
+
+    print("Done\n");
 
     return 0;
 }

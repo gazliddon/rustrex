@@ -1,24 +1,6 @@
 #include "c6809Larry.h"
+#include <spdlog/spdlog.h>
 
-/* MC6809 Emulator */
-
-/* void EXEC6809(char *, REGS6809 *, EMUHANDLERS *, int *, unsigned char *); */
-/* void RESET6809(char *, REGS6809 *); */
-/* void AEXEC6809(char *, REGS6809 *, EMUHANDLERS *, int *, unsigned char *); */
-/* void ARESET6809(char *, REGS6809 *); */
-/* int DIS6809(char *, REGS6809 *, int *, int *, char *); */
-/* void M6809Debug(HANDLE, HWND, REGS6809 *); */
-
-/* Structure to pass to CPU emulator with memory handler routines */
-/* typedef struct tagEMUHANDLERS */
-/* { */
-/*    MEMRPROC pfn_read; */
-/*    MEMWPROC pfn_write; */
-
-/* } EMUHANDLERS; */
-
-/* typedef unsigned char (_cdecl *MEMRPROC)(unsigned short); */
-/* typedef void (_cdecl *MEMWPROC)(unsigned short, unsigned char); */
 
 // Static vars
 
@@ -28,11 +10,14 @@ unsigned char* c6809Larry::s_mem = {0};
 EMUHANDLERS c6809Larry::s_emu_handlers{&c6809Larry::read_byte, &c6809Larry::write_byte};
 
 unsigned char c6809Larry::read_byte(unsigned short _addr) {
-    assert(0);
+    using fmt::print;
+    print("reading from ${:04x}\n", _addr);
+    assert(!"tbd");
     return 0;
 }
 
 void c6809Larry::write_byte(unsigned short _addr, unsigned char _byte) {
+    assert(!"tbd");
     assert(0);
 }
 
@@ -45,11 +30,11 @@ c6809Larry::~c6809Larry() {
     s_larry = nullptr;
 }
 
-regs_t c6809Larry::getRegs() const {
+regs_t c6809Larry::get_regs() const {
     regs_t regs;
 
     regs.a = s_larry_regs.ucRegA;
-    regs.b = s_larry_regs.ucRegA;
+    regs.b = s_larry_regs.ucRegB;
 
     regs.x = s_larry_regs.usRegX;
     regs.y = s_larry_regs.usRegY;
@@ -60,13 +45,15 @@ regs_t c6809Larry::getRegs() const {
     regs.dp = s_larry_regs.ucRegDP;
     regs.cc = s_larry_regs.ucRegCC;
 
+    regs.pc = s_larry_regs.usRegPC;
+
     return regs;
 }
 
-void c6809Larry::setRegs(regs_t const& _regs) {
+void c6809Larry::set_regs(regs_t const& _regs) {
 
     s_larry_regs.ucRegA = _regs.a;
-    s_larry_regs.ucRegA = _regs.b;
+    s_larry_regs.ucRegB = _regs.b;
 
     s_larry_regs.usRegX = _regs.x;
     s_larry_regs.usRegY = _regs.y;
@@ -76,9 +63,15 @@ void c6809Larry::setRegs(regs_t const& _regs) {
 
     s_larry_regs.ucRegDP = _regs.dp;
     s_larry_regs.ucRegCC = _regs.cc;
+
+    s_larry_regs.usRegPC = _regs.pc;
 }
 
-void c6809Larry::step() {
+void c6809Larry::step(int _cycles) {
+    int cycles = 1;
+    unsigned char irqs = 0;
+
+    EXEC6809(&s_larry_regs, &s_emu_handlers, &cycles, &irqs);
 }
 
 void c6809Larry::reset() {

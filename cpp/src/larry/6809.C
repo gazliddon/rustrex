@@ -24,6 +24,7 @@
 #define SET_V16(a, b, r) regs->ucRegCC |= (((a ^ b ^ r ^ (r >> 1)) & 0x8000) >> 14)
 /* Some statics */
 EMUHANDLERS* mem_handlers09;
+#include <spdlog/spdlog.h>
 
 /* Instruction timing for single-byte opcodes */
 unsigned char c6809Cycles[256] = {6, 0, 0, 6, 6, 0, 6, 6, 6, 6, 6, 0, 6, 6,  3, 6,  /* 00-0F */
@@ -1109,6 +1110,7 @@ __inline unsigned short M6809PULLWU(REGS6809* regs) {
  ****************************************************************************/
 void EXEC6809(REGS6809* regs, EMUHANDLERS* emuh, int* iClocks,
               unsigned char* ucIRQs) {
+    using fmt::print;
     unsigned short PC; /* Current Program Counter address */
     unsigned char ucOpcode;
     unsigned short usAddr; /* Temp address */
@@ -1123,6 +1125,9 @@ void EXEC6809(REGS6809* regs, EMUHANDLERS* emuh, int* iClocks,
     {
         /*--- First check for any pending IRQs ---*/
         if (*ucIRQs) {
+
+            print("dealing with irqs {:04x}\n", *ucIRQs);
+
             if (*ucIRQs & INT_NMI) /* NMI is highest priority */
             {
                 M6809PUSHW(regs, PC);
@@ -1177,6 +1182,7 @@ void EXEC6809(REGS6809* regs, EMUHANDLERS* emuh, int* iClocks,
         regs->usRegPC = PC;
         TRACE6809(regs);
 #endif
+        print("about to execute at {:04x}\n", PC);
         oldPC    = PC;
         ucOpcode = M6809ReadByte(PC++);
         *iClocks -= c6809Cycles[ucOpcode]; /* Subtract execution time */

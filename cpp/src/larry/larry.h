@@ -3,13 +3,13 @@
 
 
 #ifdef __cplusplus
-extern "C" {
+/* extern "C" { */
 #endif
 
 #include "EMU.H"
 
 #ifdef __cplusplus
-};
+/* }; */
 #endif
 
 
