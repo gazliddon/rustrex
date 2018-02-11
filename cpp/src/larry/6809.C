@@ -943,7 +943,7 @@ __inline unsigned char M6809ReadByte(unsigned short usAddr) {
  *                                                                          *
  ****************************************************************************/
 __inline void M6809WriteByte(unsigned short usAddr, unsigned char ucByte) {
-    mem_handlers09->pfn_read(usAddr);
+    mem_handlers09->pfn_write(usAddr, ucByte);
 } /* M6809WriteByte() */
 
 /****************************************************************************
