@@ -6,19 +6,15 @@
 
 c6809Larry* c6809Larry::s_larry = nullptr;
 REGS6809 c6809Larry::s_larry_regs;
-unsigned char* c6809Larry::s_mem = {0};
 EMUHANDLERS c6809Larry::s_emu_handlers{&c6809Larry::read_byte, &c6809Larry::write_byte};
 
 unsigned char c6809Larry::read_byte(unsigned short _addr) {
-    using fmt::print;
-    print("reading from ${:04x}\n", _addr);
-    assert(!"tbd");
-    return 0;
+    auto v = s_larry->m_mem->read_byte(_addr);
+    return v;
 }
 
 void c6809Larry::write_byte(unsigned short _addr, unsigned char _byte) {
-    assert(!"tbd");
-    assert(0);
+    s_larry->m_mem->write_word(_addr, _byte);
 }
 
 c6809Larry::c6809Larry(std::unique_ptr<cMemIO> _mem) : c6809Base(std::move(_mem)) {

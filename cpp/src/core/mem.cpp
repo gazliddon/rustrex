@@ -1,4 +1,5 @@
 #include "mem.h"
+#include <spdlog/spdlog.h>
 
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -62,12 +63,14 @@ cMemBlock::cMemBlock(uint16_t _first, size_t _size)
 
 uint8_t cMemBlock::read_byte(uint16_t _addr) const {
     assert(_addr >= m_first && _addr <= m_last);
-    return m_mem[_addr - m_first];
+    auto phys_addr = _addr - m_first;
+    return m_mem[phys_addr];
 }
 
 void cMemBlock::write_byte(uint16_t _addr, uint8_t _val) {
     assert(_addr >= m_first && _addr <= m_last);
-    m_mem[_addr - m_first] = _val;
+    auto phys_addr = _addr - m_first;
+    m_mem[phys_addr] = _val;
 }
 
 std::pair<uint16_t, uint16_t> cMemBlock::getRange() const {

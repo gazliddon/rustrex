@@ -1126,7 +1126,6 @@ void EXEC6809(REGS6809* regs, EMUHANDLERS* emuh, int* iClocks,
         /*--- First check for any pending IRQs ---*/
         if (*ucIRQs) {
 
-            print("dealing with irqs {:04x}\n", *ucIRQs);
 
             if (*ucIRQs & INT_NMI) /* NMI is highest priority */
             {
@@ -1182,7 +1181,6 @@ void EXEC6809(REGS6809* regs, EMUHANDLERS* emuh, int* iClocks,
         regs->usRegPC = PC;
         TRACE6809(regs);
 #endif
-        print("about to execute at {:04x}\n", PC);
         oldPC    = PC;
         ucOpcode = M6809ReadByte(PC++);
         *iClocks -= c6809Cycles[ucOpcode]; /* Subtract execution time */

@@ -59,14 +59,14 @@ int main(int argc, char* argv[]) {
 
     print("making memory maps\n");
 
-    cMemMap memMap(make_unique<cMemBlock>(0, 0x10000));
+    auto mm = make_unique<cMemMap>(make_unique<cMemBlock>(0, 0x10000));
 
-    auto before = memMap.get_hash_hex();
+    auto before = mm->get_hash_hex();
 
     print("loading file {}\n", file);
-    load_file(file, memMap, 0x1000);
+    load_file(file, *mm, 0x1000);
 
-    auto after = memMap.get_hash_hex();
+    auto after = mm->get_hash_hex();
 
     print("before: {}\n", before);
     print("after:  {}\n", after);
@@ -74,7 +74,8 @@ int main(int argc, char* argv[]) {
     print("complete\n");
 
     print("Simulating\n");
-    c6809Larry cpu(make_unique<cMemMap>(make_unique<cMemBlock>(0, 0x10000)));
+
+    c6809Larry cpu(std::move(mm));
 
     regs_t regs;
 
@@ -87,18 +88,24 @@ int main(int argc, char* argv[]) {
     regs.s  = 0x7f34;
     regs.dp = 0;
     regs.cc = 0x84;
-
-    cout << "        PC   D    A  B  X    Y    U    S    DP : flags" << endl;
-    print(  "before: " );
-    cout << regs << endl;
-
     cpu.set_regs(regs);
 
-    regs = cpu.get_regs();
-    print(  "after:  ");
-    cout << regs << endl;
+    while (true) {
 
-    cpu.step(1);
+        if (regs.pc == 0x13f6) {
+            break;
+        } else {
+            cout << "        PC   D    A  B  X    Y    U    S    DP : flags" << endl;
+            print("before: ");
+            cout << regs << endl;
+
+            cpu.step(1);
+
+            regs = cpu.get_regs();
+            print("after:  ");
+            cout << regs << endl << endl;
+        }
+    }
 
     print("Done\n");
 
