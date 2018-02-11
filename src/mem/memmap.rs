@@ -1,6 +1,7 @@
 // use mem::Memory;
 use mem::{ MemoryIO };
 use std::fmt;
+use sha1::Sha1;
 
 pub trait MemMapIO {
     fn add_memory(&mut self, mem : Box<MemoryIO> ) ;
@@ -25,6 +26,12 @@ impl fmt::Debug for MemMap {
 }
 
 impl MemoryIO for MemMap {
+
+    fn update_sha1(&self, digest : &mut Sha1) {
+        for m in self.all_memory.iter() {
+            m.update_sha1(digest);
+        }
+    }
 
     fn upload(&mut self, addr : u16, data : &[u8]) {
         for (i, item) in data.iter().enumerate() {

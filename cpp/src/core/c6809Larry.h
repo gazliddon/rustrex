@@ -7,13 +7,13 @@
 
 class c6809Larry : public c6809Base {
   public:
-    c6809Larry(std::unique_ptr<cMemIO> _mem);
+    c6809Larry();
     ~c6809Larry();
 
     regs_t get_regs() const override;
 
     void set_regs(regs_t const& _regs) override;
-    void step(int _cycles = 0) override;
+    void step(cMemIO & _mem, int _cycles = 0) override;
     void reset() override;
 
   protected:
@@ -23,6 +23,7 @@ class c6809Larry : public c6809Base {
 
     static unsigned char read_byte(unsigned short _addr);
     static void write_byte(unsigned short _addr, unsigned char _byte);
+    static cMemIO * s_mem;
 
 };
 

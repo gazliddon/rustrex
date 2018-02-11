@@ -5,6 +5,7 @@
 #[macro_use] extern crate bitflags;
 #[macro_use] extern crate serde_derive;
 extern crate serde_yaml;
+extern crate sha1;
 
 extern crate regex;
 #[macro_use] mod cpu;
@@ -87,6 +88,9 @@ fn main() {
 
         let (ins, txt) =  diss.diss(&mem, cpu.regs.pc, None);
 
+        let hash = mem.get_sha1_string();
+        println!("digest: {}",hash);
+
         mem.clear_log();
 
         let prev_sim = cpu.regs.clone();
@@ -110,6 +114,7 @@ fn main() {
         } else {
             "".to_string()
         };;
+
 
         println!("{:04x}   {:20}{}", cpu.regs.pc, txt, writes_str);
 

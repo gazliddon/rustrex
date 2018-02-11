@@ -1,6 +1,7 @@
 // memory trait
 use std::vec::Vec;
 use std;
+use sha1::Sha1;
 
 
 
@@ -20,23 +21,31 @@ pub fn as_bytes(val : u16) -> (u8,u8) {
 }
 
 pub trait MemoryIO {
-
     fn upload(&mut self, addr : u16, data : &[u8]);
+
+    fn get_range(&self) -> (u16, u16);
+
+    fn update_sha1(&self, digest : &mut Sha1);
+
+    fn load_byte(&self, addr:u16) -> u8;
+        
+    fn store_byte(&mut self, addr:u16, val:u8);
+
+    fn get_sha1_string(&self) -> String {
+        let mut m = Sha1::new();
+        self.update_sha1(&mut m);
+        m.digest().to_string()
+    }
 
     fn get_name(&self) -> String {
         String::from("NO NAME")
     }
-
-    fn get_range(&self) -> (u16, u16);
 
     fn is_in_range(&self, val : u16) -> bool {
         let (base, last) = self.get_range();
         (val >= base) && (val <= last)
     }
 
-    fn load_byte(&self, addr:u16) -> u8;
-        
-    fn store_byte(&mut self, addr:u16, val:u8);
 
     fn store_word(&mut self, addr:u16, val:u16) {
         let (lo,hi) = as_bytes(val);

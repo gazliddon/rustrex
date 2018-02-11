@@ -7,17 +7,17 @@
 c6809Larry* c6809Larry::s_larry = nullptr;
 REGS6809 c6809Larry::s_larry_regs;
 EMUHANDLERS c6809Larry::s_emu_handlers{&c6809Larry::read_byte, &c6809Larry::write_byte};
+cMemIO * c6809Larry::s_mem = nullptr;
 
 unsigned char c6809Larry::read_byte(unsigned short _addr) {
-    auto v = s_larry->m_mem->read_byte(_addr);
-    return v;
+    return s_mem->read_byte(_addr);
 }
 
 void c6809Larry::write_byte(unsigned short _addr, unsigned char _byte) {
-    s_larry->m_mem->write_word(_addr, _byte);
+    s_mem->write_byte(_addr, _byte);
 }
 
-c6809Larry::c6809Larry(std::unique_ptr<cMemIO> _mem) : c6809Base(std::move(_mem)) {
+c6809Larry::c6809Larry() {
     assert(s_larry == nullptr);
     s_larry = this;
 }
@@ -63,11 +63,13 @@ void c6809Larry::set_regs(regs_t const& _regs) {
     s_larry_regs.usRegPC = _regs.pc;
 }
 
-void c6809Larry::step(int _cycles) {
+void c6809Larry::step(cMemIO & _mem, int _cycles) {
+    assert(s_mem == nullptr);
+    s_mem = & _mem;
     int cycles = 1;
     unsigned char irqs = 0;
-
     EXEC6809(&s_larry_regs, &s_emu_handlers, &cycles, &irqs);
+    s_mem = nullptr;
 }
 
 void c6809Larry::reset() {

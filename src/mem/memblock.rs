@@ -1,5 +1,6 @@
 use std::vec::Vec;
 use mem::{ MemoryIO, MemMap, MemMapIO };
+use sha1::Sha1;
 
 pub struct MemBlock {
     pub read_only : bool,
@@ -39,6 +40,9 @@ impl MemMap {
 }
 
 impl MemoryIO for MemBlock {
+    fn update_sha1(&self, digest : &mut Sha1) {
+        digest.update(&self.data);
+    }
 
     fn upload(&mut self, addr : u16, data : &[u8]) {
         panic!("not done")

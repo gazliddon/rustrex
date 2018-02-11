@@ -7,28 +7,14 @@
 #include <memory>
 #include <vector>
 
-#include "sha1.hpp"
 
 #include <gsl/gsl>
-#include <spdlog/spdlog.h>
+
+#include "sha1.hpp"
+#include "regs.h"
 
 namespace opt = std::experimental;
 
-struct regs_t {
-
-    uint8_t a, b, cc, dp;
-    uint16_t x, y, s, u, pc;
-
-    friend std::ostream& operator<<(std::ostream& out, regs_t const& lhs) {
-        auto x = fmt::format(
-            "{:04x} {:04x} {:02x} {:02x} {:04x} {:04x} {:04x} {:04x} {:02x} : {:08b}", lhs.pc,
-            (lhs.a << 8) + lhs.b,lhs.a, lhs.b,  lhs.x, lhs.y, lhs.u, lhs.s, lhs.dp, lhs.cc);
-
-        out << x;
-
-        return out;
-    }
-};
 
 class cMemIO {
   public:
@@ -49,9 +35,20 @@ class cMemIO {
     virtual std::string get_hash_hex() const;
 };
 
+struct mem_descriptor_t {
+    uint16_t m_base;
+    size_t m_size;
+    bool m_writeable;
+};
+
 class cMemBlock : public cMemIO {
+
   public:
-    cMemBlock(uint16_t _first, size_t _size);
+
+    cMemBlock(uint16_t _first, size_t _size, bool _writeable = true);
+
+    cMemBlock(mem_descriptor_t const & _m) : cMemBlock(_m.m_base, _m.m_size, _m.m_writeable) {
+    }
 
     uint8_t read_byte(uint16_t _addr) const override;
     void write_byte(uint16_t _addr, uint8_t _val) override;
@@ -60,6 +57,7 @@ class cMemBlock : public cMemIO {
 
   protected:
     unsigned m_first, m_last, m_size;
+    bool m_writeable;
     std::vector<uint8_t> m_mem;
 };
 
@@ -67,8 +65,14 @@ class cMemMap : public cMemIO {
   public:
     cMemMap();
 
+
+
     cMemMap(std::unique_ptr<cMemIO> _mem) : cMemMap() {
         add_mem(std::move(_mem));
+    }
+
+    cMemMap(uint16_t _base, size_t _size) {
+        add_mem(std::make_unique<cMemBlock>(_base, _size));
     }
 
     void add_mem(std::unique_ptr<cMemIO> _mem);

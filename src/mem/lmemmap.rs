@@ -1,6 +1,7 @@
 use mem::{MemMap, MemoryIO};
 use std::cell::RefCell;
 use std::fmt;
+use sha1::Sha1;
 
 #[derive(Debug, Clone, Default)]
 
@@ -120,6 +121,9 @@ impl LoggingMemMap {
 }
 
 impl MemoryIO for LoggingMemMap {
+    fn update_sha1(&self, digest : &mut Sha1) {
+        self.mem_map.update_sha1(digest)
+    }
 
     fn upload(&mut self, addr : u16, data : &[u8]) {
         self.mem_map.upload(addr,data);

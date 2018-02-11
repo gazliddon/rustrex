@@ -55,8 +55,8 @@ std::string cMemIO::get_hash_hex() const {
 }
 ////////////////////////////////////////////////////////////////////////////////
 
-cMemBlock::cMemBlock(uint16_t _first, size_t _size)
-    : m_first(_first), m_last((_first + _size) - 1), m_size(_size) {
+cMemBlock::cMemBlock(uint16_t _first, size_t _size, bool _writeable)
+    : m_first(_first), m_last((_first + _size) - 1), m_size(_size), m_writeable(_writeable) {
     assert(m_last < 0x10000);
     m_mem.resize(m_size);
 }
