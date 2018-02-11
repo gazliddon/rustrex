@@ -4,4 +4,5 @@ bazel-cpp
 bazel-genfiles
 bazel-testlogs
 .bazel
+tags
 
