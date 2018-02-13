@@ -7,17 +7,28 @@
 #include "c6809Larry.h"
 #include "files.h"
 
+#include <nlohmann/json.hpp>
+
+#include <spdlog/fmt/ostr.h>
+
 ////////////////////////////////////////////////////////////////////////////////
+
+
 struct cpu_state_t {
     regs_t m_regs;
+
     std::string m_digest;
+
     size_t m_cycles;
 
     friend std::ostream& operator<<(std::ostream& out, cpu_state_t const& lhs) {
         out << lhs.m_regs << " : " << lhs.m_digest;
         return out;
     }
+
+
 };
+
 
 cpu_state_t get_state(c6809Base const& _cpu, cMemIO const& _mem) {
     cpu_state_t ret{
@@ -57,7 +68,55 @@ struct run_log_t {
             _cpu.step(mem, 1);
         }
     }
+
 };
+
+////////////////////////////////////////////////////////////////////////////////
+
+using json = nlohmann::json;
+
+void to_json(json & j, regs_t const & _r) {
+    j = json{ 
+        {"a", _r.a},
+        {"b", _r.b},
+        {"cc", _r.cc},
+        {"dp", _r.dp},
+        {"x", _r.x},
+        {"y", _r.y},
+        {"s", _r.s},
+        {"u", _r.u},
+        {"pc", _r.pc},
+    };
+
+}
+
+void to_json(json & j, mem_descriptor_t const & _mem) {
+    j = json {
+        {"base", _mem.m_base},
+        {"size", _mem.m_size},
+        {"writeable", _mem.m_writeable},
+    };
+
+}
+void to_json(json & j, cpu_state_t const & _s) {
+    j = json {
+        {"regs", _s.m_regs},
+        {"digest", _s.m_digest},
+        {"cycles", _s.m_cycles},
+    };
+}
+
+void to_json(json & j, run_log_t const & _r) {
+    j = json {
+        {"file_name", _r.m_file_name },
+        {"load_addr", _r.m_load_addr },
+        {"memory", _r.m_memory },
+        {"states", _r.m_states },
+    };
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
 
 std::vector<cpu_state_t> do_run(c6809Base& _cpu, cMemIO& _mem, size_t _steps) {
 
@@ -111,9 +170,13 @@ int main(int argc, char* argv[]) {
 
     print("{} : sha1\n", regs_t::get_regs_hdr());
 
-    for (auto const& s : runner.m_states) {
-        print("{}\n", s);
-    }
+
+    json j = runner;
+
+
+    std::cout << j << std::endl;
+
+    
 
     print("Done\n");
 

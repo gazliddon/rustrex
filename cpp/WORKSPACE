@@ -49,4 +49,22 @@ cc_library(
         """,
         )
 
+# 94b7a8da66d833a6b83de9ed27ce21492c15d8ca
+        # url = "https://github.com/nhloman/json/94b7a8da66d833a6b83de9ed27ce21492c15d8ca.zip"
+
+new_http_archive (
+        name = "json",
+        # url = "https://github.com/Microsoft/GSL/archive/64a7dae4c6fb218a23b3d48db0eec56a3c4d5234.zip",
+        url = "https://github.com/nlohmann/json/archive/94b7a8da66d833a6b83de9ed27ce21492c15d8ca.zip",
+        strip_prefix = "json-94b7a8da66d833a6b83de9ed27ce21492c15d8ca",
+        sha256 = "cd0f83b159bfacc9874bbe6e3d7a22366b0ed52aabf48f6a1ebfb398484e4c19",
+        build_file_content = """
+cc_library(
+  name = "json",
+  hdrs = glob([ "single_include/*" ]),
+  includes = ["single_include"],
+  visibility = ["//visibility:public"],
+)
+        """,
+        )
 
