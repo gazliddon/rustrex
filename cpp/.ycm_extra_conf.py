@@ -71,6 +71,7 @@ flags = [
     "-I",".bazel/cpp/external/gsl/include",
     "-I",".bazel/cpp/external/spdlog/include",
     "-I",".bazel/cpp/external/json/single_include",
+    "-I",".bazel/cpp/external/cxxopts/include",
 
     # "-I", "third_party/gflags/build/k8/include/",
 

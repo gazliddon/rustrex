@@ -1,141 +1,21 @@
-#include "mem.h"
+#include "main.h"
 
 #include <assert.h>
 #include <gsl/gsl>
 #include <iostream>
 
-#include "c6809Larry.h"
-#include "files.h"
 
 #include <nlohmann/json.hpp>
-
 #include <spdlog/fmt/ostr.h>
 
-////////////////////////////////////////////////////////////////////////////////
-
-
-struct cpu_state_t {
-    regs_t m_regs;
-
-    std::string m_digest;
-
-    size_t m_cycles;
-
-    friend std::ostream& operator<<(std::ostream& out, cpu_state_t const& lhs) {
-        out << lhs.m_regs << " : " << lhs.m_digest;
-        return out;
-    }
-
-
-};
-
-
-cpu_state_t get_state(c6809Base const& _cpu, cMemIO const& _mem) {
-    cpu_state_t ret{
-        _cpu.get_regs(),
-        _mem.get_hash_hex(),
-        0,
-    };
-
-    return ret;
-}
-
-struct run_log_t {
-    std::vector<mem_descriptor_t> m_memory;
-    std::string m_file_name;
-    uint16_t m_load_addr;
-    std::vector<cpu_state_t> m_states;
-
-    run_log_t(char const* _file, uint16_t _load_addr, std::initializer_list<mem_descriptor_t> _mem)
-        : m_memory(_mem), m_file_name(_file), m_load_addr(_load_addr) {
-    }
-
-    void do_run(c6809Base& _cpu, size_t _steps) {
-
-        m_states.clear();
-
-        cMemMap mem;
-
-        for (auto const& mb : m_memory) {
-            mem.add_mem(std::make_unique<cMemBlock>(mb));
-        }
-
-        load_file(m_file_name.c_str(), mem, 0x1000);
-
-        for (auto i = 0u; i < _steps; i++) {
-            auto state = get_state(_cpu, mem);
-            m_states.push_back(state);
-            _cpu.step(mem, 1);
-        }
-    }
-
-};
-
-////////////////////////////////////////////////////////////////////////////////
-
-using json = nlohmann::json;
-
-void to_json(json & j, regs_t const & _r) {
-    j = json{ 
-        {"a", _r.a},
-        {"b", _r.b},
-        {"cc", _r.cc},
-        {"dp", _r.dp},
-        {"x", _r.x},
-        {"y", _r.y},
-        {"s", _r.s},
-        {"u", _r.u},
-        {"pc", _r.pc},
-    };
-
-}
-
-void to_json(json & j, mem_descriptor_t const & _mem) {
-    j = json {
-        {"base", _mem.m_base},
-        {"size", _mem.m_size},
-        {"writeable", _mem.m_writeable},
-    };
-
-}
-void to_json(json & j, cpu_state_t const & _s) {
-    j = json {
-        {"regs", _s.m_regs},
-        {"digest", _s.m_digest},
-        {"cycles", _s.m_cycles},
-    };
-}
-
-void to_json(json & j, run_log_t const & _r) {
-    j = json {
-        {"file_name", _r.m_file_name },
-        {"load_addr", _r.m_load_addr },
-        {"memory", _r.m_memory },
-        {"states", _r.m_states },
-    };
-}
-
-////////////////////////////////////////////////////////////////////////////////
-
-
-std::vector<cpu_state_t> do_run(c6809Base& _cpu, cMemIO& _mem, size_t _steps) {
-
-    std::vector<cpu_state_t> ret;
-
-    for (auto i = 0u; i < _steps; i++) {
-        auto state = get_state(_cpu, _mem);
-        ret.push_back(state);
-        _cpu.step(_mem, 1);
-    }
-
-    ret.push_back(get_state(_cpu, _mem));
-
-    return ret;
-}
+#include "json.h"
+#include "c6809Larry.h"
+#include <cxxopts.hpp>
 
 ////////////////////////////////////////////////////////////////////////////////
 
 regs_t get_initial_regs() {
+
     regs_t regs;
 
     regs.pc = 0x1000;
@@ -153,6 +33,7 @@ regs_t get_initial_regs() {
 
 ////////////////////////////////////////////////////////////////////////////////
 int main(int argc, char* argv[]) {
+    using json = nlohmann::json;
 
     using fmt::print;
 
@@ -162,6 +43,7 @@ int main(int argc, char* argv[]) {
     print("Simulating\n");
 
     c6809Larry cpu;
+
     cpu.set_regs(get_initial_regs());
 
     run_log_t runner(file, 0x1000, {{0, 0x10000, true}});
@@ -170,13 +52,9 @@ int main(int argc, char* argv[]) {
 
     print("{} : sha1\n", regs_t::get_regs_hdr());
 
-
     json j = runner;
 
-
     std::cout << j << std::endl;
-
-    
 
     print("Done\n");
 

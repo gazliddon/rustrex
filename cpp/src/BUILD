@@ -12,6 +12,6 @@ cc_library(
 cc_binary(
         name = "core",
         srcs = glob(["core/*.cpp", "core/*.h", "core/*.hpp"]),
-        deps = [":larry", "@gsl", "@spdlog", "@json"]
+        deps = [":larry", "@gsl", "@spdlog", "@json", "@cxxopts"]
         )
 

@@ -68,3 +68,18 @@ cc_library(
         """,
         )
 
+new_http_archive (
+        name = "cxxopts",
+        url = "https://github.com/jarro2783/cxxopts/archive/e792760ab91b30028f49df4edd72687d4f0e684c.zip",
+        strip_prefix = "cxxopts-e792760ab91b30028f49df4edd72687d4f0e684c",
+        sha256 = "469c641e686b5dd7b0faf1c7ef76d6aa9f53ecbcde439bd3c5743aceef4469ef",
+        build_file_content = """
+cc_library(
+  name = "cxxopts",
+  hdrs = glob([ "include/*" ]),
+  includes = ["include"],
+  visibility = ["//visibility:public"],
+)
+        """,
+        )
+
