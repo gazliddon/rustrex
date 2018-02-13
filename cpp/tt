@@ -1,0 +1,1 @@
+./bazel-out/darwin-dbg/bin/src/core -v -j out.json init.json ajsasa sasasa

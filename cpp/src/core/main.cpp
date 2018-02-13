@@ -31,32 +31,76 @@ regs_t get_initial_regs() {
     return regs;
 }
 
+/* static auto parse(int argc, char* argv[]) { */
+/*     using namespace cxxopts; */
+/*     using std::string; */
+/*     using std::vector; */
+
+/*     Options opts("Core", "6809 logger"); */
+
+/*     opts.add_options() */
+/*         ("v,verbose", "verbose mode") */
+/*         ("j,json", "write json file", value<string>()) */
+/*         ("c,cpu", "write json file", value<string>()->default_value("larry")) */
+/*         ("positional", "", value<vector<string>>()) */
+/*         ("input", "input file",  value<string>()) */
+/*         ; */
+
+
+/* } */
+
+
 ////////////////////////////////////////////////////////////////////////////////
 int main(int argc, char* argv[]) {
-    using json = nlohmann::json;
+    using namespace cxxopts;
+    using std::string;
+    using std::vector;
 
-    using fmt::print;
+    Options opts("Core", "6809 logger");
 
-    auto file = "../utils/6809/6809all.raw";
+    opts.add_options()
+        ("v,verbose", "verbose mode")
+        ("j,json", "write json file", value<string>())
+        ("c,cpu", "write json file", value<string>()->default_value("larry"))
+        ("positional", "", value<vector<string>>())
+        ("input", "input file",  value<string>())
+        ;
 
-    print("starting\n");
-    print("Simulating\n");
+    opts.parse_positional({"input", "positional"});
 
-    c6809Larry cpu;
+    auto popts =  opts.parse(argc, argv);
 
-    cpu.set_regs(get_initial_regs());
+    bool write_json = popts.count("json") > 0;
+    bool verbose = popts.count("verbose") > 0;
 
-    run_log_t runner(file, 0x1000, {{0, 0x10000, true}});
+    if (popts.count("input") == 0 ) {
 
-    runner.do_run(cpu, 100);
+        fmt::print("You must specify an input file\n");
+        exit(10);
 
-    print("{} : sha1\n", regs_t::get_regs_hdr());
+    } else {
 
-    json j = runner;
+        using json = nlohmann::json;
 
-    std::cout << j << std::endl;
+        using fmt::print;
 
-    print("Done\n");
+        auto file = "../utils/6809/6809all.raw";
 
-    return 0;
+        c6809Larry cpu;
+
+        cpu.set_regs(get_initial_regs());
+
+        run_log_t runner(file, 0x1000, {{0, 0x10000, true}});
+
+        runner.do_run(cpu, 100);
+
+        json j = runner;
+
+        std::cout << j << std::endl;
+
+        return 0;
+    }
+
+
+
 }
