@@ -24,7 +24,11 @@ run_log_t::run_log_t(char const* _file, uint16_t _load_addr, std::initializer_li
 
 void run_log_t::do_run(c6809Base& _cpu, size_t _steps) {
 
-    m_states.clear();
+    if (!m_states.empty()) {
+        auto regs = m_states[0].m_regs;
+        _cpu.set_regs(regs);
+        m_states.clear();
+    }
 
     cMemMap mem;
 
@@ -32,7 +36,7 @@ void run_log_t::do_run(c6809Base& _cpu, size_t _steps) {
         mem.add_mem(std::make_unique<cMemBlock>(mb));
     }
 
-    load_file(m_file_name.c_str(), mem, 0x1000);
+    load_file(m_file_name.c_str(), mem, m_load_addr);
 
     for (auto i = 0u; i < _steps; i++) {
         auto state = get_state(_cpu, mem);

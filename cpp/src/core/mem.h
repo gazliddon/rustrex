@@ -15,6 +15,12 @@
 
 namespace opt = std::experimental;
 
+struct mem_descriptor_t {
+    uint16_t m_base;
+    size_t m_size;
+    bool m_writeable;
+};
+
 
 class cMemIO {
   public:
@@ -33,12 +39,6 @@ class cMemIO {
     virtual std::vector<uint8_t> get_memory(uint16_t _addr, size_t _size) const;
     virtual sha1 get_hash() const;
     virtual std::string get_hash_hex() const;
-};
-
-struct mem_descriptor_t {
-    uint16_t m_base;
-    size_t m_size;
-    bool m_writeable;
 };
 
 class cMemBlock : public cMemIO {
