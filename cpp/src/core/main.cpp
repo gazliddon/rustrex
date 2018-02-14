@@ -123,7 +123,7 @@ int main(int argc, char* argv[]) {
 
             c6809Larry cpu;
 
-            runner.do_run(cpu, 100);
+            runner.do_run(cpu, 1000);
 
             if (write_json) {
 

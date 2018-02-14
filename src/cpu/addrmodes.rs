@@ -183,7 +183,6 @@ impl Indexed {
             },
 
             IndexModes::RPlusPlus(r) => {
-                // format!(",{:?}++",r)
                 let addr = regs.get(&r);
                 regs.incinc(&r);
                 addr 

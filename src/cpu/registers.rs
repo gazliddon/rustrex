@@ -52,10 +52,10 @@ impl Regs {
 
     #[inline(always)]
     pub fn wrapping_add_and_set(&mut self, r : &RegEnum, v : u16) -> u16{
-        let mut v = self.get(r);
-        v = v.wrapping_add(v);
-        self.set(r, v);
-        v
+        let mut rv = self.get(r);
+        rv = rv.wrapping_add(v);
+        self.set(r, rv);
+        rv
     }
 
 
@@ -66,7 +66,8 @@ impl Regs {
 
     #[inline(always)]
     pub fn incinc(&mut self, r: &RegEnum) -> u16{
-        self.wrapping_add_and_set(r, 2)
+        let ret = self.wrapping_add_and_set(r, 2);
+        ret
     }
 
     #[inline(always)]

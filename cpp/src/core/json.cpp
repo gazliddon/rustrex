@@ -4,6 +4,7 @@ using json = nlohmann::json;
 
 
 void to_json(json & j, regs_t const & _r) {
+
     j = json{ 
         {"a", _r.a},
         {"b", _r.b},
@@ -73,7 +74,6 @@ void from_json(nlohmann::json const & j, cpu_state_t & _s) {
     _s.m_cycles=j.at("cycles").get<size_t>();
 
     // TBD get the memory
-
 }
 
 void from_json(nlohmann::json const & j, run_log_t & _r) {

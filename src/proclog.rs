@@ -15,45 +15,48 @@ pub struct StepError {
     pub regs         : bool,
     pub disassembly  : bool,
     pub mem          : bool,
-    pub cycles_so_far: bool,
+    pub cycles: bool,
 }
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq)]
+
 pub struct Step {
     pub regs         : Regs,
-    pub disassembly  : String,
+    pub disassembly  : Option<String>,
     pub mem          : [ u8; 5],
-    pub cycles_so_far: usize,
+    pub cycles: usize,
+    pub digest : String,
 }
 
-
 impl fmt::Display for Step {
-
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
 
         let mem_str = format!("{:02x} {:02x} {:02x} {:02x} {:02x}", 
                               self.mem[0], self.mem[1],
                               self.mem[2], self.mem[3], self.mem[4]);
 
+        let diss = match self.disassembly.clone() {
+            Some(t) => t,
+            _ => "NO DISS".to_string()
+        };
+
         write!(f,
                "{} {:16} {} {:>8}",
                self.regs,
-               self.disassembly.to_uppercase(),
+               diss,
                mem_str,
-               self.cycles_so_far)
+               self.cycles)
     }
 }
 
-
 impl Step {
-
     pub fn compare(&self, other : &Self) -> StepError {
 
         StepError {
             regs         : self.regs == other.regs,
             disassembly  : self.disassembly == other.disassembly,
             mem          : self.mem == other.mem,
-            cycles_so_far: self.cycles_so_far == other.cycles_so_far,
+            cycles       : self.cycles == other.cycles,
         }
     }
 
@@ -63,15 +66,15 @@ impl Step {
         }
     }
 
-    pub fn from_sim<M : MemoryIO>(mem : &M, regs : &Regs, cycles_so_far : usize) -> Step {
+    pub fn from_sim<M : MemoryIO>(mem : &M, regs : &Regs, cycles : usize) -> Step {
 
         let mut diss = Disassembler::new();
         let (ins, txt) =  diss.diss(mem, regs.pc, None);
 
         let mut step = Step {
             regs          : regs.clone(),
-            disassembly   : txt,
-            cycles_so_far : cycles_so_far,
+            disassembly   : Some(txt),
+            cycles : cycles,
             .. Default::default()
         };
 
@@ -81,6 +84,7 @@ impl Step {
     }
 
     pub fn from_string(text :&String) -> Result<Step, String> {
+
         lazy_static!{
             static ref RE : Regex =
                 Regex::new(r"(?x)^
@@ -132,9 +136,11 @@ impl Step {
 
         let r = Step {
             regs          : regs,
-            disassembly   : as_string("diss"),
+            disassembly   : Some(as_string("diss")),
             mem           : [ as_u8("m0"), as_u8("m1"), as_u8("m2"), as_u8("m3"), as_u8("m4"), ],
-            cycles_so_far : as_usize("cycles"),
+            cycles : as_usize("cycles"),
+            .. Default::default()
+            
         };
 
         Ok(r)
@@ -144,56 +150,15 @@ impl Step {
         panic!("fucked!")
     }
 }
-pub fn read_step_log_lines( file_name : &str) -> Vec<String> {
-    let f = File::open(file_name).unwrap();
-
-    let r = BufReader::new(&f)
-        .lines()
-        .filter_map(|l| l.ok())
-        .collect();
-
-    r
-}
 
 pub fn read_step_log( file_name : &str) -> Vec<Step> {
 
     let f = File::open(file_name).unwrap();
 
-    let r = BufReader::new(&f)
+    BufReader::new(&f)
         .lines()
         .filter_map(|l| l.ok())
         .filter_map(|l| Step::from_string(&l).ok())
-        .collect();
-    r
+        .collect()
 }
-
-pub struct Step2 {
-    pub disassembly : String,
-    pub regs_before : Regs,
-    pub regs_after : Regs,
-}
-
-pub fn read_step2_log( file_name : &str) -> Vec<Step2> {
-
-    let steps = read_step_log(file_name);
-
-    let mut it = steps.iter().peekable();
-
-    let mut ret = vec![];
-
-    for i in 0 .. steps.len()/2 {
-        let before = it.next().unwrap();
-        let after = it.peek().unwrap();
-
-        ret.push(Step2 {
-            disassembly: before.disassembly.clone(),
-            regs_before : before.regs.clone(),
-            regs_after : after.regs.clone(),
-
-        });
-    }
-
-    ret
-}
-
 

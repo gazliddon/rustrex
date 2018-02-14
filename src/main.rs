@@ -27,46 +27,46 @@ use cpu::{Cpu};
 use diss::Disassembler;
 
 fn main() {
+
     let json_file = "cpp/out.json";
-
     let json_contents = utils::load_file_as_string(json_file);
+    let run_log : json::RunLog = serde_json::from_str(&json_contents).unwrap();
 
-    let rl : json::RunLog = serde_json::from_str(&json_contents).unwrap();
+    let base_mem = run_log.create_memmap();
 
-    let base_mem = rl.create_memmap();
     let mut mem = LoggingMemMap::new(base_mem);
 
-    use proclog::{read_step2_log};
-    let log_file_name = "utils/6809/6809.log";
-    let steps = read_step2_log(log_file_name);
+    let mut cpu = Cpu::from_regs(run_log.states[0].regs.clone());
 
-    let mut cpu = Cpu::from_regs(steps[0].regs_before.clone());
     let mut cycles = 0;
+
     let mut diss = Disassembler::new();
 
-    for step in steps {
+    let mut it = run_log.states.iter().peekable();
+
+    for i in 0 .. run_log.states.len()/2 {
+
+        let log_before = &it.next().unwrap().regs;
+
+        let state_after = &it.peek().unwrap();
+
+        let log_regs_after = &state_after.regs;
+
+        let log_hash_after = &state_after.digest;
 
         let (ins, txt) =  diss.diss(&mem, cpu.regs.pc, None);
 
-        let hash = mem.get_sha1_string();
-
-        // println!("digest: {}",hash);
+        let prev_sim = cpu.regs.clone();
 
         mem.clear_log();
 
-        let prev_sim = cpu.regs.clone();
-
         let ins = cpu.step(&mut mem);
-
 
         let sim = &cpu.regs;
 
-        let log = &step.regs_after;
-
         let writes : Vec<LogEntry>= mem.get_log()
-            .iter()
-            .filter(|&msg| msg.write)
-            .map(|msg| msg.clone())
+            .into_iter()
+            .filter(|msg| msg.write)
             .collect();
 
         let writes_str = if writes.len() != 0 {
@@ -75,16 +75,19 @@ fn main() {
             "".to_string()
         };;
 
+        let hash = mem.get_sha1_string();
+        let hash_ok = hash == *log_hash_after;
 
-        println!("{:04x}   {:20}{:20} {}", cpu.regs.pc, txt, writes_str, hash);
+        println!("{:04x}   {:20}{:20} : {:5} : {}", cpu.regs.pc, txt, writes_str, hash_ok,  sim);
 
-        if sim != log {
+        if sim != log_regs_after {
+
             println!("");
 
-            println!("          {}", cpu::Regs::get_hdr());
-            println!("prev_sim: {}", prev_sim);
-            println!("     sim: {}", sim);
-            println!("     log: {}", log);
+            println!("            {}", cpu::Regs::get_hdr());
+            println!("      prev: {}", prev_sim);
+            println!("       sim: {}", sim);
+            println!(" should be: {}", log_regs_after);
 
             println!("");
 
@@ -93,13 +96,31 @@ fn main() {
             }
 
             println!("");
-
             panic!("");
-        }
+        } 
 
         cycles = cycles + 1;
-
     }
+
+    // for step in steps {
+
+    //     let (ins, txt) =  diss.diss(&mem, cpu.regs.pc, None);
+
+    //     let hash = mem.get_sha1_string();
+
+    //     // println!("digest: {}",hash);
+
+    //     mem.clear_log();
+
+    //     let prev_sim = cpu.regs.clone();
+
+    //     let ins = cpu.step(&mut mem);
+
+    //     let sim = &cpu.regs;
+
+    //     let log = &step.regs_after;
+
+    // }
 
 }
 

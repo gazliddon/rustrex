@@ -44,14 +44,8 @@ impl Flags {
 
     }
 
-    pub fn get_v(i0: u8, i1 : u8, r : u8) -> bool {
-        let mut flag = !(i0 ^ i1);
-        flag = flag & (i0 ^ r);
-        flag & 0x80 == 0x80
-    }
-
-
     #[inline]
+
     pub fn test_16(&mut self, val : u16 ) {
         self.set(Flags::N, test_n_w(val));
         self.set(Flags::Z, test_z_w(val));

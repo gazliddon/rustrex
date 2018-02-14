@@ -1,27 +1,20 @@
 
-use cpu::Regs;
 use mem::{MemMap, MemoryIO };
+use proclog::{Step};
 
 #[derive(Debug, PartialEq, Serialize, Deserialize)]
 pub struct MemInit {
-    base : u16,
-    size : usize,
-    writeable : bool,
-}
-
-#[derive(Debug, PartialEq, Serialize, Deserialize)]
-pub struct State {
-    cycles : usize,
-    digest : String,
-    regs: Regs,
+    pub base : u16,
+    pub size : usize,
+    pub writeable : bool,
 }
 
 #[derive(Debug, PartialEq, Serialize, Deserialize)]
 pub struct RunLog {
-    file_name : String,
-    load_addr : u16,
-    memory : Vec<MemInit>,
-    states : Vec<State>,
+    pub file_name : String,
+    pub load_addr : u16,
+    pub memory : Vec<MemInit>,
+    pub states : Vec<Step>,
 }
 
 impl RunLog {
@@ -41,7 +34,6 @@ impl RunLog {
         let data = load_file(&full_file_name);
         let addr = self.load_addr;
         m.upload(addr, &data);
-
         m
     }
 }
