@@ -5,6 +5,7 @@
 #[macro_use] extern crate bitflags;
 #[macro_use] extern crate serde_derive;
 extern crate serde_yaml;
+extern crate serde_json;
 extern crate sha1;
 
 extern crate regex;
@@ -17,60 +18,23 @@ mod utils;
 mod diss;
 mod proclog;
 mod breakpoints;
+mod json;
 
 // use proclog::{Step2};
 // use symtab::SymbolTable;
-use mem::{MemoryIO, MemMap, LoggingMemMap, LogEntry};
-use cpu::{Cpu };
+use mem::{MemoryIO, LoggingMemMap, LogEntry};
+use cpu::{Cpu};
 use diss::Disassembler;
-
-// use mem::{MemoryIO};
-
-////////////////////////////////////////////////////////////////////////////////
-struct MemInit(&'static str, bool, u16, u16);
-struct RomInit(&'static str, u16);
-
-pub struct MachineInit {
-    mem_regions : &'static [MemInit],
-    roms : &'static[RomInit],
-}
-
-impl MachineInit {
-
-    pub fn create_memmap(&self) -> MemMap {
-
-        let mut m = MemMap::new();
-
-        use utils::{load_file};
-
-        for mb in self.mem_regions {
-            m.add_mem_block(mb.0, mb.1, mb.2, mb.3)
-        };
-
-        for rom in self.roms {
-            let data = load_file(rom.0);
-            let addr= rom.1;
-            m.upload(addr, &data);
-        };
-        m
-    }
-}
-
-////////////////////////////////////////////////////////////////////////////////
-static DEF_MACHINE: MachineInit = MachineInit {
-    mem_regions: &[
-        MemInit("cart"  , false, 0     , 0x8000 ),
-        MemInit("sysrom", false, 0xe000, 0x2000),
-        MemInit("ram"   , true , 0xc800, 0x800) 
-    ],
-
-    roms: &[
-        RomInit( "utils/6809/6809all.raw", 0x1000 ) ],
-};
 
 fn main() {
 
-    let base_mem = DEF_MACHINE.create_memmap();
+    let json_file = "cpp/out.json";
+
+    let json_contents = utils::load_file_as_string(json_file);
+
+    let rl : json::RunLog = serde_json::from_str(&json_contents).unwrap();
+
+    let base_mem = rl.create_memmap();
     let mut mem = LoggingMemMap::new(base_mem);
 
     use proclog::{read_step2_log};
@@ -101,7 +65,6 @@ fn main() {
         let sim = &cpu.regs;
 
         let log = &step.regs_after;
-
 
         let writes : Vec<LogEntry>= mem.get_log()
             .iter()

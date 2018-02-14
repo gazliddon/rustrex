@@ -6,16 +6,16 @@ pub struct MemBlock {
     pub read_only : bool,
     pub data : Vec<u8>,
     pub base : u16,
-    pub size : u16,
+    pub size : usize,
     pub last_mem : u16,
     pub name : &'static str
 }
 
 impl MemBlock {
-    pub fn new(name: &'static str, read_only : bool, base: u16, size: u16) -> MemBlock {
+    pub fn new(name: &'static str, read_only : bool, base: u16, size: usize) -> MemBlock {
 
         let data = vec![0u8; size as usize];
-        let last_mem = base.wrapping_add(size).wrapping_sub(1);
+        let last_mem = base.wrapping_add(size as u16).wrapping_sub(1);
 
         if last_mem < base {
             panic!("Trying to add memory > that 16 bit address space");
@@ -33,7 +33,7 @@ impl MemBlock {
 }
 
 impl MemMap {
-    pub fn add_mem_block(&mut self, name : &'static str, writable : bool, base : u16, size : u16) {
+    pub fn add_mem_block(&mut self, name : &'static str, writable : bool, base : u16, size : usize) {
         let mb = Box::new(MemBlock::new(name, writable, base, size));
         self.add_memory(mb);
     }

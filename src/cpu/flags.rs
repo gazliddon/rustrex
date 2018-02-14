@@ -1,7 +1,7 @@
 
 bitflags! {
 
-#[derive( Default)]
+#[derive( Default, Serialize, Deserialize)]
     pub struct Flags: u8 {
         const E  = 1 << 7;
         const F  = 1 << 6;
