@@ -27,7 +27,6 @@ use cpu::{Cpu};
 use diss::Disassembler;
 
 fn main() {
-
     let json_file = "cpp/out.json";
 
     let json_contents = utils::load_file_as_string(json_file);
@@ -44,7 +43,6 @@ fn main() {
     let steps = read_step2_log(log_file_name);
 
     let mut cpu = Cpu::from_regs(steps[0].regs_before.clone());
-
     let mut cycles = 0;
     let mut diss = Disassembler::new();
 
@@ -53,7 +51,8 @@ fn main() {
         let (ins, txt) =  diss.diss(&mem, cpu.regs.pc, None);
 
         let hash = mem.get_sha1_string();
-        println!("digest: {}",hash);
+
+        // println!("digest: {}",hash);
 
         mem.clear_log();
 
@@ -79,7 +78,7 @@ fn main() {
         };;
 
 
-        println!("{:04x}   {:20}{}", cpu.regs.pc, txt, writes_str);
+        println!("{:04x}   {:20}{:20} {}", cpu.regs.pc, txt, writes_str, hash);
 
         if sim != log {
             println!("");
@@ -103,47 +102,6 @@ fn main() {
         cycles = cycles + 1;
 
     }
-
-
-
-    // for log_step in steps {
-
-    //     let sim_step = Step::from_sim(&mem, &cpu.regs, cycles);
-    //     let comp = log_step.compare(&sim_step);
-
-    //     println!("");
-    //     println!("PC   D    X    Y    U    S    DP");
-    //     println!("{} {:?}", log_step, log_step.regs.flags);
-    //     println!("{} {:?}", sim_step, sim_step.regs.flags);
-
-
-    //     mem.clear_log();
-
-    //     let ins = cpu.step(&mut mem);
-    //     let log = mem.get_log();
-
-    //     for msg in log {
-    //         println!("{}", msg);
-    //     }
-
-    //     if comp.regs == false {
-
-    //         println!("");
-
-    //         println!("log: {:?} {} {:?}", log_step.regs, log_step.regs.flags.bits(), log_step.regs.flags);
-    //         println!("sim: {:?} {} {:?}", sim_step.regs, sim_step.regs.flags.bits(), sim_step.regs.flags );
-    //         println!("");
-
-    //         println!("{:?}", comp );
-
-
-    //         panic!("fix this!");
-    //     }
-
-    //     cycles = cycles + ins.cycles;
-
-    //     step_i = step_i + 1;
-    // }
 
 }
 
