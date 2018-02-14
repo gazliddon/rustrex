@@ -9,6 +9,8 @@ struct cpu_state_t {
     std::string m_digest;
     size_t m_cycles;
 
+    uint8_t m_mem[5];
+
     friend std::ostream& operator<<(std::ostream& out, cpu_state_t const& lhs) ;
 };
 

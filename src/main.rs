@@ -37,9 +37,7 @@ fn main() {
     let mut mem = LoggingMemMap::new(base_mem);
 
     use proclog::{read_step2_log};
-
     let log_file_name = "utils/6809/6809.log";
-
     let steps = read_step2_log(log_file_name);
 
     let mut cpu = Cpu::from_regs(steps[0].regs_before.clone());

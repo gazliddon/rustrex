@@ -32,6 +32,7 @@ void to_json(json & j, cpu_state_t const & _s) {
         {"regs", _s.m_regs},
         {"digest", _s.m_digest},
         {"cycles", _s.m_cycles},
+        {"mem", _s.m_mem}
     };
 }
 
@@ -70,6 +71,9 @@ void from_json(nlohmann::json const & j, cpu_state_t & _s) {
     _s.m_regs=j.at("regs").get<regs_t>();
     _s.m_digest=j.at("digest").get<std::string>();
     _s.m_cycles=j.at("cycles").get<size_t>();
+
+    // TBD get the memory
+
 }
 
 void from_json(nlohmann::json const & j, run_log_t & _r) {

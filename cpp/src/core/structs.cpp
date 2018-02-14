@@ -3,11 +3,16 @@
 #include "files.h"
 
 static cpu_state_t get_state(c6809Base const& _cpu, cMemIO const& _mem) {
-    cpu_state_t ret{
-        _cpu.get_regs(),
-        _mem.get_hash_hex(),
-        0,
-    };
+    
+    cpu_state_t ret;
+
+    ret.m_regs = _cpu.get_regs();
+    ret.m_digest = _mem.get_hash_hex();
+    ret.m_cycles = 0;
+
+    for(auto i = 0u; i < 5; i++) {
+        ret.m_mem[i] = _mem.read_byte(ret.m_regs.pc + i);
+    }
 
     return ret;
 }
