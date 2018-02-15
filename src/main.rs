@@ -9,6 +9,9 @@ extern crate serde_json;
 extern crate sha1;
 
 extern crate regex;
+extern crate ilog2;
+extern crate num;
+
 #[macro_use] mod cpu;
 
 mod mem;
@@ -46,19 +49,17 @@ fn main() {
 
     for i in 0 .. run_log.states.len()/2 {
 
-        let log_before = &it.next().unwrap().regs;
+        mem.clear_log();
 
+        let log_before = &it.next().unwrap().regs;
         let state_after = &it.peek().unwrap();
 
         let log_regs_after = &state_after.regs;
-
         let log_hash_after = &state_after.digest;
 
         let (ins, txt) =  diss.diss(&mem, cpu.regs.pc, None);
 
         let prev_sim = cpu.regs.clone();
-
-        mem.clear_log();
 
         let ins = cpu.step(&mut mem);
 
@@ -75,12 +76,17 @@ fn main() {
             "".to_string()
         };;
 
+        println!("{:04x}   {:20}{:20} : {}", cpu.regs.pc, txt, writes_str, sim);
+
         let hash = mem.get_sha1_string();
         let hash_ok = hash == *log_hash_after;
 
-        println!("{:04x}   {:20}{:20} : {:5} : {}", cpu.regs.pc, txt, writes_str, hash_ok,  sim);
+        if ( sim != log_regs_after ) | !hash_ok {
 
-        if sim != log_regs_after {
+            println!("");
+
+            println!("       sim: {}", hash);
+            println!(" should be: {}", log_hash_after);
 
             println!("");
 
@@ -101,26 +107,5 @@ fn main() {
 
         cycles = cycles + 1;
     }
-
-    // for step in steps {
-
-    //     let (ins, txt) =  diss.diss(&mem, cpu.regs.pc, None);
-
-    //     let hash = mem.get_sha1_string();
-
-    //     // println!("digest: {}",hash);
-
-    //     mem.clear_log();
-
-    //     let prev_sim = cpu.regs.clone();
-
-    //     let ins = cpu.step(&mut mem);
-
-    //     let sim = &cpu.regs;
-
-    //     let log = &step.regs_after;
-
-    // }
-
 }
 

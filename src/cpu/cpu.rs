@@ -1,7 +1,7 @@
 use mem::MemoryIO;
 use cpu::{ Regs, RegEnum, Flags, InstructionDecoder};
+use cpu::{FetchWrite, AddressLines, Direct, Extended, Immediate, Inherent, Relative, Indexed};
 
-use cpu::{AddressLines, Direct, Extended, Immediate, Inherent, Relative, Indexed};
 
 pub fn get_tfr_regs(op : u8) -> (RegEnum, RegEnum) {
     ( get_tfr_reg(op>>4), get_tfr_reg(op&0xf) )
@@ -46,39 +46,89 @@ impl Cpu {
     }
 
 }
-//{{{ Helpers
-impl Cpu {
-    fn adc_helper(&mut self, a : u8, b : u8) -> u8 {
 
-        let a16 = a as u16;
+////////////////////////////////////////////////////////////////////////////////
 
-        let c  = self.regs.get_c();
+extern crate num;
 
-        let r16 = a16.wrapping_add(b as u16).wrapping_add(c as u16);
+pub trait GazAlu : num::PrimInt + num::Unsigned + num::traits::WrappingAdd + num::traits::WrappingMul {
 
-        let h = (a ^ b ^ (r16 as u8)) &0x10 == 0x10;
-        let v = (a ^ b ^ (r16 as u8)) &0x80 == 0x80;
-        let c = r16 > 0xff;
-        let n = r16 &0x80 == 0x80;
+    fn hi_bit_mask() -> Self;
+    fn half_bit_mask() -> Self;
 
-        self.regs.flags.set(Flags::H, h);
-        self.regs.flags.set(Flags::V, v);
-        self.regs.flags.set(Flags::C, c);
-        self.regs.flags.set(Flags::N, n);
-
-        r16 as u8
+    fn get_n<N: GazAlu>(a : N) -> bool {
+        (a & N::hi_bit_mask()) == N::hi_bit_mask()
     }
-}
-// }}}
 
+    fn get_overflow<N : GazAlu>(a : N, b : N, r :N) -> bool {
+
+        if Self::get_n(a) == Self::get_n(b) {
+            Self::get_n(a) != Self::get_n(r)
+        } else {
+            false
+        }
+
+        // Self::get_n((!(a^b))&r)
+    }
+
+    fn one_zero(f : bool) -> Self {
+        if f { Self::one() } else { Self::zero() }
+    }
+    fn true_false(v : Self) -> bool {
+        v != Self::zero()
+    }
+
+    fn adc(f : &mut Flags, a : Self, b : Self  ) -> Self {
+
+        let c_val = Self::one_zero(f.contains(Flags::C));
+
+        let r = a.wrapping_add( &b.wrapping_add( &c_val ) );
+
+        let h = Self::true_false((a ^ b ^ r) & Self::half_bit_mask());
+        let c = r < a;
+        let v = Self::get_overflow(a,b,r);
+        let n = Self::get_n(r);
+        let z = r == Self::zero();
+
+        f.set(Flags::V, v);
+        f.set(Flags::C, c);
+        f.set(Flags::H, h);
+
+        r
+    }
+
+    fn asl(f : &mut Flags, a : Self) -> Self {
+        let c = Self::get_n(a);
+        let r = a.wrapping_add(&a);
+        let v = c & Self::get_n(r);
+
+        f.set(Flags::C, c);
+        f.set(Flags::V, v);
+        r
+    } 
+
+}
+
+impl GazAlu for u8 {
+    fn hi_bit_mask() -> u8 { 0x80u8 }
+    fn half_bit_mask() -> u8 { 0x10 }
+}
+
+impl GazAlu for u16 {
+    fn hi_bit_mask() -> u16 { 0x8000u16 }
+    fn half_bit_mask() -> u16 { 0x0000u16 }
+}
 
 // {{{ Todo next!
 impl  Cpu {
 
+    // Does the H flag as well
+
     #[inline(always)]
     fn orcc<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
         let v = A::fetch_byte(mem, &mut self.regs, ins);
-        self.regs.flags.or_flags(v);
+        let cc = self.regs.flags.bits();
+        self.regs.flags.set_flags(v | cc);
     }
 
     #[inline(always)]
@@ -119,24 +169,54 @@ impl  Cpu {
 
     #[inline(always)]
     fn adca<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
-        let operand = A::fetch_byte(mem, &mut self.regs, ins);
-        let v  = self.regs.a;
-        let r = self.adc_helper(v, operand);
-        self.regs.a = r;
+
+        let a = self.regs.a;
+
+        let b = u8::fetch::<A>(mem, &mut self.regs, ins);
+        let r = u8::adc(&mut self.regs.flags, a, b);
+
+        self.regs.load_a(r);
+    }
+
+    fn anda<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
+        let a = self.regs.a;
+        let b = u8::fetch::<A>(mem, &mut self.regs, ins);
+        self.regs.load_a( a & b );
+    }
+
+    fn andb<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
+        let a = self.regs.b;
+        let b = u8::fetch::<A>(mem, &mut self.regs, ins);
+        self.regs.load_b(a & b);
     }
 
     #[inline(always)]
     fn adcb<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
-        let operand = A::fetch_byte(mem, &mut self.regs, ins);
-        let v  = self.regs.b;
-        let r = self.adc_helper(v, operand);
-        self.regs.b = r;
+        let a = self.regs.b;
+
+        let b = u8::fetch::<A>(mem, &mut self.regs, ins);
+        let r = u8::adc(&mut self.regs.flags, a, b);
+
+        self.regs.load_b(r);
     }
 
     fn addb<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
         self.regs.clear_c();
         self.adcb::<M,A>(mem,ins);
     }
+
+    fn lsla_asla<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
+        let a = self.regs.a;
+        let r = u8::asl(&mut self.regs.flags, a);
+        self.regs.load_a(r)
+    }
+
+    fn lslb_aslb<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
+        let a = self.regs.b;
+        let r = u8::asl(&mut self.regs.flags, a);
+        self.regs.load_b(r)
+    }
+
 
     #[inline(always)]
     fn tfr<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
@@ -148,7 +228,7 @@ impl  Cpu {
 
     #[inline(always)]
     fn lds<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
-        let v =  A::fetch_word(mem, &mut self.regs, ins);
+        let v =  u16::fetch::<A>(mem, &mut self.regs, ins);
         self.regs.load_s(v);
     }
 
@@ -174,14 +254,33 @@ impl  Cpu {
         }
     }
 
-
     fn addd<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
+        self.regs.clear_c();
 
         let a = self.regs.get_d();
 
-        let b = A::fetch_word(mem, &mut self.regs, ins);
+        let b = u16::fetch::<A>(mem, &mut self.regs, ins);
+        let r = u16::adc(&mut self.regs.flags, a, b);
 
-        panic!("addd NO!")
+        self.regs.load_d(r);
+    }
+
+    fn andcc<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
+        let a = self.regs.flags.bits();
+        let b = u8::fetch::<A>(mem, &mut self.regs, ins);
+        self.regs.flags.set_flags(a & b);
+    }
+
+    fn lsl_asl<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
+        let ea = A::ea(mem, &mut self.regs, ins );
+
+        let v = mem.load_byte(ea);
+
+        let r = u8::asl(&mut self.regs.flags, v);
+
+        self.regs.flags.test_8(r);
+
+        mem.store_byte(ea,r)
     }
 }
 // }}}
@@ -189,16 +288,6 @@ impl  Cpu {
 // {{{ Op Codes
 impl  Cpu {
 
-
-    fn anda<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
-        panic!("anda NO!")
-    }
-    fn andb<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
-        panic!("andb NO!")
-    }
-    fn andcc<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
-        panic!("andcc NO!")
-    }
     fn asr<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
         panic!("asr NO!")
     }
@@ -351,15 +440,6 @@ impl  Cpu {
     }
     fn leay<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
         panic!("leay NO!")
-    }
-    fn lsl_asl<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
-        panic!("lsl_asl NO!")
-    }
-    fn lsla_asla<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
-        panic!("lsla_asla NO!")
-    }
-    fn lslb_aslb<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
-        panic!("lslb_aslb NO!")
     }
     fn lsr<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
         panic!("lsr NO!")

@@ -31,8 +31,8 @@ impl Flags {
     }
 
     #[inline]
-    pub fn or_flags(&mut self, val : u8) {
-        self.bits = self.bits | val;
+    pub fn set_flags(&mut self, val : u8) {
+        self.bits = val
     }
 
 
@@ -40,16 +40,13 @@ impl Flags {
     pub fn test_8(&mut self, val : u8 ) {
         self.set(Flags::N, test_n_b(val));
         self.set(Flags::Z, test_z_b(val));
-        self.set(Flags::V, false);
 
     }
 
     #[inline]
-
     pub fn test_16(&mut self, val : u16 ) {
         self.set(Flags::N, test_n_w(val));
         self.set(Flags::Z, test_z_w(val));
-        self.set(Flags::V, false);
     }
 
 
