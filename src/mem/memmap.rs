@@ -68,13 +68,12 @@ impl MemoryIO for MemMap {
 
 impl MemMap {
     pub fn new() -> MemMap {
-
         MemMap {
             all_memory : Vec::new()
         }
     }
 
-    pub fn load_roms(&mut self, roms : &[(&'static str, u16)]) -> &mut Self{
+    pub fn load_roms<'a>(&mut self, roms : &[(&'a str, u16)]) -> &mut Self{
         use utils::load_file;
         for rom in roms.iter() {
             let data = load_file(rom.0);

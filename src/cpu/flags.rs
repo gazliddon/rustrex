@@ -49,5 +49,35 @@ impl Flags {
         self.set(Flags::Z, test_z_w(val));
     }
 
+    pub fn le(&self) -> bool {
+        let v = self.contains(Flags::V);
+        let n = self.contains(Flags::N);
+        let z = self.contains(Flags::Z);
+        z | (v^n)
+    }
+
+    pub fn gt(&self) -> bool {
+        !self.le()
+    }
+    pub fn lt(&self) -> bool {
+        !self.ge()
+    }
+
+    pub fn ge(&self) -> bool {
+        let v = self.contains(Flags::V);
+        let n = self.contains(Flags::N);
+        !(v ^ n)
+    }
+
+    pub fn hi(&self) -> bool {
+        let c = self.contains(Flags::C);
+        let z = self.contains(Flags::Z);
+        !(c | z)
+    }
+
+    pub fn ls(&self) -> bool {
+        !self.hi()
+    }
+
 
 }

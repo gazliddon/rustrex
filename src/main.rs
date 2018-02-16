@@ -82,6 +82,11 @@ fn main() {
         let hash_ok = hash == *log_hash_after;
 
         if ( sim != log_regs_after ) | !hash_ok {
+            let (ins, txt) =  diss.diss(&mem, cpu.regs.pc, None);
+            println!("");
+
+            println!("Next op:");
+            println!("{:04x}   {:20}", cpu.regs.pc, txt);
 
             println!("");
 

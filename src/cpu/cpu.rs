@@ -54,26 +54,29 @@ extern crate num;
 pub trait GazAlu : num::PrimInt + num::Unsigned + num::traits::WrappingAdd + num::traits::WrappingMul {
 
     fn hi_bit_mask() -> Self;
+
     fn half_bit_mask() -> Self;
 
-    fn get_n<N: GazAlu>(a : N) -> bool {
+    fn is_negative<N: GazAlu>(a : N) -> bool {
         (a & N::hi_bit_mask()) == N::hi_bit_mask()
     }
 
-    fn get_overflow<N : GazAlu>(a : N, b : N, r :N) -> bool {
+    fn same_sign<N : GazAlu>(a : N, b : N) -> bool {
+        !Self::is_negative(a ^ b) 
+    }
 
-        if Self::get_n(a) == Self::get_n(b) {
-            Self::get_n(a) != Self::get_n(r)
+    fn get_overflow<N : GazAlu>(a : N, b : N, r :N) -> bool {
+        if Self::same_sign(a, b) {
+            !Self::same_sign(a,r)
         } else {
             false
         }
-
-        // Self::get_n((!(a^b))&r)
     }
 
     fn one_zero(f : bool) -> Self {
         if f { Self::one() } else { Self::zero() }
     }
+
     fn true_false(v : Self) -> bool {
         v != Self::zero()
     }
@@ -87,7 +90,7 @@ pub trait GazAlu : num::PrimInt + num::Unsigned + num::traits::WrappingAdd + num
         let h = Self::true_false((a ^ b ^ r) & Self::half_bit_mask());
         let c = r < a;
         let v = Self::get_overflow(a,b,r);
-        let n = Self::get_n(r);
+        let n = Self::is_negative(r);
         let z = r == Self::zero();
 
         f.set(Flags::V, v);
@@ -98,14 +101,28 @@ pub trait GazAlu : num::PrimInt + num::Unsigned + num::traits::WrappingAdd + num
     }
 
     fn asl(f : &mut Flags, a : Self) -> Self {
-        let c = Self::get_n(a);
+        let c = Self::is_negative(a);
         let r = a.wrapping_add(&a);
-        let v = c & Self::get_n(r);
+        let v = c & Self::is_negative(r);
 
         f.set(Flags::C, c);
         f.set(Flags::V, v);
         r
     } 
+
+    fn asr( f : &mut Flags, a : Self ) -> Self {
+        let c = Self::true_false(a & Self::one());
+
+        let mut r = a >> 1;
+
+        if Self::is_negative(a) {
+            r = r | Self::hi_bit_mask();
+        }
+
+        f.set(Flags::C, c);
+
+        r
+    }
 
 }
 
@@ -117,6 +134,49 @@ impl GazAlu for u8 {
 impl GazAlu for u16 {
     fn hi_bit_mask() -> u16 { 0x8000u16 }
     fn half_bit_mask() -> u16 { 0x0000u16 }
+}
+
+impl Cpu {
+
+    #[inline(always)]
+    fn moda<M: MemoryIO, A : AddressLines>( &mut self, mem : &mut M, ins : &mut InstructionDecoder, func : fn(&mut Flags,u8) -> u8 ) {
+        let a = self.regs.a;
+        let r = func(&mut self.regs.flags, a);
+        self.regs.load_a(r)
+    }
+
+    #[inline(always)]
+    fn modb<M: MemoryIO, A : AddressLines>( &mut self, mem : &mut M, ins : &mut InstructionDecoder, func : fn(&mut Flags, u8) -> u8 ) {
+        let a = self.regs.b;
+        let r = func(&mut self.regs.flags,a);
+        self.regs.load_b(r)
+    }
+
+    #[inline(always)]
+    fn rwmod8<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder, func : fn(&mut Flags, u8) -> u8) {
+
+        let ea = A::ea(mem, &mut self.regs, ins );
+
+        let v = mem.load_byte(ea);
+
+        let r = func(&mut self.regs.flags, v);
+
+        self.regs.flags.test_8(r);
+
+        mem.store_byte(ea,r);
+
+        self.regs.flags.test_8(r);
+    }
+
+    #[inline(always)]
+    fn branch<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder, v : bool)  {
+
+        let offset = A::fetch_byte_as_i16(mem, &mut self.regs, ins);
+
+        if v {
+            ins.next_addr = ins.next_addr.wrapping_add(offset as u16);
+        }
+    }
 }
 
 // {{{ Todo next!
@@ -195,6 +255,7 @@ impl  Cpu {
         let a = self.regs.b;
 
         let b = u8::fetch::<A>(mem, &mut self.regs, ins);
+
         let r = u8::adc(&mut self.regs.flags, a, b);
 
         self.regs.load_b(r);
@@ -206,17 +267,23 @@ impl  Cpu {
     }
 
     fn lsla_asla<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
-        let a = self.regs.a;
-        let r = u8::asl(&mut self.regs.flags, a);
-        self.regs.load_a(r)
+        self.moda::<M,A>(mem,ins, u8::asl);
     }
 
     fn lslb_aslb<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
-        let a = self.regs.b;
-        let r = u8::asl(&mut self.regs.flags, a);
-        self.regs.load_b(r)
+        self.modb::<M,A>(mem,ins, u8::asl);
     }
 
+    fn asra<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
+        self.moda::<M,A>(mem,ins, u8::asr);
+    }
+    fn asrb<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
+        self.modb::<M,A>(mem,ins, u8::asr);
+    }
+
+    fn asr<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
+        self.rwmod8::<M,A>(mem, ins, u8::asr);
+    }
 
     #[inline(always)]
     fn tfr<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
@@ -245,13 +312,133 @@ impl  Cpu {
         self.regs.flags.test_16(r)
     }
 
+
+    fn beq<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
+        let z = self.regs.flags.contains(Flags::Z);
+        self.branch::<M,A>(mem,ins,z);
+    }
+
+    fn bge<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
+        let cond = self.regs.flags.ge();
+        self.branch::<M,A>(mem,ins,cond);
+    }
+
+    #[inline(always)]
+    fn bgt<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
+        let cond = self.regs.flags.gt();
+        self.branch::<M,A>(mem,ins,cond);
+    }
+
+    #[inline(always)]
+    fn blo_bcs<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
+        let cond = self.regs.flags.contains(Flags::C);
+        self.branch::<M,A>(mem,ins,cond);
+    }
+
     #[inline(always)]
     fn brn<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
-        let offset = A::fetch_byte_as_i16(mem, &mut self.regs, ins);
+        let cond = self.regs.flags.contains(Flags::N);
+        self.branch::<M,A>(mem,ins,cond);
+    }
 
-        if self.regs.flags.contains(Flags::N) {
-            ins.next_addr = ins.next_addr.wrapping_add(offset as u16);
-        }
+    #[inline(always)]
+    fn bhs_bcc<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
+        let cond = self.regs.flags.contains(Flags::C);
+        self.branch::<M,A>(mem,ins,!cond);
+    }
+
+    fn bhi<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
+        let cond = self.regs.flags.hi();
+        self.branch::<M,A>(mem,ins,cond);
+    }
+
+    fn ble<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
+        let cond = self.regs.flags.le();
+        self.branch::<M,A>(mem,ins,cond);
+    }
+
+    fn bls<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
+        let cond = self.regs.flags.ls();
+        self.branch::<M,A>(mem,ins,cond);
+    }
+
+    fn blt<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
+        let cond = self.regs.flags.lt();
+        self.branch::<M,A>(mem,ins,cond);
+    }
+
+    fn pushu_byte<M: MemoryIO>(&mut self, mem : &mut M, ins : &mut InstructionDecoder, v : u8) {
+        let u = self.regs.u.wrapping_sub(1);
+        mem.store_byte(u,v);
+        self.regs.u = u;
+    }
+
+    fn pushu_word<M: MemoryIO>(&mut self, mem : &mut M, ins : &mut InstructionDecoder, v : u16) {
+        let mut u = self.regs.u.wrapping_sub(1);
+        mem.store_byte(u,(v >> 8) as u8);
+        u = u.wrapping_sub(1);
+        mem.store_byte(u,v as u8);
+        self.regs.u = u;
+    }
+
+    fn popu_byte<M: MemoryIO>(&mut self, mem : &mut M, ins : &mut InstructionDecoder ) -> u8 {
+        let mut u = self.regs.u;
+        let r = mem.load_byte(u);
+        u = u.wrapping_add(1);
+        self.regs.u = u;
+        r
+    }
+
+    fn popu_word<M: MemoryIO>(&mut self, mem : &mut M, ins : &mut InstructionDecoder ) -> u16 {
+        let lo = self.popu_byte(mem,ins) as u16;
+        let hi = self.popu_byte(mem,ins) as u16;
+        return (hi << 8) | lo
+    }
+
+    fn rts<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
+        ins.next_addr = self.popu_word::<M>(mem, ins);
+    }
+
+    fn bsr<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
+
+        let offset = A::fetch_byte_as_i16(mem, &mut self.regs, ins) as u16;
+
+        let next_op = ins.next_addr;
+
+        println!("pc = {:04x}, next_pc = {:04x}", self.regs.pc, next_op);
+
+        self.pushu_word(mem, ins, next_op);
+
+        ins.next_addr = ins.next_addr.wrapping_add( offset );
+    }
+
+    fn bvc<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
+        let cond = !self.regs.flags.contains(Flags::V);
+        self.branch::<M,A>(mem,ins,cond);
+    }
+
+    fn bne<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
+        let cond = !self.regs.flags.contains(Flags::Z);
+        self.branch::<M,A>(mem,ins,cond);
+    }
+
+    fn bvs<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
+        let cond = self.regs.flags.contains(Flags::V);
+        self.branch::<M,A>(mem,ins,cond);
+    }
+
+    fn bmi<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
+        let cond = self.regs.flags.contains(Flags::N);
+        self.branch::<M,A>(mem,ins,cond);
+    }
+
+    fn bra<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
+        self.branch::<M,A>(mem,ins,true);
+    }
+
+    fn bpl<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
+        let cond = !self.regs.flags.contains(Flags::N);
+        self.branch::<M,A>(mem,ins,cond);
     }
 
     fn addd<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
@@ -272,15 +459,7 @@ impl  Cpu {
     }
 
     fn lsl_asl<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
-        let ea = A::ea(mem, &mut self.regs, ins );
-
-        let v = mem.load_byte(ea);
-
-        let r = u8::asl(&mut self.regs.flags, v);
-
-        self.regs.flags.test_8(r);
-
-        mem.store_byte(ea,r)
+        self.rwmod8::<M,A>(mem, ins, u8::asl);
     }
 }
 // }}}
@@ -288,68 +467,11 @@ impl  Cpu {
 // {{{ Op Codes
 impl  Cpu {
 
-    fn asr<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
-        panic!("asr NO!")
-    }
-    fn asra<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
-        panic!("asra NO!")
-    }
-    fn asrb<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
-        panic!("asrb NO!")
-    }
-    fn beq<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
-        panic!("beq NO!")
-    }
-    fn bge<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
-        panic!("bge NO!")
-    }
-    fn bgt<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
-        panic!("bgt NO!")
-    }
-    fn bhi<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
-        panic!("bhi NO!")
-    }
-    fn bhs_bcc<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
-        panic!("bhs_bcc NO!")
-    }
     fn bita<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
         panic!("bita NO!")
     }
     fn bitb<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
         panic!("bitb NO!")
-    }
-    fn ble<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
-        panic!("ble NO!")
-    }
-    fn blo_bcs<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
-        panic!("blo_bcs NO!")
-    }
-    fn bls<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
-        panic!("bls NO!")
-    }
-    fn blt<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
-        panic!("bmi NO!")
-    }
-    fn bmi<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
-        panic!("bmi NO!")
-    }
-    fn bne<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
-        panic!("bne NO!")
-    }
-    fn bpl<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
-        panic!("bpl NO!")
-    }
-    fn bra<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
-        panic!("bra NO!")
-    }
-    fn bsr<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
-        panic!("bsr NO!")
-    }
-    fn bvc<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
-        panic!("bvc NO!")
-    }
-    fn bvs<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
-        panic!("bvs NO!")
     }
     fn clr<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
         panic!("clr NO!")
@@ -506,9 +628,6 @@ impl  Cpu {
     }
     fn rti<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
         panic!("rti NO!")
-    }
-    fn rts<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
-        panic!("rts NO!")
     }
     fn sbca<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
         panic!("sbca NO!")

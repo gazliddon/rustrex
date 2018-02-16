@@ -19,8 +19,8 @@ impl fmt::Display for Regs {
             self.b, 
             self.x,
             self.y,
-            self.s,
             self.u,
+            self.s,
             self.dp,
             self.flags)
     }
