@@ -368,31 +368,37 @@ impl  Cpu {
     }
 
     fn pushu_byte<M: MemoryIO>(&mut self, mem : &mut M, ins : &mut InstructionDecoder, v : u8) {
-        let u = self.regs.u.wrapping_sub(1);
-        mem.store_byte(u,v);
-        self.regs.u = u;
+        let s = self.regs.s.wrapping_sub(1);
+        mem.store_byte(s,v);
+        self.regs.s = s;
     }
 
     fn pushu_word<M: MemoryIO>(&mut self, mem : &mut M, ins : &mut InstructionDecoder, v : u16) {
-        let mut u = self.regs.u.wrapping_sub(1);
-        mem.store_byte(u,(v >> 8) as u8);
-        u = u.wrapping_sub(1);
-        mem.store_byte(u,v as u8);
-        self.regs.u = u;
+
+        // let v = ((v & 0xff) << 8) | (v >> 8);
+        // let s = self.regs.s.wrapping_sub(2);
+        // mem.store_word(s,v);
+        // self.regs.s = s;
+
+        let mut s = self.regs.s.wrapping_sub(1);
+        mem.store_byte(s,v as u8);
+        s = s.wrapping_sub(1);
+        mem.store_byte(s,(v >> 8) as u8);
+        self.regs.s = s;
     }
 
     fn popu_byte<M: MemoryIO>(&mut self, mem : &mut M, ins : &mut InstructionDecoder ) -> u8 {
-        let mut u = self.regs.u;
-        let r = mem.load_byte(u);
-        u = u.wrapping_add(1);
-        self.regs.u = u;
+        let mut s = self.regs.s;
+        let r = mem.load_byte(s);
+        s = s.wrapping_add(1);
+        self.regs.s = s;
         r
     }
 
     fn popu_word<M: MemoryIO>(&mut self, mem : &mut M, ins : &mut InstructionDecoder ) -> u16 {
-        let lo = self.popu_byte(mem,ins) as u16;
-        let hi = self.popu_byte(mem,ins) as u16;
-        return (hi << 8) | lo
+        let w = mem.load_word(self.regs.s);
+        self.regs.s = self.regs.s.wrapping_add(2);
+        w
     }
 
     fn rts<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
@@ -404,8 +410,6 @@ impl  Cpu {
         let offset = A::fetch_byte_as_i16(mem, &mut self.regs, ins) as u16;
 
         let next_op = ins.next_addr;
-
-        println!("pc = {:04x}, next_pc = {:04x}", self.regs.pc, next_op);
 
         self.pushu_word(mem, ins, next_op);
 

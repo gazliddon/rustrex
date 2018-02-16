@@ -1024,8 +1024,8 @@ __inline void M6809PUSHBU(REGS6809* regs, unsigned char ucByte) {
  *                                                                          *
  ****************************************************************************/
 __inline void M6809PUSHW(REGS6809* regs, unsigned short usWord) {
-    M6809PUSHBU(regs, usWord >> 8);
-    M6809PUSHBU(regs, usWord & 0xff);
+    M6809PUSHB(regs, usWord & 0xff);
+    M6809PUSHB(regs, usWord >> 8);
 
 } /* M6809PUSHW() */
 

@@ -29,6 +29,20 @@ use mem::{MemoryIO, LoggingMemMap, LogEntry};
 use cpu::{Cpu};
 use diss::Disassembler;
 
+fn get_writes_as_str( mem : &LoggingMemMap ) -> String {
+
+    let writes : Vec<LogEntry>= mem.get_log()
+        .into_iter()
+        .filter(|msg| msg.write)
+        .collect();
+
+    if writes.len() != 0 {
+        writes[0].to_string()
+    } else {
+        "".to_string()
+    }
+}
+
 fn main() {
 
     let json_file = "cpp/out.json";
@@ -61,22 +75,15 @@ fn main() {
 
         let prev_sim = cpu.regs.clone();
 
+        let pc = cpu.regs.pc;
+
         let ins = cpu.step(&mut mem);
 
         let sim = &cpu.regs;
 
-        let writes : Vec<LogEntry>= mem.get_log()
-            .into_iter()
-            .filter(|msg| msg.write)
-            .collect();
+        let writes_str = get_writes_as_str(&mem);
 
-        let writes_str = if writes.len() != 0 {
-            writes[0].to_string()
-        } else {
-            "".to_string()
-        };;
-
-        println!("{:04x}   {:20}{:20} : {}", cpu.regs.pc, txt, writes_str, sim);
+        println!("{:04x}   {:20}{:20} : {}", pc, txt, writes_str, sim);
 
         let hash = mem.get_sha1_string();
         let hash_ok = hash == *log_hash_after;
