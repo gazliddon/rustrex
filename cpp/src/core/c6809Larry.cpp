@@ -65,10 +65,12 @@ void c6809Larry::set_regs(regs_t const& _regs) {
 
 void c6809Larry::step(cMemIO & _mem, int _cycles) {
     assert(s_mem == nullptr);
+
     s_mem = & _mem;
-    int cycles = 1;
+    int cycles = _cycles;
     unsigned char irqs = 0;
     EXEC6809(&s_larry_regs, &s_emu_handlers, &cycles, &irqs);
+
     s_mem = nullptr;
 }
 

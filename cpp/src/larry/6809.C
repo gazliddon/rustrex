@@ -1005,6 +1005,20 @@ __inline void M6809PUSHB(REGS6809* regs, unsigned char ucByte) {
 
 /****************************************************************************
  *                                                                          *
+ *  FUNCTION   : M6809PUSHW(char *, REGS6809 *)                             *
+ *                                                                          *
+ *  PURPOSE    : Push a word to the 'S' stack.                              *
+ *                                                                          *
+ ****************************************************************************/
+__inline void M6809PUSHW(REGS6809* regs, unsigned short usWord) {
+    M6809PUSHB(regs, usWord );
+    M6809PUSHB(regs, usWord >> 8);
+
+} /* M6809PUSHW() */
+
+
+/****************************************************************************
+ *                                                                          *
  *  FUNCTION   : M6809PUSHBU(char *, REGS6809 *, char)                      *
  *                                                                          *
  *  PURPOSE    : Push a byte to the 'U' stack.                              *
@@ -1015,19 +1029,6 @@ __inline void M6809PUSHBU(REGS6809* regs, unsigned char ucByte) {
     M6809WriteByte(--regs->usRegU, ucByte);
 
 } /* M6809PUSHBU() */
-
-/****************************************************************************
- *                                                                          *
- *  FUNCTION   : M6809PUSHW(char *, REGS6809 *)                             *
- *                                                                          *
- *  PURPOSE    : Push a word to the 'S' stack.                              *
- *                                                                          *
- ****************************************************************************/
-__inline void M6809PUSHW(REGS6809* regs, unsigned short usWord) {
-    M6809PUSHB(regs, usWord & 0xff);
-    M6809PUSHB(regs, usWord >> 8);
-
-} /* M6809PUSHW() */
 
 /****************************************************************************
  *                                                                          *
@@ -1051,8 +1052,9 @@ __inline void M6809PUSHWU(REGS6809* regs, unsigned short usWord) {
  *                                                                          *
  ****************************************************************************/
 __inline unsigned char M6809PULLB(REGS6809* regs) {
-    return M6809ReadByte(regs->usRegS);
+    auto r = M6809ReadByte(regs->usRegS);
     regs->usRegS++;
+    return r;
 
 } /* M6809PULLB() */
 
@@ -1064,12 +1066,16 @@ __inline unsigned char M6809PULLB(REGS6809* regs) {
  *                                                                          *
  ****************************************************************************/
 __inline unsigned short M6809PULLW(REGS6809* regs) {
+
     unsigned char hi, lo;
 
     hi = M6809PULLB(regs);
     lo = M6809PULLB(regs);
 
-    return (hi * 256 + lo);
+    auto ret = (hi * 256) + lo;
+
+    return ret;
+
 
 } /* M6809PULLW() */
 
@@ -1110,14 +1116,12 @@ __inline unsigned short M6809PULLWU(REGS6809* regs) {
  ****************************************************************************/
 void EXEC6809(REGS6809* regs, EMUHANDLERS* emuh, int* iClocks,
               unsigned char* ucIRQs) {
-    using fmt::print;
     unsigned short PC; /* Current Program Counter address */
     unsigned char ucOpcode;
     unsigned short usAddr; /* Temp address */
     unsigned char ucTemp;
     unsigned short usTemp;
     signed short sTemp;
-    int oldPC;             // DEBUG
     mem_handlers09 = emuh; /* Assign to static for faster execution */
 
     PC = regs->usRegPC;
@@ -1181,7 +1185,6 @@ void EXEC6809(REGS6809* regs, EMUHANDLERS* emuh, int* iClocks,
         regs->usRegPC = PC;
         TRACE6809(regs);
 #endif
-        oldPC    = PC;
         ucOpcode = M6809ReadByte(PC++);
         *iClocks -= c6809Cycles[ucOpcode]; /* Subtract execution time */
         switch (ucOpcode) {
@@ -1814,8 +1817,10 @@ void EXEC6809(REGS6809* regs, EMUHANDLERS* emuh, int* iClocks,
             M6809PULU(regs, ucTemp, iClocks, &PC);
             break;
 
-        case 0x39: /* RTS */
-            PC = M6809PULLW(regs);
+        case 0x39: /* RTS */ {
+            auto dest =  M6809PULLW(regs);
+            PC = dest;
+            }
             break;
 
         case 0x3A: /* ABX */
@@ -1824,6 +1829,7 @@ void EXEC6809(REGS6809* regs, EMUHANDLERS* emuh, int* iClocks,
 
         case 0x3B: /* RTI */
             regs->ucRegCC = M6809PULLB(regs);
+
             if (regs->ucRegCC & 0x80) /* Entire machine state stacked? */
             {
                 *iClocks -= 9;
@@ -2170,7 +2176,8 @@ void EXEC6809(REGS6809* regs, EMUHANDLERS* emuh, int* iClocks,
             break;
 
         case 0x8D: /* BSR */
-            sTemp = (signed short) (signed char) M6809ReadByte(PC++);
+            sTemp = (signed short) (signed char) M6809ReadByte(PC);
+            PC++;
             M6809PUSHW(regs, PC);
             PC += sTemp;
             break;
