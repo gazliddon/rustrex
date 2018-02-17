@@ -40,7 +40,6 @@ impl Flags {
     pub fn test_8(&mut self, val : u8 ) {
         self.set(Flags::N, test_n_b(val));
         self.set(Flags::Z, test_z_b(val));
-
     }
 
     #[inline]

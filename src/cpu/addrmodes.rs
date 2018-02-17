@@ -284,13 +284,16 @@ impl AddressLines for Indexed {
     }
     #[inline(always)]
     fn store_byte<M: MemoryIO>(mem : &mut M, regs : &mut Regs, ins : &mut InstructionDecoder, val : u8 ) -> u16{
-        panic!("tbd")
+        let ea = Self::ea(mem , regs , ins );
+        mem.store_byte(ea, val);
+        ea
     }
 
     #[inline(always)]
     fn store_word<M: MemoryIO>(mem : &mut M, regs : &mut Regs, ins : &mut InstructionDecoder, val : u16 ) -> u16 {
-        panic!("tbd")
-
+        let ea = Self::ea(mem , regs , ins );
+        mem.store_word(ea, val);
+        ea
     }
 }
 
