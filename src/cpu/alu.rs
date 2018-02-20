@@ -117,6 +117,13 @@ pub trait GazAlu : num::PrimInt + num::traits::WrappingAdd + num::traits::Wrappi
         nzvch::<Self>(f,write_mask, a, b,r)
     }
 
+    fn sub( f : &mut Flags, write_mask : u8, a : u32, b : u32 ) -> Self {
+        f.set(Flags::C, false);
+        let c =  one_zero::<u32>(f.contains(Flags::C));
+        let r = a.wrapping_sub(b).wrapping_sub(c);
+        nzvch::<Self>(f,write_mask, a, b,r)
+    }
+
     fn asl(f : &mut Flags, write_mask : u8, a : u32) -> Self {
 
         let r = a << 1;

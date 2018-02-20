@@ -58,18 +58,55 @@ struct Alu<'a> {
 }
 
 impl Cpu {
+    #[inline(always)]
+    fn opa_2<M: MemoryIO, A : AddressLines>( &mut self, mem : &mut M, ins : &mut InstructionDecoder, write_mask : u8, func : fn(&mut Flags,u8, u32, u32) -> u8 ) -> u8 {
+        let i0 = self.regs.a as u32;
+        let i1 = A::fetch_byte(mem, &mut self.regs, ins) as u32;
+        func(&mut self.regs.flags, write_mask, i0,i1)
+    }
+    #[inline(always)]
+    fn opb_2<M: MemoryIO, A : AddressLines>( &mut self, mem : &mut M, ins : &mut InstructionDecoder, write_mask : u8, func : fn(&mut Flags,u8, u32, u32) -> u8 ) -> u8{
+        let i0 = self.regs.b as u32;
+        let i1 = A::fetch_byte(mem, &mut self.regs, ins) as u32;
+        func(&mut self.regs.flags, write_mask, i0,i1)
+    }
+
+    #[inline(always)]
+    fn moda_2<M: MemoryIO, A : AddressLines>( &mut self, mem : &mut M, ins : &mut InstructionDecoder, write_mask : u8, func : fn(&mut Flags,u8, u32, u32) -> u8 ) {
+        let r = self.opa_2::<M,A>(mem, ins, write_mask, func);
+        self.regs.a = r;
+
+    }
+    #[inline(always)]
+    fn modb_2<M: MemoryIO, A : AddressLines>( &mut self, mem : &mut M, ins : &mut InstructionDecoder, write_mask : u8, func : fn(&mut Flags,u8, u32, u32) -> u8 ) {
+        let r = self.opb_2::<M,A>(mem,ins,write_mask, func);
+        self.regs.b = r;
+    }
+
+    #[inline(always)]
+    fn opa<M: MemoryIO, A : AddressLines>( &mut self, mem : &mut M, ins : &mut InstructionDecoder, write_mask : u8, func : fn(&mut Flags,u8, u32) -> u8 ) -> u8{
+        let i0 = self.regs.a as u32;
+        let r = func(&mut self.regs.flags, write_mask, i0);
+        r
+    }
+
+    #[inline(always)]
+    fn opb<M: MemoryIO, A : AddressLines>( &mut self, mem : &mut M, ins : &mut InstructionDecoder, write_mask : u8, func : fn(&mut Flags,u8, u32) -> u8 ) -> u8 {
+        let i0 = self.regs.b as u32;
+        let r = func(&mut self.regs.flags, write_mask, i0);
+        r
+    }
+
 
     #[inline(always)]
     fn moda<M: MemoryIO, A : AddressLines>( &mut self, mem : &mut M, ins : &mut InstructionDecoder, write_mask : u8, func : fn(&mut Flags,u8, u32) -> u8 ) {
-        let i0 = self.regs.a as u32;
-        let r = func(&mut self.regs.flags, write_mask, i0);
+        let r = self.opa::<M,A>(mem,ins, write_mask, func);
         self.regs.a = r
     }
 
     #[inline(always)]
     fn modb<M: MemoryIO, A : AddressLines>( &mut self, mem : &mut M, ins : &mut InstructionDecoder, write_mask : u8, func : fn(&mut Flags,u8, u32) -> u8 ) {
-        let i0 = self.regs.b as u32;
-        let r = func(&mut self.regs.flags, write_mask, i0);
+        let r = self.opb::<M,A>(mem,ins, write_mask, func);
         self.regs.b = r
     }
 
@@ -160,19 +197,6 @@ impl  Cpu {
         self.regs.a = r
     }
 
-    fn anda<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
-        let i0 = self.regs.a as u32;
-        let i1 = u8::fetch::<A>(mem, &mut self.regs, ins) as u32;
-        let r = u8::and(&mut self.regs.flags, Flags::NZV.bits(), i0, i1);
-        self.regs.a = r;
-    }
-
-    fn andb<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
-        let i0 = self.regs.b as u32;
-        let i1 = u8::fetch::<A>(mem, &mut self.regs, ins) as u32;
-        let r = u8::and(&mut self.regs.flags, Flags::NZV.bits(), i0, i1);
-        self.regs.b = r
-    }
 
     #[inline(always)]
     fn adcb<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
@@ -388,17 +412,32 @@ impl  Cpu {
         self.rwmod8::<M,A>(mem, ins, Flags::NZC.bits(), u8::asl);
     }
 
+
+   //////////////////////////////////////////////////////////////////////////////// 
+    fn and8<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder, i0 : u8) -> u8 {
+        self.regs.flags.set(Flags::C, false);
+        let i1 = u8::fetch::<A>(mem, &mut self.regs, ins) as u32;
+        u8::and(&mut self.regs.flags, Flags::NZVC.bits(), i0 as u32, i1)
+    }
+
+    fn anda<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
+        self.moda_2::<M,A>(mem,ins, Flags::NZVC.bits(), u8::and);
+    }
+
+    fn andb<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
+        self.modb_2::<M,A>(mem,ins, Flags::NZVC.bits(), u8::and);
+    }
+
     fn bita<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
-        let i0 = self.regs.a as u32;
-        let i1 = u8::fetch::<A>(mem,&mut self.regs,ins) as u32;
-        let r = u8::and(&mut self.regs.flags, Flags::NZV.bits(), i0, i1);
+        let i0 = self.regs.a;
+        self.and8::<M,A>(mem,ins,i0);
     }
 
     fn bitb<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
-        let i0 = self.regs.b as u32;
-        let i1 = u8::fetch::<A>(mem,&mut self.regs,ins) as u32;
-        let r = u8::and(&mut self.regs.flags, Flags::NZV.bits(), i0, i1);
+        let i0 = self.regs.b;
+        self.and8::<M,A>(mem,ins,i0);
     }
+   //////////////////////////////////////////////////////////////////////////////// 
 
     fn clra<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
         self.regs.a = 0;
@@ -416,21 +455,12 @@ impl  Cpu {
     }
 
    //////////////////////////////////////////////////////////////////////////////// 
-   
-    fn sbc8<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder, i0 : u8) -> u8 {
-        self.regs.flags.set(Flags::C, false);
-        let i1 = u8::fetch::<A>(mem, &mut self.regs, ins) as u32;
-        u8::sbc(&mut self.regs.flags, Flags::NZVC.bits(), i0 as u32, i1)
-    }
-
     fn cmpa<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
-        let i0 = self.regs.a;
-        self.sbc8::<M,A>(mem, ins, i0);
+        self.opa_2::<M,A>(mem,ins,Flags::NZVC.bits(), u8::sub);
     }
 
     fn cmpb<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
-        let i0 = self.regs.b;
-        self.sbc8::<M,A>(mem, ins, i0);
+        self.opb_2::<M,A>(mem,ins,Flags::NZVC.bits(), u8::sub);
     }
 
    //////////////////////////////////////////////////////////////////////////////// 
