@@ -56,6 +56,7 @@ pub fn get_half<T : GazAlu>(a : u32, b : u32, r : u32) -> u8 {
 }
 
 pub fn nzvch<T : GazAlu>(f : &mut Flags, write_mask : u8, a : u32, b: u32, r: u32) -> T {
+    let my_mask = (Flags::N | Flags::Z | Flags::V | Flags::C | Flags::H).bits();
 
     let fbits = f.bits();
 
@@ -66,12 +67,13 @@ pub fn nzvch<T : GazAlu>(f : &mut Flags, write_mask : u8, a : u32, b: u32, r: u3
         get_carry::<T>(a,b,r) |
         get_half::<T>(a,b,r);
 
-    f.set_w_mask(write_mask, new_bits);
+    f.set_w_mask(write_mask & my_mask, new_bits);
 
     T::from_u32(r)
 }
 
 pub fn nzv<T : GazAlu>(f : &mut Flags, write_mask : u8, a : u32, b: u32, r: u32) -> T {
+    let my_mask = (Flags::N | Flags::Z | Flags::V).bits();
 
     let fbits = f.bits();
 
@@ -80,7 +82,7 @@ pub fn nzv<T : GazAlu>(f : &mut Flags, write_mask : u8, a : u32, b: u32, r: u32)
         get_zero::<T>(r) |
         get_overflow::<T>(a,b,r);
 
-    f.set_w_mask(write_mask, new_bits);
+    f.set_w_mask(write_mask & my_mask, new_bits);
 
     T::from_u32(r)
 }
@@ -88,13 +90,15 @@ pub fn nzv<T : GazAlu>(f : &mut Flags, write_mask : u8, a : u32, b: u32, r: u32)
 
 pub fn nz<T : GazAlu>(f : &mut Flags, write_mask : u8,r: u32) -> T {
 
+    let my_mask = (Flags::N | Flags::Z).bits();
+
     let fbits = f.bits();
 
     let new_bits = 
         get_negative::<T>(r) |
         get_zero::<T>(r) ;
 
-    f.set_w_mask(write_mask, new_bits);
+    f.set_w_mask(write_mask & my_mask, new_bits);
 
     T::from_u32(r)
 }
@@ -104,6 +108,36 @@ pub trait GazAlu : num::PrimInt + num::traits::WrappingAdd + num::traits::Wrappi
     fn from_u32(v : u32) -> Self;
     fn half_bit_mask() -> u32;
     fn mask() -> u32;
+
+    fn add(f : &mut Flags, write_mask : u8, a : u32, b: u32) -> Self {
+        f.set(Flags::C, false);
+        let c =  one_zero::<u32>(f.contains(Flags::C));
+        let r = a.wrapping_add(b).wrapping_add(c);
+        nzvch::<Self>(f,write_mask, a, b,r)
+    }
+
+    fn eor(f : &mut Flags, write_mask : u8, a : u32, b: u32) -> Self {
+
+        f.set_w_mask(write_mask,0);
+
+        let r = a ^ b;
+
+        nz::<Self>(f, write_mask, r)
+    }
+
+    fn dec(f : &mut Flags, write_mask : u8, a : u32) -> Self {
+
+        let r = a.wrapping_sub(1) & Self::mask();
+
+        let v = r == (Self::mask()>>1) || r == Self::mask();
+            
+        f.set_w_mask(write_mask, a_or_b(v, Flags::V.bits(), 0));
+
+        nz::<Self>(f, write_mask, r);
+
+        Self::from_u32(r)
+    }
+
 
     fn adc(f : &mut Flags, write_mask : u8, a : u32, b: u32) -> Self {
         let c =  one_zero::<u32>(f.contains(Flags::C));

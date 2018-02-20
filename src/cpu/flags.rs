@@ -67,6 +67,7 @@ impl Flags {
         self.bits = (self.bits & !mask) | (val & mask)
     }
 
+
     #[inline]
     pub fn test_16(&mut self, val : u16 ) {
         self.set(Flags::N, test_n_w(val));
