@@ -56,7 +56,7 @@ impl InstructionDecoder {
         self.next_addr = self.next_addr.wrapping_add(2);
 
         self.mem[self.bytes] = ((w >> 8) & 0xff) as u8;
-        self.mem[self.bytes+1] = w as u8;
+        // self.mem[self.bytes+1] = w as u8;
         self.bytes = self.bytes + 2;
         w   
     }

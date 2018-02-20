@@ -66,12 +66,25 @@ pub fn nzvch<T : GazAlu>(f : &mut Flags, write_mask : u8, a : u32, b: u32, r: u3
         get_carry::<T>(a,b,r) |
         get_half::<T>(a,b,r);
 
-
-    f.set_flags(
-        (fbits & !write_mask) | new_bits & write_mask);
+    f.set_w_mask(write_mask, new_bits);
 
     T::from_u32(r)
 }
+
+pub fn nzv<T : GazAlu>(f : &mut Flags, write_mask : u8, a : u32, b: u32, r: u32) -> T {
+
+    let fbits = f.bits();
+
+    let new_bits = 
+        get_negative::<T>(r) |
+        get_zero::<T>(r) |
+        get_overflow::<T>(a,b,r);
+
+    f.set_w_mask(write_mask, new_bits);
+
+    T::from_u32(r)
+}
+
 
 pub fn nz<T : GazAlu>(f : &mut Flags, write_mask : u8,r: u32) -> T {
 
@@ -81,8 +94,7 @@ pub fn nz<T : GazAlu>(f : &mut Flags, write_mask : u8,r: u32) -> T {
         get_negative::<T>(r) |
         get_zero::<T>(r) ;
 
-    f.set_flags(
-        (fbits & !write_mask) | new_bits & write_mask);
+    f.set_w_mask(write_mask, new_bits);
 
     T::from_u32(r)
 }
@@ -92,8 +104,6 @@ pub trait GazAlu : num::PrimInt + num::traits::WrappingAdd + num::traits::Wrappi
     fn from_u32(v : u32) -> Self;
     fn half_bit_mask() -> u32;
     fn mask() -> u32;
-
-    fn c_as_val(f : &Flags) -> Self { one_zero::<Self>(f.contains(Flags::C)) }
 
     fn adc(f : &mut Flags, write_mask : u8, a : u32, b: u32) -> Self {
         let c =  one_zero::<u32>(f.contains(Flags::C));
@@ -118,14 +128,28 @@ pub trait GazAlu : num::PrimInt + num::traits::WrappingAdd + num::traits::Wrappi
         nz::<Self>(f,write_mask, r)
     } 
 
+    fn com(f : &mut Flags, write_mask : u8, a : u32) -> Self {
+        let r = (!a) & Self::mask();
+
+        let r = nz::<Self>(f,write_mask, r);
+
+        f.set(Flags::C, true);
+        f.set(Flags::V, false);
+
+        r
+    } 
+
+
     fn and( f : &mut Flags, write_mask : u8, a : u32, b : u32 ) -> Self {
         let r = a & b;
-        nzvch::<Self>(f, write_mask, a,b,r)
+        nzv::<Self>(f, write_mask, a,b,r)
     }
 
     fn test( f : &mut Flags, a : Self ) {
         panic!("lkjsalkjsa");
     }
+
+
 
     fn asr(f : &mut Flags, write_mask : u8, a : u32) -> Self {
 

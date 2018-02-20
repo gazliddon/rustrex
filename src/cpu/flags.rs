@@ -3,6 +3,7 @@ bitflags! {
 
 #[derive( Default, Serialize, Deserialize)]
     pub struct Flags: u8 {
+
         const E  = 1 << 7;
         const F  = 1 << 6;
         const H  = 1 << 5;
@@ -41,8 +42,8 @@ bitflags! {
     }
 }
 
-#[inline]
-fn test_n_b(val : u8) -> bool { val & 0x80 == 0x80 }
+// #[inline]
+// fn test_n_b(val : u8) -> bool { val & 0x80 == 0x80 }
 #[inline]
 fn test_z_b(val : u8) -> bool { val == 0 }
 #[inline]
@@ -64,13 +65,6 @@ impl Flags {
 
     pub fn set_w_mask(&mut self, mask : u8, val : u8) {
         self.bits = (self.bits & !mask) | (val & mask)
-    }
-
-
-    #[inline]
-    pub fn test_8(&mut self, val : u8 ) {
-        self.set(Flags::N, test_n_b(val));
-        self.set(Flags::Z, test_z_b(val));
     }
 
     #[inline]

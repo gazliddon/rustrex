@@ -3,6 +3,8 @@ use cpu::{ Regs, RegEnum, Flags, InstructionDecoder};
 use cpu::{FetchWrite, AddressLines, Direct, Extended, Immediate, Inherent, Relative, Indexed};
 
 use cpu::alu::{GazAlu};
+use cpu::alu;
+
 // use cpu::alu;
 
 pub fn get_tfr_regs(op : u8) -> (RegEnum, RegEnum) {
@@ -133,13 +135,15 @@ impl  Cpu {
     #[inline(always)]
     fn lda<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
         let v = A::fetch_byte(mem, &mut self.regs, ins);
-        self.regs.load_a(v);
+        alu::nz::<u8>(&mut self.regs.flags, Flags::NZ.bits(), v as u32);
+        self.regs.a = v
     }
 
     #[inline(always)]
     fn ldu<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
-        let v =  A::fetch_word(mem, &mut self.regs, ins);
-        self.regs.load_u(v);
+        let i0 =  A::fetch_word(mem, &mut self.regs, ins);
+        alu::nz::<u16>(&mut self.regs.flags, Flags::NZ.bits(), i0 as u32);
+        self.regs.u = i0;
     }
 
     #[inline(always)]
@@ -157,15 +161,17 @@ impl  Cpu {
     }
 
     fn anda<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
-        let a = self.regs.a;
-        let b = u8::fetch::<A>(mem, &mut self.regs, ins);
-        self.regs.load_a( a & b );
+        let i0 = self.regs.a as u32;
+        let i1 = u8::fetch::<A>(mem, &mut self.regs, ins) as u32;
+        let r = u8::and(&mut self.regs.flags, Flags::NZV.bits(), i0, i1);
+        self.regs.a = r;
     }
 
     fn andb<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
-        let a = self.regs.b;
-        let b = u8::fetch::<A>(mem, &mut self.regs, ins);
-        self.regs.load_b(a & b);
+        let i0 = self.regs.b as u32;
+        let i1 = u8::fetch::<A>(mem, &mut self.regs, ins) as u32;
+        let r = u8::and(&mut self.regs.flags, Flags::NZV.bits(), i0, i1);
+        self.regs.b = r
     }
 
     #[inline(always)]
@@ -369,9 +375,13 @@ impl  Cpu {
     }
 
     fn andcc<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
-        let a = self.regs.flags.bits();
-        let b = u8::fetch::<A>(mem, &mut self.regs, ins);
-        self.regs.flags.set_flags(a & b);
+        let i0 = self.regs.flags.bits() as u32;
+        let i1 = u8::fetch::<A>(mem, &mut self.regs, ins) as u32;
+
+        let new_f = u8::and(&mut self.regs.flags, 0, i0, i1);
+
+        self.regs.flags.set_flags(new_f);
+
     }
 
     fn lsl_asl<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
@@ -405,27 +415,69 @@ impl  Cpu {
         self.post_clear();
     }
 
-    fn cmpa<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
+   //////////////////////////////////////////////////////////////////////////////// 
+   
+    fn sbc8<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder, i0 : u8) -> u8 {
         self.regs.flags.set(Flags::C, false);
-        let i0 = self.regs.a as u32;
         let i1 = u8::fetch::<A>(mem, &mut self.regs, ins) as u32;
+        u8::sbc(&mut self.regs.flags, Flags::NZVC.bits(), i0 as u32, i1)
+    }
 
-        u8::sbc(&mut self.regs.flags, Flags::NZVC.bits(), i0, i1);
+    fn cmpa<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
+        let i0 = self.regs.a;
+        self.sbc8::<M,A>(mem, ins, i0);
     }
 
     fn cmpb<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
-        self.regs.flags.set(Flags::C, false);
-        let i0 = self.regs.b as u32;
-        let i1 = u8::fetch::<A>(mem, &mut self.regs, ins) as u32;
-        u8::sbc(&mut self.regs.flags, Flags::NZVC.bits(), i0, i1);
+        let i0 = self.regs.b;
+        self.sbc8::<M,A>(mem, ins, i0);
     }
 
+   //////////////////////////////////////////////////////////////////////////////// 
+
+    fn sbc16<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder, i0 : u16) -> u16 {
+        self.regs.flags.set(Flags::C, false);
+        let i1 = u16::fetch::<A>(mem, &mut self.regs, ins) as u32;
+        u16::sbc(&mut self.regs.flags, Flags::NZVC.bits(), i0 as u32, i1)
+    }
 
     fn cmpd<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
-        self.regs.flags.set(Flags::C, false);
-        let i0 = self.regs.get_d() as u32;
-        let i1 = u16::fetch::<A>(mem, &mut self.regs, ins) as u32;
-        u16::sbc(&mut self.regs.flags, Flags::NZVC.bits(), i0, i1);
+        let i0 = self.regs.get_d();
+        self.sbc16::<M,A>(mem, ins, i0);
+    }
+
+    fn cmpu<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
+        let i0 = self.regs.u;
+        self.sbc16::<M,A>(mem, ins, i0);
+    }
+
+    fn cmpx<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
+        let i0 = self.regs.x;
+        self.sbc16::<M,A>(mem, ins, i0);
+    }
+
+    fn cmpy<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
+        let i0 = self.regs.y;
+        self.sbc16::<M,A>(mem, ins, i0);
+    }
+
+   //////////////////////////////////////////////////////////////////////////////// 
+
+    fn coma<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
+        self.moda::<M,A>(mem,ins, Flags::NZVC.bits(), u8::com);
+    }
+
+    fn comb<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
+        self.modb::<M,A>(mem,ins, Flags::NZVC.bits(), u8::com);
+    }
+
+    fn com<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
+        self.rwmod8::<M,A>(mem,  ins, Flags::NZVC.bits(), u8::com);
+    }
+
+   //////////////////////////////////////////////////////////////////////////////// 
+    fn daa<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
+        panic!("daa NO!")
     }
 }
 // }}}
@@ -433,23 +485,8 @@ impl  Cpu {
 // {{{ Op Codes
 impl  Cpu {
 
-    fn cmpx<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
-        panic!("com NO!")
-    }
-    fn com<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
-        panic!("com NO!")
-    }
-    fn coma<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
-        panic!("coma NO!")
-    }
-    fn comb<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
-        panic!("comb NO!")
-    }
     fn cwai<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
         panic!("cwai NO!")
-    }
-    fn daa<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
-        panic!("daa NO!")
     }
     fn dec<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
         panic!("dec NO!")
@@ -619,9 +656,6 @@ impl  Cpu {
     fn swi3<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
         panic!("swi3 NO!")
     }
-    fn cmpu<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
-        panic!("cmpu NO!")
-    }
     fn cmps<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
         panic!("cmps NO!")
     }
@@ -669,9 +703,6 @@ impl  Cpu {
     }
     fn swi2<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
         panic!("swi2 NO!")
-    }
-    fn cmpy<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
-        panic!("cmpy NO!")
     }
     fn ldy<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
         panic!("ldy NO!")

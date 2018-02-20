@@ -103,16 +103,6 @@ impl Regs {
         }
     }
 
-    pub fn load_a(&mut self, val : u8) {
-        self.flags.test_8(val);
-        self.a = val;
-    }
-
-    pub fn load_b(&mut self, val : u8) {
-        self.flags.test_8(val);
-        self.b = val;
-    }
-
     pub fn load_d(&mut self, val : u16) {
         self.flags.test_16(val);
         self.set_d(val)
