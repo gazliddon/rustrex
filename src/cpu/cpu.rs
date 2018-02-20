@@ -154,6 +154,15 @@ impl Cpu {
     }
 
     #[inline(always)]
+    fn lbranch<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder, v : bool)  {
+        let offset = A::fetch_word(mem, &mut self.regs, ins);
+
+        if v {
+            ins.next_addr = ins.next_addr.wrapping_add(offset);
+        }
+    }
+
+    #[inline(always)]
     fn post_clear(&mut self) {
         self.regs.flags.set(Flags::Z, true );
         self.regs.flags.set(Flags::N | Flags::V | Flags::C, false );
@@ -519,6 +528,17 @@ impl  Cpu {
         self.rwmod8::<M,A>(mem,  ins, Flags::NZV.bits(), u8::dec);
     }
 
+    //////////////////////////////////////////////////////////////////////////////// 
+    fn inca<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
+        println!("about to inca");
+        self.moda::<M,A>(mem,ins, Flags::NZV.bits(), u8::inc);
+    }
+    fn incb<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
+        self.modb::<M,A>(mem,ins, Flags::NZV.bits(), u8::inc);
+    }
+    fn inc<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
+        self.rwmod8::<M,A>(mem,  ins, Flags::NZV.bits(), u8::inc);
+    }
 
     //////////////////////////////////////////////////////////////////////////////// 
     fn eora<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
@@ -561,6 +581,91 @@ impl  Cpu {
         self.regs.a = new_a
 
     }
+
+    fn exg<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
+        let operand = ins.fetch_byte(mem); 
+        let (a,b) = get_tfr_regs(operand as u8);
+        let temp = self.regs.get(&b);
+        let av = self.regs.get(&a);
+        let bv = self.regs.get(&b);
+        self.regs.set(&b, av);
+        self.regs.set(&a, bv)
+    }
+
+////////////////////////////////////////////////////////////////////////////////
+    fn lbrn<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
+        let cond = self.regs.flags.contains(Flags::N);
+        self.lbranch::<M,A>(mem,ins,cond);
+    }
+    fn lbhi<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
+        let cond = self.regs.flags.hi();
+        self.lbranch::<M,A>(mem,ins,cond);
+    }
+
+    fn lbra<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
+        self.lbranch::<M,A>(mem,ins,true);
+    }
+
+    fn lbsr<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
+        let offset = A::fetch_word(mem, &mut self.regs, ins) as u16;
+        let next_op = ins.next_addr;
+        self.pushu_word(mem, ins, next_op);
+        ins.next_addr = ins.next_addr.wrapping_add( offset );
+    }
+
+    fn lbls<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
+        let cond = self.regs.flags.ls();
+        self.lbranch::<M,A>(mem,ins,cond);
+    }
+
+    fn lbge<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
+        let cond = self.regs.flags.ge();
+        self.lbranch::<M,A>(mem,ins,cond);
+    }
+    fn lblt<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
+        let cond = self.regs.flags.lt();
+        self.lbranch::<M,A>(mem,ins,cond);
+    }
+    fn lbgt<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
+        let cond = self.regs.flags.gt();
+        self.lbranch::<M,A>(mem,ins,cond);
+    }
+
+    fn lbvc<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
+        let cond = !self.regs.flags.contains(Flags::V);
+        self.lbranch::<M,A>(mem,ins,cond);
+    }
+    fn lbvs<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
+        let cond = self.regs.flags.contains(Flags::V);
+        self.lbranch::<M,A>(mem,ins,cond);
+    }
+    fn lbpl<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
+        let cond = !self.regs.flags.contains(Flags::N);
+        self.lbranch::<M,A>(mem,ins,cond);
+    }
+    fn lbmi<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
+        let cond = self.regs.flags.contains(Flags::N);
+        self.lbranch::<M,A>(mem,ins,cond);
+    }
+    fn lbhs_lbcc<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
+        let cond = self.regs.flags.contains(Flags::C);
+        self.lbranch::<M,A>(mem,ins,!cond);
+    }
+
+    fn lblo_lbcs<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
+        let cond = self.regs.flags.contains(Flags::C);
+        self.lbranch::<M,A>(mem,ins,cond);
+    }
+
+    fn lbne<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
+        let cond = !self.regs.flags.contains(Flags::Z);
+        self.lbranch::<M,A>(mem,ins,cond);
+    }
+    fn lbeq<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
+        let z = self.regs.flags.contains(Flags::Z);
+        self.lbranch::<M,A>(mem,ins,z);
+    }
+////////////////////////////////////////////////////////////////////////////////
 }
 // }}}
 
@@ -570,30 +675,14 @@ impl  Cpu {
     fn cwai<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
         panic!("cwai NO!")
     }
-    fn exg<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
-        panic!("EXG")
-    }
-    fn inc<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
-        panic!("inc NO!")
-    }
-    fn inca<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
-        panic!("noy fonr")
-    }
-    fn incb<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
-        panic!("incb NO!")
-    }
+
     fn jmp<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
         panic!("jmp NO!")
     }
     fn jsr<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
         panic!("jsr NO!")
     }
-    fn lbra<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
-        panic!("lbra NO!")
-    }
-    fn lbsr<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
-        panic!("lbsr NO!")
-    }
+
     fn ldb<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
         panic!("ldb NO!")
     }
@@ -726,48 +815,7 @@ impl  Cpu {
     fn cmps<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
         panic!("cmps NO!")
     }
-    fn lbrn<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
-        panic!("lbrn NO!")
-    }
-    fn lbhi<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
-        panic!("lbhi NO!")
-    }
-    fn lbls<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
-        panic!("lbls NO!")
-    }
-    fn lbhs_lbcc<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
-        panic!("lbhs_lbcc NO!")
-    }
-    fn lblo_lbcs<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
-        panic!("lblo_lbcs NO!")
-    }
-    fn lbne<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
-        panic!("lbne NO!")
-    }
-    fn lbeq<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
-        panic!("lbeq NO!")
-    }
-    fn lbvc<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
-        panic!("lbvc NO!")
-    }
-    fn lbvs<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
-        panic!("lbvs NO!")
-    }
-    fn lbpl<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
-        panic!("lbpl NO!")
-    }
-    fn lbmi<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
-        panic!("lbmi NO!")
-    }
-    fn lbge<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
-        panic!("lbge NO!")
-    }
-    fn lblt<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
-        panic!("lblt NO!")
-    }
-    fn lbgt<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
-        panic!("lbgt NO!")
-    }
+
     fn swi2<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
         panic!("swi2 NO!")
     }
@@ -775,7 +823,8 @@ impl  Cpu {
         panic!("ldy NO!")
     }
     fn lble<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
-        panic!("lble NO!")
+        let cond = self.regs.flags.le();
+        self.lbranch::<M,A>(mem,ins,cond);
     }
     fn sty<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
         panic!("sty NO!")

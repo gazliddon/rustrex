@@ -138,6 +138,19 @@ pub trait GazAlu : num::PrimInt + num::traits::WrappingAdd + num::traits::Wrappi
         Self::from_u32(r)
     }
 
+    fn inc(f : &mut Flags, write_mask : u8, a : u32) -> Self {
+
+        let r = a.wrapping_add(1) & Self::mask();
+        let v = ( r == 0) || r == Self::hi_bit_mask();
+            
+        f.set_w_mask(write_mask, a_or_b(v, Flags::V.bits(), 0));
+
+        nz::<Self>(f, write_mask, r);
+
+        Self::from_u32(r)
+    }
+
+
 
     fn adc(f : &mut Flags, write_mask : u8, a : u32, b: u32) -> Self {
         let c =  one_zero::<u32>(f.contains(Flags::C));
