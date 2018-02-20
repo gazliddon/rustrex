@@ -3,7 +3,7 @@ use cpu::{ Regs, RegEnum, Flags, InstructionDecoder};
 use cpu::{FetchWrite, AddressLines, Direct, Extended, Immediate, Inherent, Relative, Indexed};
 
 use cpu::alu::{GazAlu};
-use cpu::alu;
+// use cpu::alu;
 
 pub fn get_tfr_regs(op : u8) -> (RegEnum, RegEnum) {
     ( get_tfr_reg(op>>4), get_tfr_reg(op&0xf) )
@@ -51,37 +51,35 @@ impl Cpu {
 
 ////////////////////////////////////////////////////////////////////////////////
 
+struct Alu<'a> {
+    flags : &'a mut Flags,
+}
 
 impl Cpu {
 
     #[inline(always)]
-    fn moda<M: MemoryIO, A : AddressLines>( &mut self, mem : &mut M, ins : &mut InstructionDecoder, func : fn(&mut Flags,u8) -> u8 ) {
-        let a = self.regs.a;
-        let r = func(&mut self.regs.flags, a);
-        self.regs.load_a(r)
+    fn moda<M: MemoryIO, A : AddressLines>( &mut self, mem : &mut M, ins : &mut InstructionDecoder, write_mask : u8, func : fn(&mut Flags,u8, u32) -> u8 ) {
+        let i0 = self.regs.a as u32;
+        let r = func(&mut self.regs.flags, write_mask, i0);
+        self.regs.a = r
     }
 
     #[inline(always)]
-    fn modb<M: MemoryIO, A : AddressLines>( &mut self, mem : &mut M, ins : &mut InstructionDecoder, func : fn(&mut Flags, u8) -> u8 ) {
-        let a = self.regs.b;
-        let r = func(&mut self.regs.flags,a);
-        self.regs.load_b(r)
+    fn modb<M: MemoryIO, A : AddressLines>( &mut self, mem : &mut M, ins : &mut InstructionDecoder, write_mask : u8, func : fn(&mut Flags,u8, u32) -> u8 ) {
+        let i0 = self.regs.b as u32;
+        let r = func(&mut self.regs.flags, write_mask, i0);
+        self.regs.b = r
     }
 
+
     #[inline(always)]
-    fn rwmod8<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder, func : fn(&mut Flags, u8) -> u8) {
+    fn rwmod8<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder, write_mask : u8, func : fn(&mut Flags, u8, u32) -> u8) {
 
         let ea = A::ea(mem, &mut self.regs, ins );
-
-        let v = mem.load_byte(ea);
-
-        let r = func(&mut self.regs.flags, v);
-
-        self.regs.flags.test_8(r);
+        let v = mem.load_byte(ea) as u32;
+        let r = func(&mut self.regs.flags, write_mask, v );
 
         mem.store_byte(ea,r);
-
-        self.regs.flags.test_8(r);
     }
 
     #[inline(always)]
@@ -94,32 +92,12 @@ impl Cpu {
         }
     }
 
-    #[inline(always)]
-    fn do_sbc<T : GazAlu>(&mut self, a : T, b : T) -> T {
-        let r = T::sbc(&mut self.regs.flags, a, b);
-        alu::test(&mut self.regs.flags, r);
-        r
-    }
 
     #[inline(always)]
-    fn do_sub<T : GazAlu>(&mut self, a : T, b : T) -> T {
-        self.regs.flags.set(Flags::C, false);
-        self.do_sbc(a, b)
+    fn post_clear(&mut self) {
+        self.regs.flags.set(Flags::Z, true );
+        self.regs.flags.set(Flags::N | Flags::V | Flags::C, false );
     }
-
-    #[inline(always)]
-    fn do_adc<T : GazAlu>(&mut self, a : T, b : T) -> T {
-        let r = T::adc(&mut self.regs.flags, a, b);
-        alu::test(&mut self.regs.flags, r);
-        r
-    }
-
-    #[inline(always)]
-    fn do_add<T : GazAlu>(&mut self, a : T, b : T) -> T {
-        self.regs.flags.set(Flags::C, false);
-        self.do_adc(a,b)
-    }
-
 }
 
 // {{{ Todo next!
@@ -174,7 +152,8 @@ impl  Cpu {
     fn adca<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
         let a = self.regs.a;
         let b = u8::fetch::<A>(mem, &mut self.regs, ins);
-        self.regs.a  = self.do_adc(a,b)
+        let r : u8 = u8::adc(&mut self.regs.flags, Flags::NZVCH.bits(), a as u32, b as u32);
+        self.regs.a = r
     }
 
     fn anda<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
@@ -193,8 +172,8 @@ impl  Cpu {
     fn adcb<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
         let a = self.regs.b;
         let b = u8::fetch::<A>(mem, &mut self.regs, ins);
-        let r = self.do_adc(a,b);
-        self.regs.b = r;
+        let r : u8 = u8::adc(&mut self.regs.flags, Flags::NZVCH.bits(), a as u32, b as u32);
+        self.regs.b = r
     }
 
 
@@ -204,24 +183,23 @@ impl  Cpu {
     }
 
     fn lsla_asla<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
-        self.moda::<M,A>(mem,ins, u8::asl);
+        self.moda::<M,A>(mem,ins, Flags::NZVC.bits(), u8::asl);
     }
 
     fn lslb_aslb<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
-        self.modb::<M,A>(mem,ins, u8::asl);
+        self.modb::<M,A>(mem,ins, Flags::NZVC.bits(), u8::asl);
     }
 
     fn asra<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
-        self.moda::<M,A>(mem,ins, u8::asr);
+        self.moda::<M,A>(mem,ins, Flags::NZVC.bits(), u8::asr);
     }
     fn asrb<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
-        self.modb::<M,A>(mem,ins, u8::asr);
+        self.modb::<M,A>(mem,ins, Flags::NZVC.bits(), u8::asr);
     }
 
     fn asr<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
-        self.rwmod8::<M,A>(mem, ins, u8::asr);
+        self.rwmod8::<M,A>(mem,  ins, Flags::NZVC.bits(), u8::asr);
     }
-
     #[inline(always)]
     fn tfr<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
         let operand = ins.fetch_byte(mem); 
@@ -383,10 +361,11 @@ impl  Cpu {
     }
 
     fn addd<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
-        let a = self.regs.get_d();
-        let b = u16::fetch::<A>(mem, &mut self.regs, ins);
-        let r = self.do_add(a,b);
-        self.regs.set_d(r);
+        self.regs.flags.set(Flags::C, false);
+        let i0 = self.regs.get_d();
+        let i1 = u16::fetch::<A>(mem, &mut self.regs, ins);
+        let r : u16 = u16::adc(&mut self.regs.flags, Flags::NZVC.bits(), i0 as u32, i1 as u32);
+        self.regs.set_d(r)
     }
 
     fn andcc<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
@@ -396,28 +375,19 @@ impl  Cpu {
     }
 
     fn lsl_asl<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
-        self.rwmod8::<M,A>(mem, ins, u8::asl);
+        self.rwmod8::<M,A>(mem, ins, Flags::NZC.bits(), u8::asl);
     }
 
-
     fn bita<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
-        let a = self.regs.a;
-        let b = u8::fetch::<A>(mem,&mut self.regs,ins);
-        let r = u8::and(&mut self.regs.flags, a, b);
-        self.regs.flags.test_8(r);
+        let i0 = self.regs.a as u32;
+        let i1 = u8::fetch::<A>(mem,&mut self.regs,ins) as u32;
+        let r = u8::and(&mut self.regs.flags, Flags::NZV.bits(), i0, i1);
     }
 
     fn bitb<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
-        let a = self.regs.b;
-        let b = u8::fetch::<A>(mem,&mut self.regs,ins);
-        let r = u8::and(&mut self.regs.flags, a, b);
-        self.regs.flags.test_8(r);
-    }
-
-    fn post_clear(&mut self) {
-        self.regs.flags.set(Flags::V, false );
-        self.regs.flags.set(Flags::C, false );
-        self.regs.flags.test_8(0);
+        let i0 = self.regs.b as u32;
+        let i1 = u8::fetch::<A>(mem,&mut self.regs,ins) as u32;
+        let r = u8::and(&mut self.regs.flags, Flags::NZV.bits(), i0, i1);
     }
 
     fn clra<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
@@ -435,18 +405,27 @@ impl  Cpu {
         self.post_clear();
     }
 
-
     fn cmpa<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
-        let a = self.regs.a;
-        let b = u8::fetch::<A>(mem, &mut self.regs, ins);
+        self.regs.flags.set(Flags::C, false);
+        let i0 = self.regs.a as u32;
+        let i1 = u8::fetch::<A>(mem, &mut self.regs, ins) as u32;
 
-        self.do_sub(a,b);
+        u8::sbc(&mut self.regs.flags, Flags::NZVC.bits(), i0, i1);
     }
 
     fn cmpb<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
-        let a = self.regs.b;
-        let b = u8::fetch::<A>(mem, &mut self.regs, ins);
-        self.do_sub(a,b);
+        self.regs.flags.set(Flags::C, false);
+        let i0 = self.regs.b as u32;
+        let i1 = u8::fetch::<A>(mem, &mut self.regs, ins) as u32;
+        u8::sbc(&mut self.regs.flags, Flags::NZVC.bits(), i0, i1);
+    }
+
+
+    fn cmpd<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
+        self.regs.flags.set(Flags::C, false);
+        let i0 = self.regs.get_d() as u32;
+        let i1 = u16::fetch::<A>(mem, &mut self.regs, ins) as u32;
+        u16::sbc(&mut self.regs.flags, Flags::NZVC.bits(), i0, i1);
     }
 }
 // }}}
@@ -691,9 +670,6 @@ impl  Cpu {
     fn swi2<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
         panic!("swi2 NO!")
     }
-    fn cmpd<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
-        panic!("cmpd NO!")
-    }
     fn cmpy<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
         panic!("cmpy NO!")
     }
@@ -716,6 +692,13 @@ impl  Cpu {
     }
 
     pub fn step<M: MemoryIO>(&mut self, mem : &mut M) -> InstructionDecoder {
+
+        {
+            let alu = Alu {
+                flags : &mut self.regs.flags
+
+            };
+        }
 
         let mut ins = InstructionDecoder::new(self.get_pc());
 
