@@ -108,25 +108,7 @@ impl Regs {
         self.set_d(val)
     }
 
-    pub fn load_x(&mut self, val : u16) {
-        self.flags.test_16(val);
-        self.x = val
-    }
 
-    pub fn load_y(&mut self, val : u16) {
-        self.flags.test_16(val);
-        self.y = val
-    }
-
-    pub fn load_s(&mut self, val : u16) {
-        self.flags.test_16(val);
-        self.s = val
-    }
-
-    pub fn load_u(&mut self, val : u16) {
-        self.flags.test_16(val);
-        self.u = val
-    }
 
     pub fn clear_c(&mut self) {
         self.flags.set(Flags::C, false);

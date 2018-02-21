@@ -144,7 +144,7 @@ impl AddressLines for Inherent {
     }
     #[inline(always)]
     fn fetch_byte<M: MemoryIO>(mem : &M, regs : &mut Regs, ins : &mut InstructionDecoder) -> u8 {
-        panic!("no")
+        ins.fetch_byte(mem)
     }
 
     #[inline(always)]
@@ -154,12 +154,12 @@ impl AddressLines for Inherent {
 
     #[inline(always)]
     fn store_byte<M: MemoryIO>(mem : &mut M, regs : &mut Regs, ins : &mut InstructionDecoder, val : u8 ) -> u16{
-        panic!("tbd")
+        panic!("no")
     }
 
     #[inline(always)]
     fn store_word<M: MemoryIO>(mem : &mut M, regs : &mut Regs, ins : &mut InstructionDecoder, val : u16 ) -> u16 {
-        panic!("tbd")
+        panic!("no")
 
     }
 }
@@ -173,6 +173,8 @@ impl AddressLines for Indexed {
 
         let index_mode_id = ins.fetch_byte(mem);
         let index_mode = IndexedFlags::new(index_mode_id) ;
+
+
 
         let ea = match index_mode.get_index_type() {
 
@@ -221,7 +223,6 @@ impl AddressLines for Indexed {
 
             IndexModes::RAddi16(r) => {
                 // format!("{},{:?}",diss.fetch_word(mem) as i16, r)
-                //
                 let v = ins.fetch_word(mem);
                 regs.get(&r).wrapping_add(v)
             },
@@ -256,7 +257,7 @@ impl AddressLines for Indexed {
 
             IndexModes::ROff(r,offset)=> {
                 // format!("{}, {:?}", offset, r) 
-                regs.get(&r).wrapping_add((offset as i16) as u16)
+                regs.get(&r).wrapping_add(offset)
             },
 
         };

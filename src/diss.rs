@@ -215,7 +215,7 @@ impl Disassembler {
             },
 
             IndexModes::ROff(r,offset)=> {
-                format!("{}, {:?}", offset, r) 
+                format!("{}, {:?}", offset as i16, r) 
             },
         };
 

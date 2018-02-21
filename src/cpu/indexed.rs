@@ -3,7 +3,7 @@ use cpu::RegEnum;
 #[derive(Debug)]
 pub enum IndexModes {
 
-    ROff(RegEnum,i8),
+    ROff(RegEnum,u16),
 
     RPlus(RegEnum),     //               ,R+              2 0 |
     RPlusPlus(RegEnum), //               ,R++             3 0 |
@@ -26,8 +26,8 @@ bitflags! {
         const NOT_IMM     = 0b10000000;
         const R           = 0b01100000;
         const D           = 0b00111111;
-        const OFFSET      = 0b00111111;
-        const OFFSET_SIGN = 0b00100000;
+        const OFFSET      = 0b00011111;
+        const OFFSET_SIGN = 0b00010000;
         const IND         = 1 << 4;
         const TYPE        = 0b00001111;
         const IS_EA       = 0b10011111;
@@ -36,16 +36,13 @@ bitflags! {
 
 impl IndexedFlags {
 
-    fn get_offset(&self) -> i8 {
-        let mut v = self.bits & IndexedFlags::OFFSET.bits();
+    fn get_offset(&self) -> u16 {
+        let mut v = ( self.bits & IndexedFlags::OFFSET.bits() ) as u16;
 
-        v = if v & IndexedFlags::OFFSET_SIGN.bits() == IndexedFlags::OFFSET_SIGN.bits() {
-            v | !IndexedFlags::OFFSET.bits()
-        } else {
-            v
-        };
-
-        v as i8
+        if self.contains(Self::OFFSET_SIGN) {
+            v |= 0xfff0
+        }
+        v
     }
 
     pub fn new(val : u8) -> Self {
@@ -59,12 +56,11 @@ impl IndexedFlags {
     }
 
     pub fn is_indirect(&self) -> bool {
-        (self.bits & IndexedFlags::IND.bits()) == IndexedFlags::IND.bits() 
-
+        self.contains(Self::IND | Self::NOT_IMM)
     }
 
     fn not_imm(&self) -> bool {
-        (self.bits & IndexedFlags::NOT_IMM.bits()) != 0
+        self.contains(Self::NOT_IMM)
     }
 
     fn get_reg(&self) -> RegEnum {
