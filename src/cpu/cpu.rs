@@ -1,3 +1,5 @@
+//! Handles CPU emulation
+
 use mem::MemoryIO;
 use cpu::{ Regs, RegEnum, Flags, InstructionDecoder};
 use cpu::{FetchWrite, AddressLines, Direct, Extended, Immediate, Inherent, Relative, Indexed};
@@ -6,10 +8,6 @@ use cpu::alu::{GazAlu};
 use cpu::alu;
 
 // use cpu::alu;
-
-pub fn get_tfr_regs(op : u8) -> (RegEnum, RegEnum) {
-    ( get_tfr_reg(op>>4), get_tfr_reg(op&0xf) )
-}
 
 fn get_tfr_reg(op : u8 ) -> RegEnum {
 
@@ -31,7 +29,11 @@ fn get_tfr_reg(op : u8 ) -> RegEnum {
     }
 }
 
-// {{{
+
+pub fn get_tfr_regs(op : u8) -> (RegEnum, RegEnum) {
+    ( get_tfr_reg(op>>4), get_tfr_reg(op&0xf) )
+}
+
 pub struct Cpu {
     pub regs: Regs,
 }
@@ -169,7 +171,6 @@ impl Cpu {
     }
 }
 
-// {{{ Todo next!
 impl  Cpu {
 
     #[inline(always)]
@@ -290,6 +291,7 @@ impl  Cpu {
         let cond = self.regs.flags.lt();
         self.branch::<M,A>(mem,ins,cond);
     }
+
     fn pushu_byte<M: MemoryIO>(&mut self, mem : &mut M, ins : &mut InstructionDecoder, v : u8) {
         let u = self.regs.u.wrapping_sub(1);
         mem.store_byte(u,v);
@@ -297,12 +299,23 @@ impl  Cpu {
     }
 
     fn pushu_word<M: MemoryIO>(&mut self, mem : &mut M, ins : &mut InstructionDecoder, v : u16) {
-        let mut u = self.regs.u.wrapping_sub(1);
-        mem.store_byte(u,v as u8);
-        u = u.wrapping_sub(1);
-        mem.store_byte(u,(v >> 8) as u8);
-        self.regs.u = u;
+        let u = self.regs.u.wrapping_sub(2);
+        mem.store_word(u,v);
+        self.regs.u = u 
     }
+
+    fn popu_byte<M: MemoryIO>(&mut self, mem : &mut M, ins : &mut InstructionDecoder ) -> u8 {
+        let r = mem.load_byte(self.regs.u);
+        self.regs.u = self.regs.u.wrapping_add(1);
+        r
+    }
+
+    fn popu_word<M: MemoryIO>(&mut self, mem : &mut M, ins : &mut InstructionDecoder ) -> u16 {
+        let r = mem.load_word(self.regs.u);
+        self.regs.u = self.regs.u.wrapping_add(2);
+        r
+    }
+
 
     fn pushs_byte<M: MemoryIO>(&mut self, mem : &mut M, ins : &mut InstructionDecoder, v : u8) {
         let s = self.regs.s.wrapping_sub(1);
@@ -311,25 +324,21 @@ impl  Cpu {
     }
 
     fn pushs_word<M: MemoryIO>(&mut self, mem : &mut M, ins : &mut InstructionDecoder, v : u16) {
-        let mut s = self.regs.s.wrapping_sub(1);
-        mem.store_byte(s,v as u8);
-        s = s.wrapping_sub(1);
-        mem.store_byte(s,(v >> 8) as u8);
-        self.regs.s = s;
+        let s = self.regs.s.wrapping_sub(2);
+        mem.store_word(s,v);
+        self.regs.s = s 
     }
 
     fn pops_byte<M: MemoryIO>(&mut self, mem : &mut M, ins : &mut InstructionDecoder ) -> u8 {
-        let mut s = self.regs.s;
-        let r = mem.load_byte(s);
-        s = s.wrapping_add(1);
-        self.regs.s = s;
+        let r = mem.load_byte(self.regs.s);
+        self.regs.s = self.regs.s.wrapping_add(1);
         r
     }
 
     fn pops_word<M: MemoryIO>(&mut self, mem : &mut M, ins : &mut InstructionDecoder ) -> u16 {
-        let w = mem.load_word(self.regs.s);
+        let r = mem.load_word(self.regs.s);
         self.regs.s = self.regs.s.wrapping_add(2);
-        w
+        r
     }
 
     fn rts<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
@@ -531,11 +540,33 @@ impl  Cpu {
     }
 
     //////////////////////////////////////////////////////////////////////////////// 
+
+    fn lsra<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
+        self.moda::<M,A>(mem,ins, Flags::NZC.bits(), u8::lsr);
+    }
+
+    fn lsrb<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
+        self.modb::<M,A>(mem,ins, Flags::NZC.bits(), u8::lsr);
+    }
+
+    fn lsr<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
+        self.rwmod8::<M,A>(mem,  ins, Flags::NZC.bits(), u8::lsr);
+    }
+
+    //////////////////////////////////////////////////////////////////////////////// 
     fn eora<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
         self.moda_2::<M,A>(mem,ins, Flags::NZV.bits(), u8::eor);
     }
     fn eorb<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
         self.modb_2::<M,A>(mem,ins, Flags::NZV.bits(), u8::eor);
+    }
+
+    //////////////////////////////////////////////////////////////////////////////// 
+    fn ora<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
+        self.moda_2::<M,A>(mem,ins, Flags::NZV.bits(), u8::or);
+    }
+    fn orb<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
+        self.modb_2::<M,A>(mem,ins, Flags::NZV.bits(), u8::or);
     }
 
     //////////////////////////////////////////////////////////////////////////////// 
@@ -572,6 +603,7 @@ impl  Cpu {
 
     }
 
+    //////////////////////////////////////////////////////////////////////////////// 
     fn exg<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
         let operand = ins.fetch_byte(mem); 
         let (a,b) = get_tfr_regs(operand as u8);
@@ -582,7 +614,8 @@ impl  Cpu {
         self.regs.set(&a, bv)
     }
 
-////////////////////////////////////////////////////////////////////////////////
+    // {{{ Long Branches
+    
     fn lbrn<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
         let cond = self.regs.flags.contains(Flags::N);
         self.lbranch::<M,A>(mem,ins,cond);
@@ -608,6 +641,11 @@ impl  Cpu {
         self.lbranch::<M,A>(mem,ins,cond);
     }
 
+    fn lble<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
+        let cond = self.regs.flags.le();
+        self.lbranch::<M,A>(mem,ins,cond);
+    }
+
     fn lbge<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
         let cond = self.regs.flags.ge();
         self.lbranch::<M,A>(mem,ins,cond);
@@ -625,6 +663,7 @@ impl  Cpu {
         let cond = !self.regs.flags.contains(Flags::V);
         self.lbranch::<M,A>(mem,ins,cond);
     }
+
     fn lbvs<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
         let cond = self.regs.flags.contains(Flags::V);
         self.lbranch::<M,A>(mem,ins,cond);
@@ -637,6 +676,7 @@ impl  Cpu {
         let cond = self.regs.flags.contains(Flags::N);
         self.lbranch::<M,A>(mem,ins,cond);
     }
+
     fn lbhs_lbcc<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
         let cond = self.regs.flags.contains(Flags::C);
         self.lbranch::<M,A>(mem,ins,!cond);
@@ -655,60 +695,12 @@ impl  Cpu {
         let z = self.regs.flags.contains(Flags::Z);
         self.lbranch::<M,A>(mem,ins,z);
     }
+    // }}}
+
+
 
     ////////////////////////////////////////////////////////////////////////////////
-    fn ldb<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
-        let v = A::fetch_byte(mem, &mut self.regs, ins);
-        alu::nz::<u8>(&mut self.regs.flags, Flags::NZ.bits(), v as u32);
-        self.regs.b = v
-    }
-
-    fn pshs<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
-        let op = A::fetch_byte(mem, &mut self.regs,ins);
-
-        if (op & 0x80) == 0x80 {
-            let i0 = self.regs.pc;
-            self.pushs_word(mem, ins, i0);
-        }
-
-        if ( op & 0x40 ) == 0x40  {
-            let i0 = self.regs.u;
-            self.pushs_word(mem, ins, i0);
-        }
-
-        if ( op & 0x20 ) == 0x20  {
-            let i0 = self.regs.y;
-            self.pushs_word(mem, ins, i0);
-        }
-
-        if ( op & 0x10 ) == 0x10  {
-            
-            let i0 = self.regs.x;
-            self.pushs_word(mem, ins, i0);
-        }
-
-        if ( op & 0x8 ) == 0x8  {
-            let i0 = self.regs.dp;
-            self.pushs_byte(mem, ins, i0);
-        }
-
-        if ( op & 0x4 ) == 0x4  {
-            let i0 = self.regs.b;
-            self.pushs_byte(mem, ins, i0);
-        }
-
-        if ( op & 0x2 ) == 0x2  {
-            let i0 = self.regs.a;
-            self.pushs_byte(mem, ins, i0);
-        }
-
-        if ( op & 0x1 ) == 0x1  {
-            let i0 = self.regs.flags.bits();
-            self.pushs_byte(mem, ins, i0);
-        }
-    }
-
-////////////////////////////////////////////////////////////////////////////////
+    // {{{ Register loads
     #[inline(always)]
     fn load_reg_byte<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  -> u8 {
         let v = A::fetch_byte(mem, &mut self.regs, ins);
@@ -729,6 +721,10 @@ impl  Cpu {
         self.regs.a = i0
     }
 
+    fn ldb<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
+        let i0 = self.load_reg_byte::<M,A>(mem,ins);
+        self.regs.b = i0
+    }
 
     fn ldd<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
         let i0 = self.load_reg_word::<M,A>(mem,ins);
@@ -754,61 +750,201 @@ impl  Cpu {
         let i0 = self.load_reg_word::<M,A>(mem,ins);
         self.regs.u = i0;
     }
+    // }}}
 
-////////////////////////////////////////////////////////////////////////////////
+    ////////////////////////////////////////////////////////////////////////////////
 
-    fn pshu<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
+    fn pshs<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
+
         let op = A::fetch_byte(mem, &mut self.regs,ins);
 
-        if (op & 0x80) == 0x80 {
-            let i0 = self.regs.pc;
-            self.pushu_word(mem, ins, i0);
+        let is_set = |m : u8| (op & m) == m;
+
+        if is_set(0x80) {
+            let i0 = ins.next_addr;
+            self.pushs_word(mem, ins, i0);
         }
 
-        if ( op & 0x40 ) == 0x40  {
+        if is_set( 0x40 ) {
             let i0 = self.regs.u;
+            self.pushs_word(mem, ins, i0);
+        }
+
+        if is_set( 0x20 ) {
+            let i0 = self.regs.y;
+            self.pushs_word(mem, ins, i0);
+        }
+
+        if is_set( 0x10 ) {
+            let i0 = self.regs.x;
+            self.pushs_word(mem, ins, i0);
+        }
+
+        if is_set( 0x08 ) {
+            let i0 = self.regs.dp;
+            self.pushs_byte(mem, ins, i0);
+        }
+
+        if is_set( 0x04 ) {
+            let i0 = self.regs.b;
+            self.pushs_byte(mem, ins, i0);
+        }
+
+        if is_set( 0x02 ) {
+            let i0 = self.regs.a;
+            self.pushs_byte(mem, ins, i0);
+        }
+
+        if is_set( 0x01 ) {
+            let i0 = self.regs.flags.bits();
+            self.pushs_byte(mem, ins, i0);
+        }
+    }
+
+    fn pshu<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
+
+        let op = A::fetch_byte(mem, &mut self.regs,ins);
+
+        let is_set = |m : u8| (op & m) == m;
+
+        if is_set(0x80) {
+            let i0 = ins.next_addr;
             self.pushu_word(mem, ins, i0);
         }
 
-        if ( op & 0x20 ) == 0x20  {
+        if is_set( 0x40 ) {
+            let i0 = self.regs.s;
+            self.pushu_word(mem, ins, i0);
+        }
+
+        if is_set( 0x20 ) {
             let i0 = self.regs.y;
             self.pushu_word(mem, ins, i0);
         }
 
-        if ( op & 0x10 ) == 0x10  {
-            
+        if is_set( 0x10 ) {
             let i0 = self.regs.x;
             self.pushu_word(mem, ins, i0);
         }
 
-        if ( op & 0x8 ) == 0x8  {
+        if is_set( 0x08 ) {
             let i0 = self.regs.dp;
             self.pushu_byte(mem, ins, i0);
         }
 
-        if ( op & 0x4 ) == 0x4  {
+        if is_set( 0x04 ) {
             let i0 = self.regs.b;
             self.pushu_byte(mem, ins, i0);
         }
 
-        if ( op & 0x2 ) == 0x2  {
+        if is_set( 0x02 ) {
             let i0 = self.regs.a;
             self.pushu_byte(mem, ins, i0);
         }
 
-        if ( op & 0x1 ) == 0x1  {
+        if is_set( 0x01 ) {
             let i0 = self.regs.flags.bits();
             self.pushu_byte(mem, ins, i0);
         }
     }
 
     fn puls<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
-        panic!("puls")
+        let op = A::fetch_byte(mem, &mut self.regs,ins);
+
+        if ( op & 0x1 ) == 0x1  {
+            let i0 = self.pops_byte(mem, ins);
+            self.regs.flags.set_flags(i0);
+        }
+
+        if ( op & 0x2 ) == 0x2  {
+            let i0 = self.pops_byte(mem, ins);
+            self.regs.a = i0;
+        }
+
+        if ( op & 0x4 ) == 0x4  {
+            let i0 = self.pops_byte(mem, ins);
+            self.regs.b = i0;
+        }
+        if ( op & 0x8 ) == 0x8  {
+            let i0 = self.pops_byte(mem, ins);
+            self.regs.dp = i0;
+        }
+
+        if ( op & 0x10 ) == 0x10  {
+            let i0 = self.pops_word(mem, ins);
+            self.regs.x = i0;
+        }
+
+        if ( op & 0x20 ) == 0x20  {
+            let i0 = self.pops_word(mem, ins);
+            self.regs.y = i0;
+        }
+
+        if ( op & 0x40 ) == 0x40  {
+            let i0 = self.pops_word(mem, ins);
+            self.regs.u = i0;
+        }
+
+        if (op & 0x80) == 0x80 {
+            let i0 = self.pops_word(mem, ins);
+            self.regs.pc = i0;
+        }
+    }
+    fn pulu<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
+        let op = A::fetch_byte(mem, &mut self.regs,ins);
+
+        if ( op & 0x1 ) == 0x1  {
+            let i0 = self.popu_byte(mem, ins);
+            self.regs.flags.set_flags(i0);
+        }
+
+        if ( op & 0x2 ) == 0x2  {
+            let i0 = self.popu_byte(mem, ins);
+            self.regs.a = i0;
+        }
+
+        if ( op & 0x4 ) == 0x4  {
+            let i0 = self.popu_byte(mem, ins);
+            self.regs.b = i0;
+        }
+        if ( op & 0x8 ) == 0x8  {
+            let i0 = self.popu_byte(mem, ins);
+            self.regs.dp = i0;
+        }
+
+        if ( op & 0x10 ) == 0x10  {
+            let i0 = self.popu_word(mem, ins);
+            self.regs.x = i0;
+        }
+
+        if ( op & 0x20 ) == 0x20  {
+            let i0 = self.popu_word(mem, ins);
+            self.regs.y = i0;
+        }
+
+        if ( op & 0x40 ) == 0x40  {
+            let i0 = self.popu_word(mem, ins);
+            self.regs.s = i0;
+        }
+
+        if (op & 0x80) == 0x80 {
+            let i0 = self.popu_word(mem, ins);
+            self.regs.pc = i0;
+        }
     }
 
-    fn pulu<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
-        panic!("pulu")
+
+    fn mul<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
+
+        let i0 = self.regs.a as u32;
+        let i1 = self.regs.b as u32;
+
+        let r = u16::mul(&mut self.regs.flags, Flags::NZC.bits(), i0, i1);
+
+        self.regs.set_d(r);
+
     }
+
 
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -835,57 +971,24 @@ impl  Cpu {
     }
 
 ////////////////////////////////////////////////////////////////////////////////
-}
-// }}}
 
-// {{{ Op Codes
-impl  Cpu {
-
-    fn cwai<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
-        panic!("cwai NO!")
-    }
-
-    fn jmp<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
-        panic!("jmp NO!")
-    }
-    fn jsr<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
-        panic!("jsr NO!")
-    }
-
-
-    fn lsr<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
-        panic!("lsr NO!")
-    }
-    fn lsra<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
-        panic!("lsra NO!")
-    }
-    fn lsrb<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
-        panic!("lsrb NO!")
-    }
-    fn mul<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
-        panic!("mul NO!")
-    }
     fn neg<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
-        panic!("neg NO!")
+        self.rwmod8::<M,A>(mem,  ins, Flags::NZVC.bits(), u8::neg);
     }
     fn nega<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
-        panic!("nega NO!")
+        self.moda::<M,A>(mem,ins, Flags::NZVC.bits(), u8::neg);
     }
     fn negb<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
-        panic!("negb NO!")
+        self.modb::<M,A>(mem,ins, Flags::NZVC.bits(), u8::neg);
     }
+
+    ////////////////////////////////////////////////////////////////////////////////
+
     fn nop<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
-        panic!("nop NO!")
     }
-    fn ora<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
-        panic!("ora NO!")
-    }
-    fn orb<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
-        panic!("orb NO!")
-    }
-    fn reset<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
-        panic!("reset NO!")
-    }
+
+
+    ////////////////////////////////////////////////////////////////////////////////
     fn rol<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
         panic!("rol NO!")
     }
@@ -903,6 +1006,29 @@ impl  Cpu {
     }
     fn rorb<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
         panic!("rorb NO!")
+    }
+
+    ////////////////////////////////////////////////////////////////////////////////
+}
+// }}}
+
+// {{{ Op Codes
+impl  Cpu {
+
+    fn cwai<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
+        panic!("cwai NO!")
+    }
+
+    fn jmp<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
+        panic!("jmp NO!")
+    }
+
+    fn jsr<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
+        panic!("jsr NO!")
+    }
+
+    fn reset<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
+        panic!("reset NO!")
     }
     fn rti<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
         panic!("rti NO!")
@@ -960,10 +1086,7 @@ impl  Cpu {
         panic!("swi2 NO!")
     }
 
-    fn lble<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
-        let cond = self.regs.flags.le();
-        self.lbranch::<M,A>(mem,ins,cond);
-    }
+
     fn sty<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
         panic!("sty NO!")
     }
@@ -976,12 +1099,12 @@ impl  Cpu {
         self.regs.pc
     }
 
+    /// Single step the CPU one instruction
     pub fn step<M: MemoryIO>(&mut self, mem : &mut M) -> InstructionDecoder {
-
         {
-            let alu = Alu {
-                flags : &mut self.regs.flags
-
+            let alu = Context {
+                regs : &mut self.regs,
+                mem : mem
             };
         }
 
@@ -1001,6 +1124,11 @@ impl  Cpu {
     }
 }
 
+struct Context<'a> {
+    regs : &'a mut Regs,
+    mem : &'a mut ( MemoryIO + 'a),
+    // ins : InstructionDecoder
+}
 //
 // }}}
 

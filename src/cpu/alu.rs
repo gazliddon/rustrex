@@ -58,8 +58,6 @@ pub fn get_half<T : GazAlu>(a : u32, b : u32, r : u32) -> u8 {
 pub fn nzvch<T : GazAlu>(f : &mut Flags, write_mask : u8, a : u32, b: u32, r: u32) -> T {
     let my_mask = (Flags::N | Flags::Z | Flags::V | Flags::C | Flags::H).bits();
 
-    let fbits = f.bits();
-
     let new_bits = 
         get_negative::<T>(r) |
         get_zero::<T>(r) |
@@ -75,8 +73,6 @@ pub fn nzvch<T : GazAlu>(f : &mut Flags, write_mask : u8, a : u32, b: u32, r: u3
 pub fn nzv<T : GazAlu>(f : &mut Flags, write_mask : u8, a : u32, b: u32, r: u32) -> T {
     let my_mask = (Flags::N | Flags::Z | Flags::V).bits();
 
-    let fbits = f.bits();
-
     let new_bits = 
         get_negative::<T>(r) |
         get_zero::<T>(r) |
@@ -90,15 +86,11 @@ pub fn nzv<T : GazAlu>(f : &mut Flags, write_mask : u8, a : u32, b: u32, r: u32)
 
 pub fn nz<T : GazAlu>(f : &mut Flags, write_mask : u8,r: u32) -> T {
 
-    let my_mask = (Flags::N | Flags::Z).bits();
+    let write_mask = (Flags::N | Flags::Z).bits() & write_mask;
 
-    let fbits = f.bits();
-
-    let new_bits = 
-        get_negative::<T>(r) |
-        get_zero::<T>(r) ;
-
-    f.set_w_mask(write_mask & my_mask, new_bits);
+    f.set_w_mask(write_mask, 
+                 get_negative::<T>(r) |
+                 get_zero::<T>(r));
 
     T::from_u32(r)
 }
@@ -130,7 +122,7 @@ pub trait GazAlu : num::PrimInt + num::traits::WrappingAdd + num::traits::Wrappi
         let r = a.wrapping_sub(1) & Self::mask();
 
         let v = r == (Self::mask()>>1) || r == Self::mask();
-            
+
         f.set_w_mask(write_mask, a_or_b(v, Flags::V.bits(), 0));
 
         nz::<Self>(f, write_mask, r);
@@ -142,7 +134,7 @@ pub trait GazAlu : num::PrimInt + num::traits::WrappingAdd + num::traits::Wrappi
 
         let r = a.wrapping_add(1) & Self::mask();
         let v = ( r == 0) || r == Self::hi_bit_mask();
-            
+
         f.set_w_mask(write_mask, a_or_b(v, Flags::V.bits(), 0));
 
         nz::<Self>(f, write_mask, r);
@@ -223,6 +215,49 @@ pub trait GazAlu : num::PrimInt + num::traits::WrappingAdd + num::traits::Wrappi
         f.set_w_mask(write_mask, new_f.bits());
 
         Self::from_u32(r)
+    }
+
+    fn mul(f : &mut Flags, write_mask : u8, a : u32, b :u32) -> Self {
+        let r = a.wrapping_mul(b);
+        let cbits = a_or_b(true_false(a & 0x80), Flags::C.bits(),0);
+        f.set_w_mask(write_mask & Flags::C.bits(), cbits);
+        nz::<Self>(f, write_mask, r)
+    }
+
+    fn lsr(f : &mut Flags, write_mask : u8, a : u32) -> Self {
+
+        let cbits = a_or_b(true_false(a & 1), Flags::C.bits(),0);
+
+        f.set_w_mask(write_mask & Flags::C.bits(), cbits);
+
+        nz::<Self>(f, write_mask, a >> 1)
+    }
+
+    fn or(f : &mut Flags, write_mask : u8, a : u32, b: u32) -> Self {
+        f.set_w_mask(write_mask, 0);
+        nz::<Self>(f, write_mask, a | b)
+    }
+
+    fn neg(f : &mut Flags, write_mask : u8, a : u32) -> Self {
+
+        let r = (a ^ 0xffff).wrapping_add(1);
+
+        let mut fl = 0;
+
+        if test_negative::<Self>(a) {
+            fl |= Flags::V.bits()
+        }
+
+        if test_negative::<Self>(r) {
+            fl |= (Flags::N | Flags::C).bits()
+        }
+
+        fl |= get_zero::<Self>(r);
+
+        f.set_w_mask(write_mask, fl);
+
+        Self::from_u32(r)
+
     }
 }
 

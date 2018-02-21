@@ -26,19 +26,9 @@ bitflags! {
             Self::V.bits |
             Self::C.bits ;
 
-        const NZC = 
-            Self::N.bits |
-            Self::Z.bits |
-            Self::C.bits ;
-
-        const NZ = 
-            Self::N.bits |
-            Self::Z.bits ;
-
-        const NZV = 
-            Self::N.bits |
-            Self::Z.bits |
-            Self::V.bits ;
+        const NZC = Self::N.bits | Self::Z.bits | Self::C.bits ;
+        const NZ  = Self::N.bits | Self::Z.bits ;
+        const NZV = Self::N.bits | Self::Z.bits | Self::V.bits ;
     }
 }
 
