@@ -163,6 +163,11 @@ pub trait GazAlu : num::PrimInt + num::traits::WrappingAdd + num::traits::Wrappi
         nzvch::<Self>(f,write_mask, a, b,r)
     }
 
+    fn tst(f : &mut Flags, write_mask : u8, a : u32) -> Self {
+        f.set_w_mask(write_mask, 0);
+        nz::<Self>(f,write_mask, a)
+    }
+
     fn asl(f : &mut Flags, write_mask : u8, a : u32) -> Self {
 
         let r = a << 1;
@@ -206,7 +211,6 @@ pub trait GazAlu : num::PrimInt + num::traits::WrappingAdd + num::traits::Wrappi
         let c = a & 1 != 0;
         let n = test_negative::<Self>(r);
         let z = test_zero::<Self>(r);
-        let v = c ^ n;
 
         new_f.set(Flags::C, c);
         new_f.set(Flags::N, n);
@@ -258,6 +262,35 @@ pub trait GazAlu : num::PrimInt + num::traits::WrappingAdd + num::traits::Wrappi
 
         Self::from_u32(r)
 
+    }
+
+    fn rol(f : &mut Flags, write_mask : u8, a : u32) -> Self {
+
+        let mut new_bits = 0u8;
+
+        if test_negative::<Self>(a)  { new_bits |= Flags::C.bits(); }
+
+        let r = a << 1 | a_or_b(f.contains(Flags::C), 1,0);
+
+        if test_negative::<Self>(a ^ r) { new_bits |= Flags::V.bits(); }
+
+        f.set_w_mask(write_mask, new_bits);
+
+        nz::<Self>(f, write_mask, r)
+
+    }
+
+    fn ror(f : &mut Flags, write_mask : u8, a : u32) -> Self {
+
+        let mut new_bits = 0u8;
+
+        if a&1 ==1  { new_bits |= Flags::C.bits(); }
+
+        let r = a >> 1 | a_or_b(f.contains(Flags::C), Self::hi_bit_mask(),0);
+
+        f.set_w_mask(write_mask, new_bits);
+
+        nz::<Self>(f, write_mask, r)
     }
 }
 

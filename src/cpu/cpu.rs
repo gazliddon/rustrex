@@ -1,4 +1,4 @@
-//! Handles CPU emulation
+// Handles CPU emulation
 
 use mem::MemoryIO;
 use cpu::{ Regs, RegEnum, Flags, InstructionDecoder};
@@ -54,11 +54,6 @@ impl Cpu {
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-
-struct Alu<'a> {
-    flags : &'a mut Flags,
-}
-
 impl Cpu {
 
     #[inline(always)]
@@ -169,6 +164,20 @@ impl Cpu {
         self.regs.flags.set(Flags::Z, true );
         self.regs.flags.set(Flags::N | Flags::V | Flags::C, false );
     }
+
+    #[inline(always)]
+    fn st8<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder, v : u8)  {
+        A::store_byte(mem, &mut self.regs, ins, v);
+        alu::nz::<u8>(&mut self.regs.flags,Flags::NZ.bits(), v as u32);
+        self.regs.flags.set(Flags::V, false);
+    }
+
+    #[inline(always)]
+    fn st16<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder, v : u16)  {
+        A::store_word(mem, &mut self.regs, ins, v);
+        alu::nz::<u16>(&mut self.regs.flags,Flags::NZ.bits(), v as u32);
+        self.regs.flags.set(Flags::V, false);
+    }
 }
 
 impl  Cpu {
@@ -189,8 +198,35 @@ impl  Cpu {
     #[inline(always)]
     fn sta<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
         let r = self.regs.a;
-        A::store_byte(mem, &mut self.regs, ins, r);
+        self.st8::<M,A>(mem,ins,r);
     }
+
+    #[inline(always)]
+    fn stb<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
+        let r = self.regs.b;
+        self.st8::<M,A>(mem,ins,r);
+    }
+
+    fn std<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
+        let r = self.regs.get_d();
+        self.st16::<M,A>(mem,ins,r);
+    }
+
+    fn stu<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
+        let r = self.regs.u;
+        self.st16::<M,A>(mem,ins,r);
+    }
+
+    fn sty<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
+        let r = self.regs.y;
+        self.st16::<M,A>(mem,ins,r);
+    }
+    #[inline(always)]
+    fn sts<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
+        let r = self.regs.s;
+        self.st16::<M,A>(mem,ins,r);
+    }
+
 
     fn lsla_asla<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
         self.moda::<M,A>(mem,ins, Flags::NZVC.bits(), u8::asl);
@@ -228,13 +264,6 @@ impl  Cpu {
     fn abx<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
         let x = self.regs.x;
         self.regs.x = x.wrapping_add(self.regs.b as u16);
-    }
-
-    #[inline(always)]
-    fn sts<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
-        let r = self.regs.s;
-        A::store_word(mem, &mut self.regs, ins, r);
-        self.regs.flags.test_16(r)
     }
 
 
@@ -975,9 +1004,11 @@ impl  Cpu {
     fn neg<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
         self.rwmod8::<M,A>(mem,  ins, Flags::NZVC.bits(), u8::neg);
     }
+
     fn nega<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
         self.moda::<M,A>(mem,ins, Flags::NZVC.bits(), u8::neg);
     }
+
     fn negb<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
         self.modb::<M,A>(mem,ins, Flags::NZVC.bits(), u8::neg);
     }
@@ -987,28 +1018,100 @@ impl  Cpu {
     fn nop<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
     }
 
-
     ////////////////////////////////////////////////////////////////////////////////
     fn rol<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
-        panic!("rol NO!")
+        self.rwmod8::<M,A>(mem,  ins, Flags::NZVC.bits(), u8::rol);
     }
     fn rola<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
-        panic!("rola NO!")
+        self.moda::<M,A>(mem,ins, Flags::NZVC.bits(), u8::rol);
     }
     fn rolb<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
-        panic!("rolb NO!")
-    }
-    fn ror<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
-        panic!("ror NO!")
-    }
-    fn rora<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
-        panic!("rora NO!")
-    }
-    fn rorb<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
-        panic!("rorb NO!")
+        self.modb::<M,A>(mem,ins, Flags::NZVC.bits(), u8::rol);
     }
 
     ////////////////////////////////////////////////////////////////////////////////
+    fn ror<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
+        self.rwmod8::<M,A>(mem,  ins, Flags::NZC.bits(), u8::ror);
+    }
+    fn rora<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
+        self.moda::<M,A>(mem,ins, Flags::NZC.bits(), u8::ror);
+    }
+    fn rorb<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
+        self.modb::<M,A>(mem,ins, Flags::NZC.bits(), u8::ror);
+    }
+
+    ////////////////////////////////////////////////////////////////////////////////
+    fn sbca<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
+        self.moda_2::<M,A>(mem,ins,Flags::NZVC.bits(), u8::sbc);
+    }
+
+    fn sbcb<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
+        self.modb_2::<M,A>(mem,ins,Flags::NZVC.bits(), u8::sbc);
+    }
+    fn suba<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
+        self.moda_2::<M,A>(mem,ins,Flags::NZVC.bits(), u8::sub);
+    }
+    fn subb<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
+        self.modb_2::<M,A>(mem,ins,Flags::NZVC.bits(), u8::sub);
+    }
+
+    fn tsta<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
+        self.moda::<M,A>(mem,ins, Flags::NZV.bits(), u8::tst);
+    }
+
+    fn tstb<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
+        self.modb::<M,A>(mem,ins, Flags::NZV.bits(), u8::tst);
+    }
+
+    fn tst<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
+        self.rwmod8::<M,A>(mem,  ins, Flags::NZV.bits(), u8::tst);
+    }
+
+    ////////////////////////////////////////////////////////////////////////////////
+    fn sex<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
+        if self.regs.b & 0x80 == 0x80 {
+            self.regs.a = 0xff;
+        } else {
+            self.regs.a = 0;
+        }
+
+        let d = self.regs.get_d() as u32;
+
+        alu::nz::<u16>(&mut self.regs.flags,Flags::NZ.bits(),d);
+    }
+
+    fn swi<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
+
+        macro_rules! push8 {
+            ($val:expr) => (
+                { let i0 = $val; self.pushs_byte(mem,ins,i0) })}
+
+        macro_rules! push16 {
+            ($val:expr) => (
+                { let i0 = $val; self.pushs_word(mem,ins,i0) })}
+
+        self.regs.flags.set(Flags::E, true);
+
+        push16!(ins.next_addr);
+        push16!(self.regs.u);
+        push16!(self.regs.y);
+        push16!(self.regs.x);
+
+        push8!(self.regs.dp);
+        push8!(self.regs.b);
+        push8!(self.regs.a);
+        push8!(self.regs.flags.bits());
+
+        self.regs.flags.set(Flags::I, true);
+
+        ins.next_addr = mem.load_word(0xfffa);
+    }
+
+    fn subd<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
+        let i0 = self.regs.get_d();
+        let r = self.op16_2::<M,A>(mem,ins,Flags::NZVC.bits(), u16::sub, i0);
+        self.regs.set_d(r);
+    }
 }
 // }}}
 
@@ -1030,51 +1133,15 @@ impl  Cpu {
     fn reset<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
         panic!("reset NO!")
     }
+
     fn rti<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
         panic!("rti NO!")
     }
-    fn sbca<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
-        panic!("sbca NO!")
-    }
-    fn sbcb<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
-        panic!("sbcb NO!")
-    }
-    fn sex<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
-        panic!("sex NO!")
-    }
-    fn stb<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
-        panic!("stb NO!")
-    }
-    fn std<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
-        panic!("std NO!")
-    }
-    fn stu<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
-        panic!("stu NO!")
-    }
-    fn suba<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
-        panic!("suba NO!")
-    }
-    fn subb<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
-        panic!("subb NO!")
-    }
-    fn subd<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
-        panic!("subd NO!")
-    }
-    fn swi<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
-        panic!("swi NO!")
-    }
+
     fn sync<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
         panic!("sync NO!")
     }
-    fn tst<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
-        panic!("tst NO!")
-    }
-    fn tsta<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
-        panic!("tsta NO!")
-    }
-    fn tstb<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
-        panic!("tstb NO!")
-    }
+
     fn swi3<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
         panic!("swi3 NO!")
     }
@@ -1087,9 +1154,6 @@ impl  Cpu {
     }
 
 
-    fn sty<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
-        panic!("sty NO!")
-    }
 
     fn unimplemented(&mut self, ins : &mut InstructionDecoder) {
         panic!("unimplemnted op code")
