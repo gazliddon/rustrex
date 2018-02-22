@@ -223,9 +223,12 @@ pub trait GazAlu : num::PrimInt + num::traits::WrappingAdd + num::traits::Wrappi
     }
 
     fn mul(f : &mut Flags, write_mask : u8, a : u32, b :u32) -> Self {
+
         let r = a.wrapping_mul(b);
-        let cbits = a_or_b(true_false(a & 0x80), Flags::C.bits(),0);
-        f.set_w_mask(write_mask & Flags::C.bits(), cbits);
+
+        let cbits = a_or_b(true_false(r & 0x80), Flags::C.bits(),0);
+
+        f.set_w_mask(write_mask, cbits);
         nz::<Self>(f, write_mask, r)
     }
 

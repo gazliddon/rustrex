@@ -44,7 +44,6 @@ fn get_writes_as_str( mem : &LoggingMemMap ) -> String {
 }
 
 fn main() {
-
     let json_file = "cpp/adler_out.json";
 
     let json_contents = utils::load_file_as_string(json_file);
@@ -62,8 +61,9 @@ fn main() {
 
     let mut it = run_log.states.iter().peekable();
 
-    for i in 0 .. run_log.states.len()/2 {
+    let check_hash = false;
 
+    for i in 0 .. run_log.states.len()/2 {
         mem.clear_log();
 
         let log_before = &it.next().unwrap().regs;
@@ -71,7 +71,6 @@ fn main() {
 
         let log_regs_after = &state_after.regs;
         let log_hash_after = &state_after.digest;
-
 
         let prev_sim = cpu.regs.clone();
 
@@ -81,13 +80,23 @@ fn main() {
 
         let sim = &cpu.regs;
 
-        // let writes_str = get_writes_as_str(&mem);
-        // println!("{:04x}   {:20}{:20} : {}", pc, txt, writes_str, sim);
-
-        let hash = mem.get_sha1_string();
-        let hash_ok = hash == *log_hash_after;
+        //
+        
+        let hash_ok = if check_hash {
+            let hash = mem.get_sha1_string();
+            hash == *log_hash_after
+        } else {
+            true
+        };
 
         if ( sim != log_regs_after ) | !hash_ok {
+            println!("Error after {} instructions", i);
+
+            let (ins, txt) =  diss.diss(&mem, pc, None);
+            let writes_str = get_writes_as_str(&mem);
+            println!("{:04x}   {:20}{:20} : {}", pc, txt, writes_str, sim);
+            let hash = mem.get_sha1_string();
+
             let (ins, txt) =  diss.diss(&mem, cpu.regs.pc, None);
             println!("");
 
@@ -118,5 +127,6 @@ fn main() {
 
         cycles = cycles + 1;
     }
+    println!("Successfully run {} instructions", run_log.states.len());
 }
 

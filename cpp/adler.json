@@ -2,7 +2,7 @@
     "file_name": "../utils/adler/adler.raw",
     "load_addr": 4096,
 
-    "instructions" : 2000,
+    "instructions" : 1000000,
 
     "memory": [
         {
