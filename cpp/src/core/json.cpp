@@ -40,12 +40,12 @@ void to_json(json & j, cpu_state_t const & _s) {
 void to_json(json & j, run_log_t const & _r) {
     j = json {
         {"file_name", _r.m_file_name },
+        {"instructions", _r.m_instructions },
         {"load_addr", _r.m_load_addr },
         {"memory", _r.m_memory },
         {"states", _r.m_states },
     };
 }
-
 
 void from_json(nlohmann::json const & j, regs_t & _r) {
 
@@ -79,8 +79,10 @@ void from_json(nlohmann::json const & j, cpu_state_t & _s) {
 void from_json(nlohmann::json const & j, run_log_t & _r) {
     _r.m_file_name = j.at("file_name").get<std::string>();
     _r.m_load_addr  = j.at("load_addr").get<uint16_t>();
+    _r.m_instructions  = j.at("instructions").get<size_t>();
     _r.m_memory = j.at("memory").get<std::vector<mem_descriptor_t>>();
     _r.m_states = j.at("states").get<std::vector<cpu_state_t>>();
 }
+
 
 

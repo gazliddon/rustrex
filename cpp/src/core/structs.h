@@ -21,12 +21,14 @@ struct run_log_t {
     uint16_t m_load_addr;
     std::vector<cpu_state_t> m_states;
 
+    size_t m_instructions;
+
     run_log_t() {
     }
 
     run_log_t(char const* _file, uint16_t _load_addr, std::initializer_list<mem_descriptor_t> _mem);
 
-    void do_run(c6809Base& _cpu, size_t _steps) ;
+    void do_run(c6809Base& _cpu) ;
 };
 
 

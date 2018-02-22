@@ -172,10 +172,10 @@ pub trait GazAlu : num::PrimInt + num::traits::WrappingAdd + num::traits::Wrappi
 
         let r = a << 1;
 
-        if write_mask & Flags::C.bits() != 0 {
-            f.set(Flags::C, true_false(a & Self::hi_bit_mask()));
-        }
+        let c_bits = a_or_b(test_negative::<Self>(a), Flags::C.bits(), 0);
+        let v_bits = a_or_b(test_negative::<Self>(a ^ r), Flags::V.bits(), 0);
 
+        f.set_w_mask(write_mask, v_bits | c_bits);
         nz::<Self>(f,write_mask, r)
     } 
 
@@ -193,7 +193,8 @@ pub trait GazAlu : num::PrimInt + num::traits::WrappingAdd + num::traits::Wrappi
 
     fn and( f : &mut Flags, write_mask : u8, a : u32, b : u32 ) -> Self {
         let r = a & b;
-        nzv::<Self>(f, write_mask, a,b,r)
+        f.set_w_mask(write_mask, 0);
+        nz::<Self>(f, write_mask,r)
     }
 
     fn test( f : &mut Flags, a : Self ) {

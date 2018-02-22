@@ -1395,15 +1395,18 @@ void EXEC6809(REGS6809* regs, EMUHANDLERS* emuh, int* iClocks,
                 break;
 
             case 0x3F:                 /* SWI2 */
+                // Fix for swi2, 
+                // byte regs now pusghed as bytes
+                // B & A now around the right way
                 regs->ucRegCC |= 0x80; /* Entire machine state stacked */
                 M6809PUSHW(regs, PC);
                 M6809PUSHW(regs, regs->usRegU);
                 M6809PUSHW(regs, regs->usRegY);
                 M6809PUSHW(regs, regs->usRegX);
-                M6809PUSHW(regs, regs->ucRegDP);
-                M6809PUSHW(regs, regs->ucRegA);
-                M6809PUSHW(regs, regs->ucRegB);
-                M6809PUSHW(regs, regs->ucRegCC);
+                M6809PUSHB(regs, regs->ucRegDP);
+                M6809PUSHB(regs, regs->ucRegB);
+                M6809PUSHB(regs, regs->ucRegA);
+                M6809PUSHB(regs, regs->ucRegCC);
                 PC = M6809ReadWord(0xfff4);
                 break;
 
@@ -1556,16 +1559,17 @@ void EXEC6809(REGS6809* regs, EMUHANDLERS* emuh, int* iClocks,
             *iClocks -= c6809Cycles2[ucOpcode]; /* Subtract execution time */
             switch (ucOpcode) {
             case 0x3F: /* SWI3 */
+                // GRL : fixed, DP,A.B,CC are now pushed as bytes
                 regs->ucRegCC |=
                     0x80; /* Set entire flag to indicate whole machine state on stack */
                 M6809PUSHW(regs, PC);
                 M6809PUSHW(regs, regs->usRegU);
                 M6809PUSHW(regs, regs->usRegY);
                 M6809PUSHW(regs, regs->usRegX);
-                M6809PUSHW(regs, regs->ucRegDP);
-                M6809PUSHW(regs, regs->ucRegA);
-                M6809PUSHW(regs, regs->ucRegB);
-                M6809PUSHW(regs, regs->ucRegCC);
+                M6809PUSHB(regs, regs->ucRegDP);
+                M6809PUSHB(regs, regs->ucRegB);
+                M6809PUSHB(regs, regs->ucRegA);
+                M6809PUSHB(regs, regs->ucRegCC);
                 PC = M6809ReadWord(0xfff2);
                 break;
             case 0x83: /* CMPU - immediate */

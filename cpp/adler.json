@@ -1,0 +1,32 @@
+{
+    "file_name": "../utils/adler/adler.raw",
+    "load_addr": 4096,
+
+    "instructions" : 2000,
+
+    "memory": [
+        {
+            "base": 0,
+            "size": 65536,
+            "writeable": true
+        }
+    ],
+    "states": [
+        {
+            "cycles": 0,
+            "digest": "93ce8198e7bcfbfa8b6fa58b9e6ff9caec9a7c70",
+            "regs": {
+                "a": 0,
+                "b": 68,
+                "dp": 0,
+                "flags": { "bits" : 132 },
+                "pc" : 4096,
+                "s": 32564,
+                "u": 736,
+                "x": 43947,
+                "y": 736
+            }
+        }
+    ]
+}
+

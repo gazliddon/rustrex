@@ -45,7 +45,8 @@ fn get_writes_as_str( mem : &LoggingMemMap ) -> String {
 
 fn main() {
 
-    let json_file = "cpp/out.json";
+    let json_file = "cpp/adler_out.json";
+
     let json_contents = utils::load_file_as_string(json_file);
     let run_log : json::RunLog = serde_json::from_str(&json_contents).unwrap();
 
@@ -71,7 +72,6 @@ fn main() {
         let log_regs_after = &state_after.regs;
         let log_hash_after = &state_after.digest;
 
-        let (ins, txt) =  diss.diss(&mem, cpu.regs.pc, None);
 
         let prev_sim = cpu.regs.clone();
 
@@ -81,9 +81,8 @@ fn main() {
 
         let sim = &cpu.regs;
 
-        let writes_str = get_writes_as_str(&mem);
-
-        println!("{:04x}   {:20}{:20} : {}", pc, txt, writes_str, sim);
+        // let writes_str = get_writes_as_str(&mem);
+        // println!("{:04x}   {:20}{:20} : {}", pc, txt, writes_str, sim);
 
         let hash = mem.get_sha1_string();
         let hash_ok = hash == *log_hash_after;

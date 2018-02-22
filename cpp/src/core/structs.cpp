@@ -2,6 +2,8 @@
 
 #include "files.h"
 
+#include <spdlog/fmt/ostr.h>
+
 static cpu_state_t get_state(c6809Base const& _cpu, cMemIO const& _mem) {
     
     cpu_state_t ret;
@@ -27,15 +29,22 @@ run_log_t::run_log_t(char const* _file, uint16_t _load_addr, std::initializer_li
     : m_memory(_mem), m_file_name(_file), m_load_addr(_load_addr) {
     }
 
-void run_log_t::do_run(c6809Base& _cpu, size_t _steps) {
+void run_log_t::do_run(c6809Base& _cpu) {
+    using fmt::print;
 
     if (!m_states.empty()) {
         auto regs = m_states[0].m_regs;
         _cpu.set_regs(regs);
         m_states.clear();
+
+        print("Initial state set, PC = {:04X}\n", regs.pc );
+    } else {
+        print("no initial state\n" );
     }
 
     cMemMap mem;
+
+    print("adding memory regions\n");
 
     for (auto const& mb : m_memory) {
         mem.add_mem(std::make_unique<cMemBlock>(mb));
@@ -43,11 +52,16 @@ void run_log_t::do_run(c6809Base& _cpu, size_t _steps) {
 
     load_file(m_file_name.c_str(), mem, m_load_addr);
 
-    for (auto i = 0u; i < _steps; i++) {
+    print("{} loaded to {:04x}\n", m_file_name, m_load_addr );
+
+    print("Running for {} instructions\n", m_instructions );
+
+    for (auto i = 0u; i < m_instructions; i++) {
         auto state = get_state(_cpu, mem);
         m_states.push_back(state);
         _cpu.step(mem, 1);
     }
+    print("run complete\n" );
 }
 
 
