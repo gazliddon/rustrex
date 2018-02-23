@@ -12,14 +12,10 @@ extern crate sha1;
 extern crate regex;
 extern crate ilog2;
 extern crate num;
-extern crate cpuprofiler;
 extern crate clap;
-
-use clap::{Arg, App, SubCommand};
 
 #[macro_use] 
 mod cpu;
-
 mod mem;
 mod via;
 mod symtab;
@@ -27,10 +23,18 @@ mod utils;
 mod diss;
 mod proclog;
 mod breakpoints;
-mod json;
 mod tests; 
 
-use tests::{GregTest, run_greg_test, JsonTest, run_json_test};
+
+
+use tests::{GregTest, JsonTest, Tester};
+use clap::{Arg, App, SubCommand, ArgMatches};
+
+fn do_test<T : Tester>(matches : &ArgMatches) -> T{
+    let mut tester = T::from_matches(&matches);
+    tester.run();
+    tester
+}
 
 fn main() {
 
@@ -80,13 +84,11 @@ fn main() {
         .get_matches();
 
     if let Some(matches) = matches.subcommand_matches("greg") {
-        let greg_test = GregTest::from_matches(&matches);
-        run_greg_test(&greg_test);
+        do_test::<GregTest>(&matches);
     }
 
     if let Some(matches) = matches.subcommand_matches("test") {
-        let json_test = JsonTest::from_matches(&matches);
-        run_json_test(&json_test);
+        do_test::<JsonTest>(&matches);
     }
 }
 
