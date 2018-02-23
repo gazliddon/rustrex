@@ -4,6 +4,7 @@
 #[macro_use] extern crate lazy_static;
 #[macro_use] extern crate bitflags;
 #[macro_use] extern crate serde_derive;
+
 extern crate serde_yaml;
 extern crate serde_json;
 extern crate sha1;
@@ -11,8 +12,13 @@ extern crate sha1;
 extern crate regex;
 extern crate ilog2;
 extern crate num;
+extern crate cpuprofiler;
+extern crate clap;
 
-#[macro_use] mod cpu;
+use clap::{Arg, App, SubCommand};
+
+#[macro_use] 
+mod cpu;
 
 mod mem;
 mod via;
@@ -22,111 +28,68 @@ mod diss;
 mod proclog;
 mod breakpoints;
 mod json;
+mod tests; 
 
-// use proclog::{Step2};
-// use symtab::SymbolTable;
-use mem::{MemoryIO, LoggingMemMap, LogEntry};
-use cpu::{Cpu};
-use diss::Disassembler;
-
-fn get_writes_as_str( mem : &LoggingMemMap ) -> String {
-
-    let writes : Vec<LogEntry>= mem.get_log()
-        .into_iter()
-        .filter(|msg| msg.write)
-        .collect();
-
-    if writes.len() != 0 {
-        writes[0].to_string()
-    } else {
-        "".to_string()
-    }
-}
+use tests::{GregTest, run_greg_test, JsonTest, run_json_test};
 
 fn main() {
-    let json_file = "cpp/adler_out.json";
 
-    let json_contents = utils::load_file_as_string(json_file);
-    let run_log : json::RunLog = serde_json::from_str(&json_contents).unwrap();
+    let matches = App::new("Vectrex Emulator")
 
-    let base_mem = run_log.create_memmap();
+        .version("0.1")
+        .author("Gazaxian")
+        .about("Rust Vectrex emulator")
 
-    let mut mem = LoggingMemMap::new(base_mem);
+        .subcommand(SubCommand::with_name("emu")
+                    .arg(Arg::with_name("enable-gdb")
+                         .short("g")
+                         .long("enable-gdb")
+                         .help("Enable GDB debugging"))
+                    .arg(Arg::with_name("ROM FILE")
+                         .required(true)
+                         .index(1)
+                         .help("Set the ROM file")))
 
-    let mut cpu = Cpu::from_regs(run_log.states[0].regs.clone());
+        .subcommand(SubCommand::with_name("greg")
+                    .arg(Arg::with_name("LOG FILE")
+                         .required(true)
+                         .index(1)
+                         .help("Set the ROM file"))
+                    .arg(Arg::with_name("log-memory")
+                         .short("l")
+                         .long("log-memory")
+                         .help("enable memory logging"))
+                    .arg(Arg::with_name("num-instructions")
+                         .short("n")
+                         .long("num-instructions")
+                         .help("number of instructions (default 100)")))
 
-    let mut cycles = 0;
+        .subcommand(SubCommand::with_name("test")
+                    .arg(Arg::with_name("JSON FILE")
+                         .required(true)
+                         .value_name("JSON")
+                         .help("JSON log file to load"))
+                    .arg(Arg::with_name("disable-hash-check")
+                         .short("d")
+                         .long("disable-hash-check")
+                         .help("disable memory hash testing"))
+                    .arg(Arg::with_name("log-memory")
+                         .short("l")
+                         .long("log-memory")
+                         .help("enable memory logging")))
+        .get_matches();
 
-    let mut diss = Disassembler::new();
-
-    let mut it = run_log.states.iter().peekable();
-
-    let check_hash = false;
-
-    for i in 0 .. run_log.states.len()/2 {
-        mem.clear_log();
-
-        let log_before = &it.next().unwrap().regs;
-        let state_after = &it.peek().unwrap();
-
-        let log_regs_after = &state_after.regs;
-        let log_hash_after = &state_after.digest;
-
-        let prev_sim = cpu.regs.clone();
-
-        let pc = cpu.regs.pc;
-
-        let ins = cpu.step(&mut mem);
-
-        let sim = &cpu.regs;
-
-        //
-        
-        let hash_ok = if check_hash {
-            let hash = mem.get_sha1_string();
-            hash == *log_hash_after
-        } else {
-            true
-        };
-
-        if ( sim != log_regs_after ) | !hash_ok {
-            println!("Error after {} instructions", i);
-
-            let (ins, txt) =  diss.diss(&mem, pc, None);
-            let writes_str = get_writes_as_str(&mem);
-            println!("{:04x}   {:20}{:20} : {}", pc, txt, writes_str, sim);
-            let hash = mem.get_sha1_string();
-
-            let (ins, txt) =  diss.diss(&mem, cpu.regs.pc, None);
-            println!("");
-
-            println!("Next op:");
-            println!("{:04x}   {:20}", cpu.regs.pc, txt);
-
-            println!("");
-
-            println!("       sim: {}", hash);
-            println!(" should be: {}", log_hash_after);
-
-            println!("");
-
-            println!("            {}", cpu::Regs::get_hdr());
-            println!("      prev: {}", prev_sim);
-            println!("       sim: {}", sim);
-            println!(" should be: {}", log_regs_after);
-
-            println!("");
-
-            for msg in mem.get_log() {
-                println!("{}", msg);
-            }
-
-            println!("");
-            panic!("");
-        } 
-
-        cycles = cycles + 1;
+    if let Some(matches) = matches.subcommand_matches("greg") {
+        let greg_test = GregTest::from_matches(&matches);
+        run_greg_test(&greg_test);
     }
-    println!("Successfully run {} instructions", run_log.states.len());
+
+    if let Some(matches) = matches.subcommand_matches("test") {
+        let json_test = JsonTest::from_matches(&matches);
+        run_json_test(&json_test);
+    }
 }
+
+////////////////////////////////////////////////////////////////////////////////
+
 

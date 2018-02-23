@@ -5,8 +5,11 @@
 #include "c6809base.h"
 
 struct cpu_state_t {
+
     regs_t m_regs;
+
     std::string m_digest;
+
     size_t m_cycles;
 
     uint8_t m_mem[5];
@@ -28,7 +31,7 @@ struct run_log_t {
 
     run_log_t(char const* _file, uint16_t _load_addr, std::initializer_list<mem_descriptor_t> _mem);
 
-    void do_run(c6809Base& _cpu) ;
+    void do_run(c6809Base& _cpu, bool _disable_hash) ;
 };
 
 

@@ -384,22 +384,16 @@ impl Disassembler {
     op!(lds);
     op!(sts);
 
-    fn unimplemented(&mut self, op : u16) { panic!("??? Unimplemented") }
+    fn unimplemented(&mut self, diss : &mut InstructionDecoder) {
+
+    }
 
     pub fn diss<M: MemoryIO>(&mut self, mem : &M, addr : u16, syms : Option<&SymTab> ) -> (InstructionDecoder, String) {
-        self.text.clear();
+        self.text = "???".to_string();
 
         let mut diss = InstructionDecoder::new(addr);
 
         let op = diss.fetch_instruction(mem);
-
-        // macro_rules! handle_op {
-        //     ($addr:ident, $action:ident) => (
-        //         {
-        //             self.add_op(mem,&mut diss, stringify!($action))
-        //             self.$action::<M, $addr>(mem, &mut ins); }
-        //     )
-        // }
 
         decode_op!(op, self, mem, &mut diss);
 

@@ -594,7 +594,7 @@ macro_rules! decode_op {
             0x10fe =>  single_op!(extended_16, lds, $this, $mem, $res),
             0x10ff =>  single_op!(extended_16, sts, $this, $mem, $res),
 
-            _ => { $this.unimplemented($op)}
+            _ => { $this.unimplemented($res)}
         }
     }
 }

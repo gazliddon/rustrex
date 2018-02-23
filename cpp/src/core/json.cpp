@@ -70,7 +70,10 @@ void from_json(nlohmann::json const & j, mem_descriptor_t & _mem) {
 
 void from_json(nlohmann::json const & j, cpu_state_t & _s) {
     _s.m_regs=j.at("regs").get<regs_t>();
-    _s.m_digest=j.at("digest").get<std::string>();
+
+    if (_s.m_digest.empty() == false) {
+        _s.m_digest=j.at("digest").get<std::string>();
+    }
     _s.m_cycles=j.at("cycles").get<size_t>();
 
     // TBD get the memory

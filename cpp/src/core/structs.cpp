@@ -4,12 +4,16 @@
 
 #include <spdlog/fmt/ostr.h>
 
-static cpu_state_t get_state(c6809Base const& _cpu, cMemIO const& _mem) {
-    
+static cpu_state_t get_state(c6809Base const& _cpu, cMemIO const& _mem, bool _disable_hash) {
+
     cpu_state_t ret;
 
     ret.m_regs = _cpu.get_regs();
-    ret.m_digest = _mem.get_hash_hex();
+
+    if (_disable_hash == false) {
+        ret.m_digest = _mem.get_hash_hex();
+    }
+
     ret.m_cycles = 0;
 
     for(auto i = 0u; i < 5; i++) {
@@ -29,7 +33,7 @@ run_log_t::run_log_t(char const* _file, uint16_t _load_addr, std::initializer_li
     : m_memory(_mem), m_file_name(_file), m_load_addr(_load_addr) {
     }
 
-void run_log_t::do_run(c6809Base& _cpu) {
+void run_log_t::do_run(c6809Base& _cpu, bool _disable_hash) {
     using fmt::print;
 
     if (!m_states.empty()) {
@@ -41,6 +45,8 @@ void run_log_t::do_run(c6809Base& _cpu) {
     } else {
         print("no initial state\n" );
     }
+
+    m_states.reserve(m_instructions);
 
     cMemMap mem;
 
@@ -57,10 +63,11 @@ void run_log_t::do_run(c6809Base& _cpu) {
     print("Running for {} instructions\n", m_instructions );
 
     for (auto i = 0u; i < m_instructions; i++) {
-        auto state = get_state(_cpu, mem);
+        auto state = get_state(_cpu, mem, _disable_hash);
         m_states.push_back(state);
         _cpu.step(mem, 1);
     }
+
     print("run complete\n" );
 }
 

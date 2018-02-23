@@ -1,8 +1,9 @@
 {
     "file_name": "../utils/6809/6809all.raw",
+
     "load_addr": 4096,
 
-    "instructions" : 1000,
+    "instructions" : 880,
 
     "memory": [
         {

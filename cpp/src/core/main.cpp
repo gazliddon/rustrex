@@ -27,9 +27,12 @@ auto make_options() {
     // clang-format 
 
     opts.add_options()
+        ("d,disable-hash", "disable hash generation")
         ("v,verbose", "verbose mode")
         ("j,json", "write json file", value<string>())
+
         ("c,cpu", "set cpu to test", value<string>()->default_value("larry"))
+
         ("positional", "", value<vector<string>>())("input", "input file", value<string>());
 
     opts.parse_positional({"input"});
@@ -64,8 +67,9 @@ int main(int argc, char* argv[]) {
         auto opts  = make_options();
         auto popts = opts.parse(argc, argv);
 
-        bool write_json = popts.count("json") > 0;
-        bool verbose    = popts.count("verbose") > 0;
+        bool write_json   = popts.count("json") > 0;
+        bool verbose      = popts.count("verbose") > 0;
+        bool disable_hash = popts.count("disable-hash") > 0;
 
         if (popts.count("input") == 0) {
             print("You must specify an input file\n");
@@ -74,6 +78,9 @@ int main(int argc, char* argv[]) {
         } else {
 
             using namespace std;
+
+            print("hash_disable: {}\n", disable_hash);
+            print("verbose:      {}\n", verbose);
 
             auto infile = popts["input"].as<std::string>();
 
@@ -90,7 +97,7 @@ int main(int argc, char* argv[]) {
 
             c6809Larry cpu;
 
-            runner.do_run(cpu);
+            runner.do_run(cpu, disable_hash);
 
             print("test run complete\n");
 
@@ -101,6 +108,7 @@ int main(int argc, char* argv[]) {
                 auto j_file = popts["json"].as<std::string>();
 
                 write_json_file(j, j_file);
+
                 print("written json log file {}\n", j_file);
             }
             return 0;

@@ -23,17 +23,20 @@ pub struct StepError {
 pub struct Step {
     pub regs         : Regs,
     pub disassembly  : Option<String>,
-    pub mem          : [ u8; 5],
+    pub mem          : Option<[ u8; 5]>,
     pub cycles: usize,
-    pub digest : String,
+    pub digest : Option<String>,
 }
 
 impl fmt::Display for Step {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
 
-        let mem_str = format!("{:02x} {:02x} {:02x} {:02x} {:02x}", 
-                              self.mem[0], self.mem[1],
-                              self.mem[2], self.mem[3], self.mem[4]);
+        let mem_str = match self.mem {
+            Some(m) =>
+                format!("{:02x} {:02x} {:02x} {:02x} {:02x}", m[0], m[1], m[2], m[3], m[4]),
+            _ => "?? ?? ?? ?? ??".to_string()
+        };
+            
 
         let diss = match self.disassembly.clone() {
             Some(t) => t,
@@ -61,9 +64,12 @@ impl Step {
     }
 
     fn grab_mem<M : MemoryIO>(&mut self, mem : &M, addr : u16) {
-        for i in 0..5 {
-            self.mem[i] = mem.load_byte(addr.wrapping_add(i as u16));
+        if self.mem.is_some() {
+            for i in 0..5 {
+                // self.mem[i] = mem.load_byte(addr.wrapping_add(i as u16));
+            }
         }
+
     }
 
     pub fn from_sim<M : MemoryIO>(mem : &M, regs : &Regs, cycles : usize) -> Step {
@@ -137,10 +143,9 @@ impl Step {
         let r = Step {
             regs          : regs,
             disassembly   : Some(as_string("diss")),
-            mem           : [ as_u8("m0"), as_u8("m1"), as_u8("m2"), as_u8("m3"), as_u8("m4"), ],
+            mem           : Some([ as_u8("m0"), as_u8("m1"), as_u8("m2"), as_u8("m3"), as_u8("m4"), ]),
             cycles : as_usize("cycles"),
             .. Default::default()
-            
         };
 
         Ok(r)

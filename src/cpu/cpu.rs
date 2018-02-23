@@ -1187,16 +1187,12 @@ impl  Cpu {
     }
 
 
-
-
     fn sync<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
         panic!("sync NO!")
     }
 
-
-
     fn unimplemented(&mut self, ins : &mut InstructionDecoder) {
-        panic!("unimplemnted op code")
+        // panic!("unimplemnted op code")
     }
 
     fn get_pc(&self) -> u16 {
