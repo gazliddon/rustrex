@@ -13,6 +13,7 @@ void cMemIO::write_word(uint16_t _addr, uint16_t _val) {
     auto hi = _val >> 8;
     write_byte(_addr, hi);
     write_byte(_addr + 1, lo);
+    m_dirty = true;
 }
 
 uint16_t cMemIO::read_word(uint16_t _addr) const {
@@ -129,6 +130,22 @@ opt::optional<unsigned int> cMemMap::find_block_index(uint16_t _addr) const {
 
     return {};
 }
+bool cMemMap::is_dirty() const {
+    auto dirty = false;
+
+    for (auto i = 0u; i < m_memblocks.size(); i++) {
+        dirty |= m_memblocks[i]->is_dirty();
+    }
+
+    return false;
+}
+
+void cMemMap::clear_dirty() {
+    for (auto i = 0u; i < m_memblocks.size(); i++) {
+        m_memblocks[i]->clear_dirty();
+    }
+};
+
 
 void cMemMap::add_hash(sha1& _hash) const {
     for (auto const& b : m_memblocks) {

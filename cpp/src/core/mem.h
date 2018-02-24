@@ -24,13 +24,23 @@ struct mem_descriptor_t {
 
 class cMemIO {
   public:
-    cMemIO()          = default;
+      cMemIO() : m_dirty(false) {
+      }
+
     virtual ~cMemIO() = default;
 
     virtual void write_byte(uint16_t _addr, uint8_t _val)  = 0;
     virtual uint8_t read_byte(uint16_t _addr) const        = 0;
     virtual std::pair<uint16_t, uint16_t> getRange() const = 0;
     virtual void add_hash(sha1& _hash) const               = 0;
+
+    virtual bool is_dirty() const {
+        return m_dirty;
+    }
+
+    virtual void clear_dirty() {
+        m_dirty = false;
+    };
 
     virtual bool inRange(uint16_t _addr) const;
     virtual void write_word(uint16_t _addr, uint16_t _val);
@@ -39,6 +49,10 @@ class cMemIO {
     virtual std::vector<uint8_t> get_memory(uint16_t _addr, size_t _size) const;
     virtual sha1 get_hash() const;
     virtual std::string get_hash_hex() const;
+
+  protected:
+    bool m_dirty;
+
 };
 
 class cMemBlock : public cMemIO {
@@ -54,6 +68,7 @@ class cMemBlock : public cMemIO {
     void write_byte(uint16_t _addr, uint8_t _val) override;
     std::pair<uint16_t, uint16_t> getRange() const override;
     virtual void add_hash(sha1& _hash) const override;
+
 
   protected:
     unsigned m_first, m_last, m_size;
@@ -82,6 +97,9 @@ class cMemMap : public cMemIO {
     bool inRange(uint16_t _addr) const override;
     std::pair<uint16_t, uint16_t> getRange() const override;
     virtual void add_hash(sha1& _hash) const override;
+
+    virtual bool is_dirty() const override ;
+    virtual void clear_dirty() override ;
 
   protected:
     opt::optional<unsigned int> find_block_index(uint16_t _addr) const;

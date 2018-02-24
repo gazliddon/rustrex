@@ -11,7 +11,9 @@ static cpu_state_t get_state(c6809Base const& _cpu, cMemIO const& _mem, bool _di
     ret.m_regs = _cpu.get_regs();
 
     if (_disable_hash == false) {
-        ret.m_digest = _mem.get_hash_hex();
+        if (_mem.is_dirty()) {
+            ret.m_digest = _mem.get_hash_hex();
+        }
     }
 
     ret.m_cycles = 0;
@@ -64,6 +66,7 @@ void run_log_t::do_run(c6809Base& _cpu, bool _disable_hash) {
 
     for (auto i = 0u; i < m_instructions; i++) {
         auto state = get_state(_cpu, mem, _disable_hash);
+        mem.clear_dirty();
         m_states.push_back(state);
         _cpu.step(mem, 1);
     }
