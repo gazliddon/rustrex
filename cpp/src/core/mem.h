@@ -80,8 +80,6 @@ class cMemMap : public cMemIO {
   public:
     cMemMap();
 
-
-
     cMemMap(std::unique_ptr<cMemIO> _mem) : cMemMap() {
         add_mem(std::move(_mem));
     }

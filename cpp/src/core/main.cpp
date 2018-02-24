@@ -27,7 +27,7 @@ auto make_options() {
     // clang-format 
 
     opts.add_options()
-        ("d,disable-hash", "disable hash generation")
+        ("d,do-digest", "digest every memory write")
         ("v,verbose", "verbose mode")
         ("j,json", "write json file", value<string>())
 
@@ -69,7 +69,7 @@ int main(int argc, char* argv[]) {
 
         bool write_json   = popts.count("json") > 0;
         bool verbose      = popts.count("verbose") > 0;
-        bool disable_hash = popts.count("disable-hash") > 0;
+        bool do_digest = popts.count("do-digest") > 0;
 
         if (popts.count("input") == 0) {
             print("You must specify an input file\n");
@@ -79,8 +79,8 @@ int main(int argc, char* argv[]) {
 
             using namespace std;
 
-            print("hash_disable: {}\n", disable_hash);
-            print("verbose:      {}\n", verbose);
+            print("do_digest: {}\n", do_digest);
+            print("verbose:   {}\n", verbose);
 
             auto infile = popts["input"].as<std::string>();
 
@@ -97,7 +97,7 @@ int main(int argc, char* argv[]) {
 
             c6809Larry cpu;
 
-            runner.do_run(cpu, disable_hash);
+            runner.do_run(cpu, do_digest);
 
             print("test run complete\n");
 

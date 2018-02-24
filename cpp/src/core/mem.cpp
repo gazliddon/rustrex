@@ -13,7 +13,6 @@ void cMemIO::write_word(uint16_t _addr, uint16_t _val) {
     auto hi = _val >> 8;
     write_byte(_addr, hi);
     write_byte(_addr + 1, lo);
-    m_dirty = true;
 }
 
 uint16_t cMemIO::read_word(uint16_t _addr) const {
@@ -72,6 +71,7 @@ void cMemBlock::write_byte(uint16_t _addr, uint8_t _val) {
     assert(_addr >= m_first && _addr <= m_last);
     auto phys_addr = _addr - m_first;
     m_mem[phys_addr] = _val;
+    m_dirty = true;
 }
 
 std::pair<uint16_t, uint16_t> cMemBlock::getRange() const {
@@ -131,13 +131,13 @@ opt::optional<unsigned int> cMemMap::find_block_index(uint16_t _addr) const {
     return {};
 }
 bool cMemMap::is_dirty() const {
-    auto dirty = false;
-
     for (auto i = 0u; i < m_memblocks.size(); i++) {
-        dirty |= m_memblocks[i]->is_dirty();
+        if (m_memblocks[i]->is_dirty())
+                return true;
     }
 
     return false;
+
 }
 
 void cMemMap::clear_dirty() {

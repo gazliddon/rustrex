@@ -1,5 +1,7 @@
 #include "json.h"
 
+#include <iostream>
+
 using json = nlohmann::json;
 
 
@@ -28,13 +30,23 @@ void to_json(json & j, mem_descriptor_t const & _mem) {
     };
 
 }
+
 void to_json(json & j, cpu_state_t const & _s) {
+
+    using namespace std;
+
     j = json {
         {"regs", _s.m_regs},
-        {"digest", _s.m_digest},
         {"cycles", _s.m_cycles},
-        {"mem", _s.m_mem}
     };
+
+    if (_s.m_digest_opt) {
+        j["digest"] = *_s.m_digest_opt;
+    }
+
+    if (_s.m_mem_opt) {
+        j["mem"] = *_s.m_mem_opt;
+    }
 }
 
 void to_json(json & j, run_log_t const & _r) {
@@ -69,14 +81,27 @@ void from_json(nlohmann::json const & j, mem_descriptor_t & _mem) {
 }
 
 void from_json(nlohmann::json const & j, cpu_state_t & _s) {
+    using namespace std;
+
     _s.m_regs=j.at("regs").get<regs_t>();
 
-    if (_s.m_digest.empty() == false) {
-        _s.m_digest=j.at("digest").get<std::string>();
+
+    {
+        auto j_node = j.find("digest");
+        if (j_node != j.end()) {
+            _s.m_digest_opt = j_node->get<std::string>();
+        }
     }
+
+    {
+        auto j_node = j.find("mem");
+        if (j_node != j.end()) {
+            // TODO
+        }
+    }
+
     _s.m_cycles=j.at("cycles").get<size_t>();
 
-    // TBD get the memory
 }
 
 void from_json(nlohmann::json const & j, run_log_t & _r) {

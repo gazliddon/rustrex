@@ -1,2 +1,2 @@
-.bazel/bin/src/core -v -j instest_out.json instest.json
+.bazel/bin/src/core -v -d -j instest_out.json instest.json
 .bazel/bin/src/core -v -j adler_out.json adler.json
