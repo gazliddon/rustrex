@@ -72,7 +72,7 @@ impl tester::Tester for JsonTest {
 
         let run_log : RunLog = serde_json::from_str(&json_contents).unwrap();
 
-        println!("Done, {} steos to emulate", run_log.states.len());
+        println!("Done, {} steps to emulate", run_log.states.len());
 
         let r = JsonTest {
             json_file : json_file,
