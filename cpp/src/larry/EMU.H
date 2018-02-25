@@ -288,6 +288,7 @@ void AEXEC6809(REGS6809 *, EMUHANDLERS *, int *, unsigned char *);
 void ARESET6809(REGS6809 *);
 int DIS6809(char *, REGS6809 *, int *, int *, char *);
 void M6809Debug(HANDLE, HWND, REGS6809 *);
+unsigned int EXEC6809_step(REGS6809* regs, EMUHANDLERS* emuh, unsigned char* ucIRQs);
 
 /* M6502 Emulator */
 void EXEC6502(char *, REGS6502 *, EMUHANDLERS *, int *, unsigned char *);

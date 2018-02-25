@@ -13,8 +13,16 @@ class c6809Larry : public c6809Base {
     regs_t get_regs() const override;
 
     void set_regs(regs_t const& _regs) override;
-    void step(cMemIO & _mem, int _cycles = 0) override;
+    void step(cMemIO & _mem) override;
     void reset() override;
+
+    unsigned get_cycles() const override {
+        return m_cycles;
+    }
+
+    void reset_cycles() override {
+        m_cycles = 0;
+    }
 
   protected:
     static REGS6809 s_larry_regs;
@@ -24,6 +32,8 @@ class c6809Larry : public c6809Base {
     static unsigned char read_byte(unsigned short _addr);
     static void write_byte(unsigned short _addr, unsigned char _byte);
     static cMemIO * s_mem;
+
+    unsigned int m_cycles;
 
 };
 

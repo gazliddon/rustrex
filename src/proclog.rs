@@ -19,13 +19,13 @@ pub struct StepError {
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq)]
-
 pub struct Step {
     pub regs         : Regs,
     pub disassembly  : Option<String>,
     pub mem          : Option<[ u8; 5]>,
-    pub cycles: usize,
-    pub digest : Option<String,
+    pub cycles       : usize,
+    pub digest       : Option<String>,
+    pub digest_2     : Option<[u8;20]>,
 }
 
 impl fmt::Display for Step {

@@ -1,1 +1,1 @@
-cargo run -- test -d cpp/adler_out.json
+cargo run --release -- test cpp/adler_out.json

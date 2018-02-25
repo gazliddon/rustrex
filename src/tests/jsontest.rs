@@ -3,11 +3,18 @@ use cpu::{Cpu, Regs};
 use diss::Disassembler;
 use clap::{ArgMatches};
 
+
 use tests::tester;
 use proclog::{Step};
+use separator::Separatable;
 
-use utils;
+// use utils;
 use serde_json;
+
+// use std::io::prelude::*;
+use std::io::BufReader;
+use std::fs::File;
+use std::io::prelude::*;
 
 #[derive(Debug, PartialEq, Serialize, Deserialize)]
 struct MemInit {
@@ -23,6 +30,19 @@ struct RunLog {
     pub memory : Vec<MemInit>,
     pub states : Vec<Step>,
 }
+
+
+////////////////////////////////////////////////////////////////////////////////
+
+use timer::{Timer, RunTime};
+
+
+////////////////////////////////////////////////////////////////////////////////
+
+
+
+
+
 
 impl RunLog {
 
@@ -55,7 +75,20 @@ pub struct JsonTest {
     cpu : Cpu,
     // run_log : json::RunLog,
     steps : Vec<Step>,
+}
 
+
+fn load_json(json_file : &str, loader : fn(&str) -> RunLog) -> (RunTime, RunLog) {
+    let mut timer = Timer::new();
+    let run_log = loader(json_file);
+    let dur =timer.get();
+    (dur, run_log)
+}
+
+fn time_func<T>( func : &Fn() -> T) -> (RunTime, T) {
+    let mut timer = Timer::new();
+    let ret =  func();
+    (timer.get(), ret)
 }
 
 impl tester::Tester for JsonTest {
@@ -64,19 +97,28 @@ impl tester::Tester for JsonTest {
 
         let json_file = matches.value_of("JSON FILE").unwrap().to_string();
 
-        println!("Loading: {}", json_file);
+        let buffer_loader = || -> RunLog {
+            let br = BufReader::new(File::open(&json_file).unwrap());
+            serde_json::from_reader(br).unwrap()
+        };
 
-        let json_contents = utils::load_file_as_string(&json_file);
+        let string_loader = || -> RunLog {
+            let mut json_contents = String::new();
+            File::open(&json_file).unwrap().read_to_string(&mut json_contents).unwrap();
+            serde_json::from_str(&json_contents).unwrap()
+        };
 
-        println!("Converting from json");
+        let (dur, run_log) = time_func(&string_loader);
+        println!("string loader: {} seconds", dur.secs());
 
-        let run_log : RunLog = serde_json::from_str(&json_contents).unwrap();
+        // let (dur, run_log) = time_func(&buffer_loader);
+        // println!("buffer loader: {} seconds", dur.secs());
 
-        println!("Done, {} steps to emulate", run_log.states.len());
+        println!("Done, {} steps to emulate", run_log.states.len().separated_string());
 
         let r = JsonTest {
-            json_file : json_file,
-            dont_check_hash : matches.is_present("disable-hash-check"),
+            json_file : json_file.clone(),
+            dont_check_hash : matches.is_present("no-hash-check"),
             log_memory : matches.is_present("log-memory"),
             mem : run_log.create_memmap(),
             cpu : Cpu::from_regs(run_log.states[0].regs.clone()),
@@ -99,6 +141,8 @@ impl tester::Tester for JsonTest {
         let mut diss = Disassembler::new();
 
         let mut it = self.steps.iter().peekable();
+
+        let mut timer = Timer::new();
 
         for i in 0 .. self.steps.len()/2 {
 
@@ -169,7 +213,12 @@ impl tester::Tester for JsonTest {
 
             cycles = cycles + 1;
         }
-        println!("Successfully run {} instructions", self.steps.len());
+
+        let ins = self.steps.len();
+        println!("Successfully run {} instructions", ins.separated_string());
+        report(&timer.get(), ins);
+
+        println!("");
     }
 }
 
@@ -186,5 +235,24 @@ fn get_writes_as_str( mem : &LoggingMemMap ) -> String {
     } else {
         "".to_string()
     }
+}
+
+
+fn report(runtime : &RunTime, ins : usize)  {
+
+    let secs = runtime.secs();
+
+    let ins_per_second = ins as f64 / secs;
+
+    let cycles_per_instruction = 4;
+
+    println!("instructions: {}", ins.separated_string());
+    println!("secs:         {:0.04}", secs);
+
+    println!("{} instructions per second", ( ins_per_second as u32 ).separated_string());
+    println!("{:0.02}mhz (est avg {} cycler per instruction)"
+             , (ins_per_second * ( cycles_per_instruction as f64 )) / 1_000_000.0
+             , cycles_per_instruction
+            );
 }
 

@@ -8,6 +8,7 @@
 extern crate serde_yaml;
 extern crate serde_json;
 extern crate sha1;
+extern crate separator;
 
 extern crate regex;
 extern crate ilog2;
@@ -24,7 +25,7 @@ mod diss;
 mod proclog;
 mod breakpoints;
 mod tests; 
-
+mod timer;
 
 
 use tests::{GregTest, JsonTest, Tester};
@@ -73,9 +74,9 @@ fn main() {
                          .required(true)
                          .value_name("JSON")
                          .help("JSON log file to load"))
-                    .arg(Arg::with_name("disable-hash-check")
-                         .short("d")
-                         .long("disable-hash-check")
+                    .arg(Arg::with_name("no-hash-check")
+                         .short("n")
+                         .long("no-hash-check")
                          .help("disable memory hash testing"))
                     .arg(Arg::with_name("log-memory")
                          .short("l")

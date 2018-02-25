@@ -20,6 +20,7 @@ void c6809Larry::write_byte(unsigned short _addr, unsigned char _byte) {
 c6809Larry::c6809Larry() {
     assert(s_larry == nullptr);
     s_larry = this;
+    m_cycles = 0;
 }
 
 c6809Larry::~c6809Larry() {
@@ -63,13 +64,15 @@ void c6809Larry::set_regs(regs_t const& _regs) {
     s_larry_regs.usRegPC = _regs.pc;
 }
 
-void c6809Larry::step(cMemIO & _mem, int _cycles) {
+void c6809Larry::step(cMemIO & _mem) {
     assert(s_mem == nullptr);
-
     s_mem = & _mem;
-    int cycles = _cycles;
+
     unsigned char irqs = 0;
-    EXEC6809(&s_larry_regs, &s_emu_handlers, &cycles, &irqs);
+
+    auto cycles = EXEC6809_step(&s_larry_regs, &s_emu_handlers, &irqs);
+
+    m_cycles += cycles;
 
     s_mem = nullptr;
 }

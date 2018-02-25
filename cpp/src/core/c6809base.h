@@ -9,8 +9,11 @@ class c6809Base {
         virtual ~c6809Base() = default;
         virtual regs_t get_regs() const = 0;
         virtual void set_regs(regs_t const &_regs) = 0;
-        virtual void step(cMemIO & _mem, int _cycles = 0) = 0;
+        virtual void step(cMemIO & _mem) = 0;
         virtual void reset() = 0;
+
+        virtual unsigned get_cycles() const = 0;
+        virtual void reset_cycles() = 0;
 
     protected:
 };

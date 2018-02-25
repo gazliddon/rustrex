@@ -16,7 +16,7 @@ static cpu_state_t get_state(c6809Base const& _cpu, cMemIO const& _mem, bool _ad
         ret.m_digest_opt = hash;
     }
 
-    ret.m_cycles = 0;
+    ret.m_cycles = _cpu.get_cycles();
 
     if (_add_mem) {
         std::array<uint8_t, 5> mem;
@@ -76,7 +76,6 @@ void run_log_t::do_run(c6809Base& _cpu, bool _do_digest) {
         bool add_hash;
 
         if (first || last || (_do_digest && mem.is_dirty())) {
-
             add_hash = true;
             mem.clear_dirty();
 
@@ -88,7 +87,7 @@ void run_log_t::do_run(c6809Base& _cpu, bool _do_digest) {
 
         m_states.push_back(state);
 
-        _cpu.step(mem, 1);
+        _cpu.step(mem);
     }
 
     print("run complete\n" );

@@ -1201,12 +1201,6 @@ impl  Cpu {
 
     /// Single step the CPU one instruction
     pub fn step<M: MemoryIO>(&mut self, mem : &mut M) -> InstructionDecoder {
-        {
-            let alu = Context {
-                regs : &mut self.regs,
-                mem : mem
-            };
-        }
 
         let mut ins = InstructionDecoder::new(self.get_pc());
 

@@ -1114,6 +1114,16 @@ __inline unsigned short M6809PULLWU(REGS6809* regs) {
  *  PURPOSE    : Emulate the M6809 microprocessor for N clock cycles.       *
  *                                                                          *
  ****************************************************************************/
+unsigned int EXEC6809_step(REGS6809* regs, EMUHANDLERS* emuh, unsigned char* ucIRQs) {
+
+    int cycles = 1;
+
+    EXEC6809(regs, emuh, &cycles,ucIRQs);
+
+    return abs(cycles) + 1;
+}
+
+
 void EXEC6809(REGS6809* regs, EMUHANDLERS* emuh, int* iClocks,
               unsigned char* ucIRQs) {
     unsigned short PC; /* Current Program Counter address */
