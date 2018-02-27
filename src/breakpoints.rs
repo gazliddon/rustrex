@@ -1,4 +1,4 @@
-#[derive(PartialEq, PartialOrd)]
+#[derive(Debug,PartialEq, PartialOrd)]
 enum BreakpointTypes {
     READ8,
     WRITE8,
@@ -7,13 +7,7 @@ enum BreakpointTypes {
     EXEC,
 }
 
-trait BreakpointT {
-    fn add_breakpoint(&mut self, addr : u16, kind : BreakpointTypes );
-    fn clear_breakpoint(&mut self,  addr : u16, kind : BreakpointTypes );
-    fn action(&mut self, addr : u16, kind : BreakpointTypes ) -> bool;
-}
-
-#[derive(PartialEq, PartialOrd)]
+#[derive(Debug, PartialEq, PartialOrd)]
 struct Bp {
     addr : u16,
     kind : BreakpointTypes,
@@ -35,9 +29,8 @@ impl Breakpoints {
         let mut it = self.break_points.iter();
         it.position(|bp| *bp == this_bp)
     }
-}
 
-impl BreakpointT for Breakpoints {
+
     fn add_breakpoint(&mut self, addr : u16, kind : BreakpointTypes ) {
         let bp = Bp {addr: addr, kind : kind};
         self.break_points.push(bp);
@@ -54,5 +47,7 @@ impl BreakpointT for Breakpoints {
     fn action(&mut self, addr : u16, kind : BreakpointTypes ) -> bool {
         self.find(addr, kind).is_some()
     }
+
 }
+
 
