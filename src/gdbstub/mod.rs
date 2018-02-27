@@ -69,8 +69,6 @@ struct Byte { }
 struct HalfWord { }
 struct Word {}
 
-
-
 impl Cpu {
 
     pub fn examine<T>(&self, a : u32 ) -> u32 {
