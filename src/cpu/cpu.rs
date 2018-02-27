@@ -86,6 +86,7 @@ impl Cpu {
         let i1 = A::fetch_byte(mem, &mut self.regs, ins) as u32;
         func(&mut self.regs.flags, write_mask, i0,i1)
     }
+
     #[inline(always)]
     fn opb_2<M: MemoryIO, A : AddressLines>( &mut self, mem : &mut M, ins : &mut InstructionDecoder, write_mask : u8, func : fn(&mut Flags,u8, u32, u32) -> u8 ) -> u8{
         let i0 = self.regs.b as u32;
@@ -97,7 +98,6 @@ impl Cpu {
     fn moda_2<M: MemoryIO, A : AddressLines>( &mut self, mem : &mut M, ins : &mut InstructionDecoder, write_mask : u8, func : fn(&mut Flags,u8, u32, u32) -> u8 ) {
         let r = self.opa_2::<M,A>(mem, ins, write_mask, func);
         self.regs.a = r;
-
     }
 
     #[inline(always)]
@@ -187,10 +187,12 @@ impl  Cpu {
         let v = A::fetch_byte(mem, &mut self.regs, ins);
         let cc = self.regs.flags.bits();
         self.regs.flags.set_flags(v | cc);
+        ins.inc_cycles();
     }
 
     #[inline(always)]
     fn stx<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
+
         let x = self.regs.x;
         self.st16::<M,A>(mem,ins,x);
     }
@@ -254,6 +256,7 @@ impl  Cpu {
 
     #[inline(always)]
     fn tfr<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
+        ins.add_cycles(4);
         let operand = ins.fetch_byte(mem); 
         let (a,b) = get_tfr_regs(operand as u8);
         let av = self.regs.get(&a);
@@ -262,6 +265,7 @@ impl  Cpu {
 
     #[inline(always)]
     fn abx<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
+        ins.add_cycles(1);
         let x = self.regs.x;
         self.regs.x = x.wrapping_add(self.regs.b as u16);
     }
@@ -416,6 +420,8 @@ impl  Cpu {
 
 
     fn andcc<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
+        ins.inc_cycles();
+
         let i0 = self.regs.flags.bits() as u32;
         let i1 = u8::fetch::<A>(mem, &mut self.regs, ins) as u32;
 
@@ -452,6 +458,7 @@ impl  Cpu {
 
     #[inline(always)]
     fn addd<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
+        ins.inc_cycles();
         self.modd_2::<M,A>(mem,ins,Flags::NZVC.bits(), u16::add);
     }
 
@@ -1185,7 +1192,6 @@ impl  Cpu {
     fn reset<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
         panic!("reset NO!")
     }
-
 
     fn sync<M: MemoryIO, A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder)  {
         panic!("sync NO!")

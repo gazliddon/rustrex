@@ -67,6 +67,9 @@ impl RunLog {
 
 pub struct JsonTest {
 
+    check_cycles : bool,
+    verbose : bool,
+
     dont_check_hash : bool,
     json_file : String,
     log_memory: bool,
@@ -117,12 +120,14 @@ impl tester::Tester for JsonTest {
         println!("Done, {} steps to emulate", run_log.states.len().separated_string());
 
         let r = JsonTest {
-            json_file : json_file.clone(),
+            json_file       : json_file.clone(),
             dont_check_hash : matches.is_present("no-hash-check"),
-            log_memory : matches.is_present("log-memory"),
-            mem : run_log.create_memmap(),
-            cpu : Cpu::from_regs(run_log.states[0].regs.clone()),
-            steps : run_log.states,
+            log_memory      : matches.is_present("log-memory"),
+            mem             : run_log.create_memmap(),
+            cpu             : Cpu::from_regs(run_log.states[0].regs.clone()),
+            steps           : run_log.states,
+            check_cycles    : matches.is_present("check-cycles"),
+            verbose         : matches.is_present("show-disassembly"),
         };
 
         r
@@ -148,10 +153,13 @@ impl tester::Tester for JsonTest {
 
             // mem.clear_log();
 
-            let log_before = &it.next().unwrap().regs;
+            let log_before = &it.next().unwrap();
             let log_after = &it.peek().unwrap();
+            let log_cycles = log_after.cycles - log_before.cycles;
+
 
             let log_regs_after = &log_after.regs;
+            let log_regs_before = &log_before.regs;
 
             let prev_sim = self.cpu.regs.clone();
 
@@ -173,15 +181,23 @@ impl tester::Tester for JsonTest {
                 }
             };
 
-            // let (ins, txt) =  diss.diss(&mem, pc, None);
-            // let writes_str = get_writes_as_str(&mem);
-            // println!("{:04x}   {:20}{:20} : {}", pc, txt, writes_str, sim);
+            if self.verbose {
+                let (_, txt) =  diss.diss(&self.mem, pc, None);
+                println!("({:5}) : ${:04x}   {:20} : {} ", ins.cycles, pc, txt, sim);
+            }
 
-            if ( sim != log_regs_after ) | !is_hash_ok {
+
+            let are_cycles_okay = !self.check_cycles || (ins.cycles == log_cycles as u32);
+
+
+            if ( sim != log_regs_after ) | !is_hash_ok  | !are_cycles_okay {
+
+                if !are_cycles_okay {
+                    println!("Cycles Error at ${:02x} is {} should be {}",pc,  ins.cycles, log_cycles);
+                }
 
                 println!("Error after {} instructions", i);
 
-                let (ins, txt) =  diss.diss(&self.mem, pc, None);
                 // let writes_str = get_writes_as_str(&mem);
                 // println!("{:04x}   {:20}{:20} : {}", pc, txt, writes_str, sim);
 
@@ -209,9 +225,12 @@ impl tester::Tester for JsonTest {
 
                 println!("");
 
+                panic!("Done");
+
             } 
 
-            cycles = cycles + 1;
+
+            cycles = cycles + ins.cycles;
         }
 
         let ins = self.steps.len();
@@ -247,7 +266,7 @@ fn report(runtime : &RunTime, ins : usize)  {
     let cycles_per_instruction = 4;
 
     println!("instructions: {}", ins.separated_string());
-    println!("secs:         {:0.04}", secs);
+    println!("secs:         {:.4}", secs);
 
     println!("{} instructions per second", ( ins_per_second as u32 ).separated_string());
     println!("{:0.02}mhz (est avg {} cycler per instruction)"

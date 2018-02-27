@@ -10,13 +10,15 @@ extern crate serde_json;
 extern crate sha1;
 extern crate separator;
 
+
 extern crate regex;
-extern crate ilog2;
 extern crate num;
 extern crate clap;
 
-#[macro_use] 
-mod cpu;
+#[macro_use] extern crate log;
+
+#[macro_use] mod cpu;
+
 mod mem;
 mod via;
 mod symtab;
@@ -26,6 +28,7 @@ mod proclog;
 mod breakpoints;
 mod tests; 
 mod timer;
+mod gdbstub;
 
 
 use tests::{GregTest, JsonTest, Tester};
@@ -72,8 +75,16 @@ fn main() {
         .subcommand(SubCommand::with_name("test")
                     .arg(Arg::with_name("JSON FILE")
                          .required(true)
-                         .value_name("JSON")
-                         .help("JSON log file to load"))
+                         .index(1)
+                         .help("json log file to load"))
+                    .arg(Arg::with_name("show-disassembly")
+                         .short("s")
+                         .long("show-disassembly")
+                         .help("show disassembly"))
+                    .arg(Arg::with_name("check-cycles")
+                         .short("c")
+                         .long("check-cycles")
+                         .help("make sure cycle timings are accurate"))
                     .arg(Arg::with_name("no-hash-check")
                          .short("n")
                          .long("no-hash-check")

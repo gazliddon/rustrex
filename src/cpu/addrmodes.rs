@@ -3,20 +3,15 @@ use cpu::{ Regs, InstructionDecoder, IndexedFlags, IndexModes};
 
 
 pub trait AddressLines {
+
     #[inline(always)]
     fn ea<M: MemoryIO>(mem : &M, regs : &mut Regs, ins : &mut InstructionDecoder) -> u16 {
         panic!("EA for {}", Self::name());
     }
 
-    #[inline(always)]
     fn fetch_byte<M: MemoryIO>(mem : &M, regs : &mut Regs, ins : &mut InstructionDecoder) -> u8;
-    #[inline(always)]
     fn fetch_word<M: MemoryIO>(mem : &M, regs : &mut Regs, ins : &mut InstructionDecoder) -> u16;
-
-    #[inline(always)]
     fn store_byte<M: MemoryIO>(mem : &mut M, regs : &mut Regs, ins : &mut InstructionDecoder, val : u8 ) -> u16;
-
-    #[inline(always)]
     fn store_word<M: MemoryIO>(mem : &mut M, regs : &mut Regs, ins : &mut InstructionDecoder, val : u16 ) -> u16;
 
     #[inline(always)]
@@ -45,11 +40,13 @@ impl AddressLines for Direct {
 
     #[inline(always)]
     fn fetch_byte<M: MemoryIO>( mem : &M, regs : &mut Regs, ins : &mut InstructionDecoder) -> u8 {
+        ins.add_cycles(2);
         mem.load_byte(Self::ea(mem,regs,ins))
     }
 
     #[inline(always)]
     fn fetch_word<M: MemoryIO>( mem : &M, regs : &mut Regs, ins : &mut InstructionDecoder) -> u16 {
+        ins.add_cycles(3);
         mem.load_word(Self::ea(mem,regs,ins))
     }
     #[inline(always)]
@@ -74,6 +71,7 @@ pub struct Extended { }
 impl AddressLines for Extended {
     #[inline(always)]
     fn ea<M: MemoryIO>(mem : &M, regs : &mut Regs, ins : &mut InstructionDecoder) -> u16 {
+        ins.add_cycles(2);
         ins.fetch_word(mem)
     }
 
@@ -84,23 +82,28 @@ impl AddressLines for Extended {
     #[inline(always)]
     fn fetch_byte<M: MemoryIO>( mem : &M, regs : &mut Regs, ins : &mut InstructionDecoder) -> u8 {
         let addr = Self::ea(mem,regs,ins);
+        ins.add_cycles(1);
         mem.load_byte(addr)
     }
 
     #[inline(always)]
     fn fetch_word<M: MemoryIO>(mem : &M, regs : &mut Regs, ins : &mut InstructionDecoder) -> u16 {
         let addr = Self::ea(mem,regs,ins);
+        ins.add_cycles(2);
         mem.load_word(addr)
+
     }
     #[inline(always)]
     fn store_byte<M: MemoryIO>(mem : &mut M, regs : &mut Regs, ins : &mut InstructionDecoder, val : u8 ) -> u16{
         let addr = Self::ea(mem,regs,ins);
+        ins.add_cycles(1);
         mem.store_byte(addr, val);
         addr
     }
     #[inline(always)]
     fn store_word<M: MemoryIO>(mem : &mut M, regs : &mut Regs, ins : &mut InstructionDecoder, val : u16 ) -> u16 {
         let addr = Self::ea(mem,regs,ins);
+        ins.add_cycles(2);
         mem.store_word(addr, val);
         addr
     }
@@ -120,6 +123,7 @@ impl AddressLines for Immediate {
 
     #[inline(always)]
     fn fetch_word<M: MemoryIO>(mem : &M, regs : &mut Regs, ins : &mut InstructionDecoder) -> u16 {
+        ins.add_cycles(1);
         ins.fetch_word(mem)
     }
 
@@ -172,34 +176,40 @@ impl AddressLines for Indexed {
     fn ea<M: MemoryIO>(mem : &M, regs : &mut Regs, ins : &mut InstructionDecoder) -> u16 {
 
         let index_mode_id = ins.fetch_byte(mem);
+
+        ins.inc_cycles();
+
         let index_mode = IndexedFlags::new(index_mode_id) ;
-
-
 
         let ea = match index_mode.get_index_type() {
 
             IndexModes::RPlus(r) => { 
                 // format!(",{:?}+",r)
+                ins.add_cycles(3);
                 let addr = regs.get(&r);
                 regs.inc(&r);
                 addr 
             },
 
             IndexModes::RPlusPlus(r) => {
+                ins.add_cycles(4);
                 let addr = regs.get(&r);
                 regs.incinc(&r);
                 addr 
             },
 
             IndexModes::RSub(r) => {
+                ins.add_cycles(3);
                 regs.dec(&r)
             },
 
             IndexModes::RSubSub(r) => {
+                ins.add_cycles(4);
                 regs.decdec(&r)
             },
 
             IndexModes::RZero(r) => { 
+                ins.add_cycles(1);
                 regs.get(&r)
             },
 
@@ -252,6 +262,7 @@ impl AddressLines for Indexed {
 
             IndexModes::Ea=> {
                 // format!("0x{:04X}", diss.fetch_word(mem))
+                ins.add_cycles(6);
                 ins.fetch_word(mem)
             },
 
@@ -259,10 +270,10 @@ impl AddressLines for Indexed {
                 // format!("{}, {:?}", offset, r) 
                 regs.get(&r).wrapping_add(offset)
             },
-
         };
 
         if index_mode.is_indirect() {
+            ins.add_cycles(3);
             mem.load_word(ea)
         } else {
             ea 
@@ -280,6 +291,7 @@ impl AddressLines for Indexed {
 
     #[inline(always)]
     fn fetch_word<M: MemoryIO>(mem : &M, regs : &mut Regs, ins : &mut InstructionDecoder) -> u16 {
+        ins.inc_cycles();
         let ea = Self::ea(mem , regs , ins );
         mem.load_word(ea)
     }

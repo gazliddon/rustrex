@@ -25,7 +25,6 @@ pub struct Step {
     pub mem          : Option<[ u8; 5]>,
     pub cycles       : usize,
     pub digest       : Option<String>,
-    pub digest_2     : Option<[u8;20]>,
 }
 
 impl fmt::Display for Step {

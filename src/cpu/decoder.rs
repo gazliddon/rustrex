@@ -4,7 +4,7 @@ use mem::MemoryIO;
 #[derive(Debug)]
 pub struct InstructionDecoder {
     pub op_code : u16,
-    pub cycles : usize,
+    pub cycles : u32,
     pub addr : u16,
     pub bytes : usize,
     pub next_addr : u16,
@@ -20,13 +20,18 @@ impl InstructionDecoder {
         InstructionDecoder {
             addr : addr,
             next_addr : addr,
+            cycles : 2,
             .. Default::default()
         }
     }
 
-    pub fn inc_cycles(&mut self) -> usize {
-        self.cycles = self.cycles + 1;
-        self.cycles
+    pub fn add_cycles(&mut self, i : u32)  {
+        let r = self.cycles.wrapping_add(i);
+        self.cycles = r;
+    }
+
+    pub fn inc_cycles(&mut self) {
+        self.add_cycles(1);
     }
 
     pub fn fetch_byte<M : MemoryIO>(&mut self, mem: &M) -> u8 {
@@ -67,10 +72,13 @@ impl InstructionDecoder {
 
     pub fn fetch_instruction<M: MemoryIO>(&mut self, mem: &M) -> u16 {
 
+        self.cycles = 2;
+
         let a = self.fetch_byte(mem) as u16;
 
         self.op_code = match a {
             0x10 | 0x11 => {
+                self.inc_cycles();
                 (a << 8) + self.fetch_byte(mem) as u16
             }
             _ => a

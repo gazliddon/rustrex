@@ -1,0 +1,1 @@
+cargo run -- test -c -s cpp/instest_out.json

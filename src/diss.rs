@@ -389,7 +389,7 @@ impl Disassembler {
     }
 
     pub fn diss<M: MemoryIO>(&mut self, mem : &M, addr : u16, syms : Option<&SymTab> ) -> (InstructionDecoder, String) {
-        self.text = "???".to_string();
+        self.text = "".to_string();
 
         let mut diss = InstructionDecoder::new(addr);
 
