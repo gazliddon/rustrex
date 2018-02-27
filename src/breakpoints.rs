@@ -1,5 +1,5 @@
 #[derive(Clone, Debug,PartialEq, PartialOrd)]
-enum BreakpointTypes {
+pub enum BreakPointTypes {
     READ,
     WRITE,
     EXEC,
@@ -8,17 +8,27 @@ enum BreakpointTypes {
 #[derive(Clone, Debug, PartialEq, PartialOrd)]
 pub struct BreakPoint {
     addr : u16,
-    kind : BreakpointTypes,
+    kind : BreakPointTypes,
 }
 
-struct Breakpoints {
+impl BreakPoint {
+    pub fn new( kind : BreakPointTypes, addr : u16 ) -> BreakPoint {
+        BreakPoint {
+            kind : kind,
+            addr : addr
+        }
+    }
+
+}
+
+struct BreakPoints {
     break_points : Vec<BreakPoint>,
 }
 
-impl Breakpoints {
+impl BreakPoints {
 
-    pub fn new() -> Breakpoints {
-        Breakpoints {
+    pub fn new() -> BreakPoints {
+        BreakPoints {
             break_points : vec![],
         }
     }
