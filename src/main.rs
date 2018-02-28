@@ -20,7 +20,6 @@ extern crate clap;
 #[macro_use] mod cpu;
 
 mod mem;
-mod via;
 mod symtab;
 mod utils;
 mod diss;
@@ -33,7 +32,6 @@ mod gdbstub;
 mod m6522;
 mod clock;
 mod vectrex;
-
 
 use tests::{GregTest, JsonTest, Tester};
 use clap::{Arg, App, SubCommand, ArgMatches};
