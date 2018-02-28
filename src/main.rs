@@ -30,6 +30,9 @@ mod tests;
 mod timer;
 mod gdbstub;
 
+mod m6522;
+mod clock;
+
 
 use tests::{GregTest, JsonTest, Tester};
 use clap::{Arg, App, SubCommand, ArgMatches};
