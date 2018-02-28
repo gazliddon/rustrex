@@ -32,6 +32,7 @@ mod gdbstub;
 
 mod m6522;
 mod clock;
+mod vectrex;
 
 
 use tests::{GregTest, JsonTest, Tester};
