@@ -8,11 +8,11 @@ pub struct MemBlock {
     pub base : u16,
     pub size : usize,
     pub last_mem : u16,
-    pub name : &'static str
+    pub name : String,
 }
 
 impl MemBlock {
-    pub fn new(name: &'static str, read_only : bool, base: u16, size: usize) -> MemBlock {
+    pub fn new(name: &str, read_only : bool, base: u16, size: usize) -> MemBlock {
 
         let data = vec![0u8; size as usize];
         let last_mem = base.wrapping_add(size as u16).wrapping_sub(1);
@@ -26,14 +26,14 @@ impl MemBlock {
             base: base,
             read_only: read_only,
             data: data,
-            name: name,
+            name: name.to_string(),
             last_mem: last_mem,
         }
     }
 }
 
 impl MemMap {
-    pub fn add_mem_block(&mut self, name : &'static str, writable : bool, base : u16, size : usize) {
+    pub fn add_mem_block(&mut self, name : &str, writable : bool, base : u16, size : usize) {
         let mb = Box::new(MemBlock::new(name, writable, base, size));
         self.add_memory(mb);
     }
@@ -48,8 +48,8 @@ impl MemoryIO for MemBlock {
         panic!("not done")
     }
 
-    fn get_name(&self) -> String {
-        String::from(self.name)
+    fn get_name(&self) -> &String {
+        &self.name
     }
 
     fn get_range(&self) -> (u16, u16) {

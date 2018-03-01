@@ -35,7 +35,9 @@ pub struct M6522 {
     start : u16,
     size :u16,
     last_byte : u16,
+    name : String,
 }
+
 
 impl M6522 {
 
@@ -48,6 +50,7 @@ impl M6522 {
             start : start,
             size  : size,
             last_byte : last_byte as u16,
+            name : format!("6522 : {:04x} {:04x}", start, size),
             .. Default::default()
         }
     }
@@ -74,8 +77,8 @@ impl MemoryIO for M6522 {
         panic!("tbd")
     }
 
-    fn get_name(&self) -> String {
-        String::from("M6522")
+    fn get_name(&self) -> &String {
+        &self.name
     }
 
     fn load_byte(&self, addr:u16) -> u8 {

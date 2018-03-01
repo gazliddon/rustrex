@@ -8,7 +8,8 @@ pub trait MemMapIO {
 }
 
 pub struct MemMap {
-    all_memory: Vec< Box<MemoryIO>>
+    all_memory: Vec< Box<MemoryIO>>,
+    name : String,
 }
 
 impl fmt::Debug for MemMap {
@@ -18,7 +19,7 @@ impl fmt::Debug for MemMap {
         let mut strs : Vec<String> = Vec::new();
 
         for m in &self.all_memory {
-            strs.push(m.get_name())
+            strs.push(m.get_name().clone())
         }
 
         write!(f, "{}", strs.join(" "))
@@ -40,8 +41,8 @@ impl MemoryIO for MemMap {
         }
     }
 
-    fn get_name(&self) -> String {
-        String::from("Entire Address Range")
+    fn get_name(&self) -> &String {
+        &self.name
     }
 
     fn get_range(&self) -> (u16, u16) {
@@ -69,7 +70,8 @@ impl MemoryIO for MemMap {
 impl MemMap {
     pub fn new() -> MemMap {
         MemMap {
-            all_memory : Vec::new()
+            all_memory : Vec::new(),
+            name : "all memory".to_string(),
         }
     }
 

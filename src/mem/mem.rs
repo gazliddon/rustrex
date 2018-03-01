@@ -1,7 +1,7 @@
 // memory trait
 use std::vec::Vec;
 use std;
-use sha1::Sha1;
+pub use sha1::Sha1;
 
 
 
@@ -37,9 +37,7 @@ pub trait MemoryIO {
         m.digest().to_string()
     }
 
-    fn get_name(&self) -> String {
-        String::from("NO NAME")
-    }
+    fn get_name(&self) -> &String;
 
     fn is_in_range(&self, val : u16) -> bool {
         let (base, last) = self.get_range();

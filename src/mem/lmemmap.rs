@@ -129,7 +129,7 @@ impl MemoryIO for LoggingMemMap {
         self.mem_map.upload(addr,data);
     }
 
-    fn get_name(&self) -> String {
+    fn get_name(&self) -> &String {
         self.mem_map.get_name()
     }
 
