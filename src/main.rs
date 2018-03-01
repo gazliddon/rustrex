@@ -1,3 +1,10 @@
+#![feature(plugin)]
+#![plugin(clippy)]
+
+#![allow(suspicious_arithmetic_impl)]
+#![allow(redundant_field_names)]
+#![allow(cast_lossless)]
+
 #![allow(dead_code)]
 #![allow(unused_variables)]
 
@@ -37,7 +44,7 @@ use tests::{GregTest, JsonTest, Tester};
 use clap::{Arg, App, SubCommand, ArgMatches};
 
 fn do_test<T : Tester>(matches : &ArgMatches) -> T{
-    let mut tester = T::from_matches(&matches);
+    let mut tester = T::from_matches(matches);
     tester.run();
     tester
 }
@@ -98,11 +105,11 @@ fn main() {
         .get_matches();
 
     if let Some(matches) = matches.subcommand_matches("greg") {
-        do_test::<GregTest>(&matches);
+        do_test::<GregTest>(matches);
     }
 
     if let Some(matches) = matches.subcommand_matches("test") {
-        do_test::<JsonTest>(&matches);
+        do_test::<JsonTest>(matches);
     }
 }
 

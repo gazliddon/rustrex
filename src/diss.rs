@@ -5,10 +5,10 @@ use cpu::{RegEnum, IndexedFlags, IndexModes, InstructionDecoder, get_tfr_regs};
 pub trait SymTab {
     fn get_symbol(&self, val : u16) -> Option<String>;
 
-    fn get_symbol_with_default(&self, val : u16, def : &String) -> String {
+    fn get_symbol_with_default(&self, val : u16, def : &str) -> String {
         match self.get_symbol(val) {
             Some(text) => text,
-            None => def.clone()
+            None => def.to_string()
         }
     }
 }
@@ -37,7 +37,7 @@ impl Disassembler {
         self.text = format!("{:width$} {}", txt, self.text, width = 5);
     }
 
-    fn expand<M : MemoryIO>(&mut self, v : u16, def_str : &String, text : &'static str, m: &M, diss : &mut InstructionDecoder) {
+    fn expand<M : MemoryIO>(&mut self, v : u16, def_str : &str, text : &'static str, m: &M, diss : &mut InstructionDecoder) {
         let op_str = String::from(text);
 
         // let def_str = match syms {
@@ -47,17 +47,17 @@ impl Disassembler {
         //
         // Disassembly::new( &op_str.replace("OP", &def_str))
         
-        self.text =  op_str.replace("OP", &def_str);
+        self.text =  op_str.replace("OP", def_str);
     }
 
-    fn from_byte_op<M : MemoryIO>(&mut self, text : &'static str, mem: &M, diss : &mut InstructionDecoder) { 
+    fn text_from_byte_op<M : MemoryIO>(&mut self, text : &'static str, mem: &M, diss : &mut InstructionDecoder) { 
 
         let v = diss.fetch_byte(mem);
         let def_str  = format!("${:02X}", v);
         self.expand(v as u16, &def_str, text, mem, diss)
     }
 
-    fn from_word_op<M : MemoryIO>(&mut self, text : &'static str, mem: &M, diss : &mut InstructionDecoder) { 
+    fn text_from_word_op<M : MemoryIO>(&mut self, text : &'static str, mem: &M, diss : &mut InstructionDecoder) { 
         let v = diss.fetch_word(mem);
         let def_str  = format!("${:04X}", v);
         self.expand(v as u16, &def_str, text, mem, diss)
@@ -120,15 +120,15 @@ fn regs_to_str(byte : u8, f : fn(u8) -> Vec<RegEnum>) ->  String {
 } 
 
 impl Disassembler {
-    fn direct_8<M : MemoryIO>(&mut self, mem : &M, diss : &mut InstructionDecoder) { self.from_byte_op("<OP", mem,diss) }
-    fn direct_16<M : MemoryIO>(&mut self, mem : &M, diss : &mut InstructionDecoder) { self.from_byte_op("<OP", mem,diss) }
+    fn direct_8<M : MemoryIO>(&mut self, mem : &M, diss : &mut InstructionDecoder) { self.text_from_byte_op("<OP", mem,diss) }
+    fn direct_16<M : MemoryIO>(&mut self, mem : &M, diss : &mut InstructionDecoder) { self.text_from_byte_op("<OP", mem,diss) }
 
-    fn extended_16<M : MemoryIO>(&mut self, mem : &M, diss : &mut InstructionDecoder) { self.from_word_op("OP", mem, diss) }
-    fn extended_8<M : MemoryIO>(&mut self, mem : &M, diss : &mut InstructionDecoder) { self.from_word_op("OP", mem, diss) }
+    fn extended_16<M : MemoryIO>(&mut self, mem : &M, diss : &mut InstructionDecoder) { self.text_from_word_op("OP", mem, diss) }
+    fn extended_8<M : MemoryIO>(&mut self, mem : &M, diss : &mut InstructionDecoder) { self.text_from_word_op("OP", mem, diss) }
 
-    fn immediate8<M : MemoryIO>(&mut self, mem : &M, diss : &mut InstructionDecoder) { self.from_byte_op("#OP", mem, diss) }
+    fn immediate8<M : MemoryIO>(&mut self, mem : &M, diss : &mut InstructionDecoder) { self.text_from_byte_op("#OP", mem, diss) }
 
-    fn immediate16<M : MemoryIO>(&mut self, mem : &M, diss : &mut InstructionDecoder) { self.from_word_op("#OP", mem, diss) }
+    fn immediate16<M : MemoryIO>(&mut self, mem : &M, diss : &mut InstructionDecoder) { self.text_from_word_op("#OP", mem, diss) }
 
     fn inherent<M : MemoryIO>(&mut self, mem : &M, diss : &mut InstructionDecoder) { }
 

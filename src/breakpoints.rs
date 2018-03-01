@@ -14,8 +14,8 @@ pub struct BreakPoint {
 impl BreakPoint {
     pub fn new( kind : BreakPointTypes, addr : u16 ) -> BreakPoint {
         BreakPoint {
-            kind : kind,
-            addr : addr
+            kind,
+            addr,
         }
     }
 

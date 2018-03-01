@@ -48,7 +48,7 @@ impl Cpu {
     pub fn pc(&self) -> u32 {0}
     pub fn bad(&self) -> u32 {0}
  
-    pub fn cause(&self, is : InterruptState) -> u32 {
+    pub fn cause(&self, is : &InterruptState) -> u32 {
         0
     }
 
@@ -96,7 +96,7 @@ impl GdbRemote {
             };
 
         GdbRemote {
-            remote: remote,
+            remote,
         }
     }
 
@@ -203,7 +203,8 @@ impl GdbRemote {
         }
 
         warn!("GDB remote end of stream");
-        return PacketResult::EndOfStream;
+
+        PacketResult::EndOfStream
     }
 
     /// Acknowledge packet reception
@@ -309,7 +310,7 @@ impl GdbRemote {
                      cpu.bad(),
                      // XXX We should figure out a way to get the real
                      // irq_state over here...
-                     cpu.cause(InterruptState::new()),
+                     cpu.cause(&InterruptState::new()),
                      cpu.pc() ] {
             reply.push_u32(r);
         }
@@ -416,7 +417,7 @@ impl GdbRemote {
               cpu: &mut Cpu,
               args: &[u8]) -> GdbResult {
 
-        if args.len() > 0 {
+        if !args.is_empty() {
             // If an address is provided we restart from there
             let addr = try!(parse_hex(args));
 
@@ -557,7 +558,7 @@ fn parse_addr_len(args: &[u8]) -> Result<(u32, u32), ()> {
     let addr = args[0];
     let len = args[1];
 
-    if addr.len() == 0 || len.len() == 0 {
+    if addr.is_empty() || len.is_empty() {
         // Missing parameter
         return Err(());
     }

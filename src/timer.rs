@@ -32,7 +32,7 @@ impl RunTime {
 
     pub fn from_duration(dur : Duration) -> RunTime {
         RunTime {
-            dur : dur
+           dur 
         }
     }
 

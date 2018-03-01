@@ -29,7 +29,7 @@ impl fmt::Debug for MemMap {
 impl MemoryIO for MemMap {
 
     fn update_sha1(&self, digest : &mut Sha1) {
-        for m in self.all_memory.iter() {
+        for m in &self.all_memory {
             m.update_sha1(digest);
         }
     }
@@ -50,7 +50,7 @@ impl MemoryIO for MemMap {
     }
 
     fn load_byte(&self, addr:u16) -> u8 {
-        for m in self.all_memory.iter() {
+        for m in &self.all_memory {
             if m.is_in_range(addr) {
                 return m.load_byte(addr)
             }
@@ -59,7 +59,7 @@ impl MemoryIO for MemMap {
     }
 
     fn store_byte(&mut self, addr:u16, val:u8) {
-        for m in self.all_memory.iter_mut() {
+        for m in &mut self.all_memory {
             if m.is_in_range(addr) {
                 m.store_byte(addr, val)
             }

@@ -50,7 +50,6 @@ impl Regs {
         } 
     }
 
-    #[inline(always)]
     pub fn wrapping_add_and_set(&mut self, r : &RegEnum, v : u16) -> u16{
         let mut rv = self.get(r);
         rv = rv.wrapping_add(v);
@@ -59,39 +58,30 @@ impl Regs {
     }
 
 
-    #[inline(always)]
     pub fn inc(&mut self, r: &RegEnum) -> u16 {
         self.wrapping_add_and_set(r, 1)
     }
 
-    #[inline(always)]
-    pub fn incinc(&mut self, r: &RegEnum) -> u16{
-        let ret = self.wrapping_add_and_set(r, 2);
-        ret
+    pub fn incinc(&mut self, r: &RegEnum) -> u16 {
+        self.wrapping_add_and_set(r, 2)
     }
 
-    #[inline(always)]
     pub fn dec(&mut self, r: &RegEnum) -> u16{
         self.wrapping_add_and_set(r, 0xffff)
     }
 
-    #[inline(always)]
     pub fn decdec(&mut self, r: &RegEnum) -> u16{
         self.wrapping_add_and_set(r, 0xfffe)
     }
 
-    #[inline(always)]
     pub fn get_dp_ptr(&self) -> u16 {
-        let dp = (self.dp as u16) << 8;
-        dp
+        (self.dp as u16) << 8
     }
 
-    #[inline(always)]
     pub fn get_d(&self) -> u16 {
         ( ( self.a as u16 ) << 8 ) | self.b as u16 
     }
 
-    #[inline(always)]
     pub fn set_d(&mut self, d : u16) {
         self.a = (d >> 8) as u8; self.b = d as u8; 
     }

@@ -11,8 +11,8 @@ fn one_zero<T : num::One + num::Zero>(f : bool) -> T {
     a_or_b(f, T::one(), T::zero())
 }
 
-fn true_false<T : num::Zero + std::cmp::PartialEq>(v : T) -> bool {
-    v != T::zero()
+fn true_false<T : num::Zero + std::cmp::PartialEq>(v : &T) -> bool {
+    *v != T::zero()
 }
 
 pub fn test_negative<T : GazAlu>(v : u32) -> bool {
@@ -226,7 +226,7 @@ pub trait GazAlu : num::PrimInt + num::traits::WrappingAdd + num::traits::Wrappi
 
         let r = a.wrapping_mul(b);
 
-        let cbits = a_or_b(true_false(r & 0x80), Flags::C.bits(),0);
+        let cbits = a_or_b(true_false(&(r & 0x80)), Flags::C.bits(),0);
 
         f.set_w_mask(write_mask, cbits);
         nz::<Self>(f, write_mask, r)
@@ -234,7 +234,7 @@ pub trait GazAlu : num::PrimInt + num::traits::WrappingAdd + num::traits::Wrappi
 
     fn lsr(f : &mut Flags, write_mask : u8, a : u32) -> Self {
 
-        let cbits = a_or_b(true_false(a & 1), Flags::C.bits(),0);
+        let cbits = a_or_b(true_false(&( a & 1 )), Flags::C.bits(),0);
 
         f.set_w_mask(write_mask & Flags::C.bits(), cbits);
 

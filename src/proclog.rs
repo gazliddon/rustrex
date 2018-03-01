@@ -79,7 +79,7 @@ impl Step {
         let mut step = Step {
             regs          : regs.clone(),
             disassembly   : Some(txt),
-            cycles : cycles,
+            cycles,
             .. Default::default()
         };
 
@@ -88,7 +88,7 @@ impl Step {
         step
     }
 
-    pub fn from_string(text :&String) -> Result<Step, String> {
+    pub fn from_string(text :&str) -> Result<Step, String> {
 
         lazy_static!{
             static ref RE : Regex =
@@ -140,7 +140,7 @@ impl Step {
         regs.set_d(d);
 
         let r = Step {
-            regs          : regs,
+            regs,
             disassembly   : Some(as_string("diss")),
             mem           : Some([ as_u8("m0"), as_u8("m1"), as_u8("m2"), as_u8("m3"), as_u8("m4"), ]),
             cycles : as_usize("cycles"),

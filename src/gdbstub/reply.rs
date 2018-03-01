@@ -16,7 +16,7 @@ impl Reply {
         data.push(b'$');
 
         Reply {
-            data: data,
+            data,
             csum: 0,
         }
     }
@@ -26,7 +26,7 @@ impl Reply {
         for &b in data {
             self.csum = self.csum.wrapping_add(b);
 
-            if b == b'$' || b == b'$' {
+            if  b == b'$' {
                 panic!("Invalid char in GDB response");
             }
         }
@@ -38,9 +38,9 @@ impl Reply {
         let to_hex = b"0123456789abcdef";
 
         self.push(&[
-            to_hex[(byte >> 4) as usize],
-            to_hex[(byte & 0xf) as usize],
-            ])
+                  to_hex[(byte >> 4) as usize],
+                  to_hex[(byte & 0xf) as usize],
+        ])
     }
 
     /// Push an u16 as 2 little endian bytes

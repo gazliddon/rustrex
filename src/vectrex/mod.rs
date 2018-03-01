@@ -29,7 +29,7 @@ impl MemBlock {
 
         let last_byte = addr as u32 + len;
 
-        assert!(last_byte < 0x10000);
+        assert!(last_byte < 0x1_0000);
 
         let mut r = MemBlock::new(name, writeable, addr, data.len() );
         r.data = data.to_vec(); 
@@ -78,12 +78,12 @@ impl Vectrex {
 
         mem.add_memory(mk_data_mem(0xe000,"sysrom", FAST_ROM, false));
         mem.add_mem_block("cart", false, 0, 16 * 1024);
-        mem.add_mem_block("ram", true, 0xc800, 1 * 1024);
+        mem.add_mem_block("ram", true, 0xc800,  1024);
 
         Vectrex {
-            mem   : mem,
-            cpu   : cpu,
-            m6522 : m6522,
+            mem   ,
+            cpu   ,
+            m6522 ,
             dac   : dac::Dac {},
             ref_clock : RefCell::new(StandardClock::new(1_500_000)),
         }

@@ -44,11 +44,11 @@ impl M6522 {
     pub fn new(start : u16, size : u16) -> Self {
         let last_byte = (size as u32 + start as u32) - 1;
 
-        assert!(last_byte < 0x10000);
+        assert!(last_byte < 0x1_0000);
 
         Self {
-            start : start,
-            size  : size,
+            start,
+            size,
             last_byte : last_byte as u16,
             name : format!("6522 : {:04x} {:04x}", start, size),
             .. Default::default()
@@ -85,27 +85,27 @@ impl MemoryIO for M6522 {
         let reg = self.get_reg(addr);
 
         match reg {
-            Reg::PortA      => {0} ,
-            Reg::PortB      => {0} ,
-            Reg::DdrA       => {0} ,
-            Reg::DdrB       => {0} ,
-            Reg::T1CntL     => {0} ,
-            Reg::T1CntH     => {0} ,
+            Reg::PortA       => {0} ,
+            Reg::PortB       => {1} ,
+            Reg::DdrA        => {2} ,
+            Reg::DdrB        => {3} ,
+            Reg::T1CntL      => {4} ,
+            Reg::T1CntH      => {5} ,
 
-            Reg::T2CntL     => {0} ,
-            Reg::T2CntH     => {0} ,
+            Reg::T2CntL      => {6} ,
+            Reg::T2CntH      => {7} ,
 
-            Reg::T2Lo       => {0} ,
-            Reg::T2Hi       => {0} ,
+            Reg::T2Lo        => {8} ,
+            Reg::T2Hi        => {9} ,
 
-            Reg::ShiftReg   => {0} ,
+            Reg::ShiftReg    => {10} ,
 
-            Reg::AuxCntl    => {0} ,
+            Reg::AuxCntl     => {11} ,
 
-            Reg::Cnt1       => {0} ,
-            Reg::IntFlags   => {0} ,
-            Reg::IntEnable  => {0} ,
-            Reg::PortANhs   => {0} ,
+            Reg::Cnt1        => {12} ,
+            Reg::IntFlags    => {13} ,
+            Reg::IntEnable   => {14} ,
+            Reg::PortANhs    => {15} ,
         }
     }
 
@@ -114,26 +114,26 @@ impl MemoryIO for M6522 {
 
         let dummy = match reg {
             Reg::PortA       => {0} ,
-            Reg::PortB       => {0} ,
-            Reg::DdrA        => {0} ,
-            Reg::DdrB        => {0} ,
-            Reg::T1CntL      => {0} ,
-            Reg::T1CntH      => {0} ,
+            Reg::PortB       => {1} ,
+            Reg::DdrA        => {2} ,
+            Reg::DdrB        => {3} ,
+            Reg::T1CntL      => {4} ,
+            Reg::T1CntH      => {5} ,
 
-            Reg::T2CntL      => {0} ,
-            Reg::T2CntH      => {0} ,
+            Reg::T2CntL      => {6} ,
+            Reg::T2CntH      => {7} ,
 
-            Reg::T2Lo        => {0} ,
-            Reg::T2Hi        => {0} ,
+            Reg::T2Lo        => {8} ,
+            Reg::T2Hi        => {9} ,
 
-            Reg::ShiftReg    => {0} ,
+            Reg::ShiftReg    => {10} ,
 
-            Reg::AuxCntl     => {0} ,
+            Reg::AuxCntl     => {11} ,
 
-            Reg::Cnt1        => {0} ,
-            Reg::IntFlags    => {0} ,
-            Reg::IntEnable   => {0} ,
-            Reg::PortANhs    => {0} ,
+            Reg::Cnt1        => {12} ,
+            Reg::IntFlags    => {13} ,
+            Reg::IntEnable   => {14} ,
+            Reg::PortANhs    => {15} ,
         };
     }
 }

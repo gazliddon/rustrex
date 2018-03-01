@@ -18,7 +18,7 @@ impl InstructionDecoder {
 
     pub fn new(addr: u16)-> Self {
         InstructionDecoder {
-            addr : addr,
+            addr,
             next_addr : addr,
             cycles : 2,
             .. Default::default()
@@ -39,7 +39,7 @@ impl InstructionDecoder {
         self.next_addr = self.next_addr.wrapping_add(1);
 
         self.mem[self.bytes] = b;
-        self.bytes = self.bytes + 1;
+        self.bytes +=  1;
 
         b
     }
@@ -62,7 +62,7 @@ impl InstructionDecoder {
 
         self.mem[self.bytes] = ((w >> 8) & 0xff) as u8;
         // self.mem[self.bytes+1] = w as u8;
-        self.bytes = self.bytes + 2;
+        self.bytes +=2;
         w   
     }
 

@@ -119,7 +119,7 @@ impl tester::Tester for JsonTest {
 
         println!("Done, {} steps to emulate", run_log.states.len().separated_string());
 
-        let r = JsonTest {
+        JsonTest {
             json_file       : json_file.clone(),
             dont_check_hash : matches.is_present("no-hash-check"),
             log_memory      : matches.is_present("log-memory"),
@@ -128,9 +128,7 @@ impl tester::Tester for JsonTest {
             steps           : run_log.states,
             check_cycles    : matches.is_present("check-cycles"),
             verbose         : matches.is_present("show-disassembly"),
-        };
-
-        r
+        }
     }
 
     fn run(&mut self) {
@@ -202,42 +200,42 @@ impl tester::Tester for JsonTest {
                 // println!("{:04x}   {:20}{:20} : {}", pc, txt, writes_str, sim);
 
                 let (ins, txt) =  diss.diss(&self.mem, self.cpu.regs.pc, None);
-                println!("");
+                println!();
 
                 println!("Next op:");
                 println!("{:04x}   {:20}", self.cpu.regs.pc, txt);
 
-                println!("");
+                println!();
 
-                if is_hash_ok == false {
+                if !is_hash_ok {
                     let hash = self.mem.get_sha1_string();
                     // let log_hash = state_after.digest.unwrap().clone();
                     println!("       sim: {}", hash);
                     // println!(" should be: {}", log_hash);
                 }
 
-                println!("");
+                println!();
 
                 println!("            {}", Regs::get_hdr());
                 println!("      prev: {}", prev_sim);
                 println!("       sim: {}", sim);
                 println!(" should be: {}", log_regs_after);
 
-                println!("");
+                println!();
 
                 panic!("Done");
 
             } 
 
 
-            cycles = cycles + ins.cycles;
+            cycles += ins.cycles;
         }
 
         let ins = self.steps.len();
         println!("Successfully run {} instructions", ins.separated_string());
         report(&timer.get(), ins);
 
-        println!("");
+        println!();
     }
 }
 
@@ -249,10 +247,10 @@ fn get_writes_as_str( mem : &LoggingMemMap ) -> String {
         .filter(|msg| msg.write)
         .collect();
 
-    if writes.len() != 0 {
-        writes[0].to_string()
-    } else {
+    if writes.is_empty() {
         "".to_string()
+    } else {
+        writes[0].to_string()
     }
 }
 

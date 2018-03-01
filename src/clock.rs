@@ -16,7 +16,7 @@ impl StandardClock {
     pub fn new(cycles_per_second : u64) -> Self {
         Self {
             cycles: 0,
-            cycles_per_second : cycles_per_second
+            cycles_per_second
         }
     }
 }

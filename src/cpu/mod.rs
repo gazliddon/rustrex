@@ -1,8 +1,7 @@
-#[macro_use]
+#[macro_use] mod isa;
 
-mod isa;
 mod indexed;
-mod cpu;
+mod cpucore;
 mod registers;
 mod flags;
 mod formatters;
@@ -14,7 +13,7 @@ pub use self::registers::*;
 pub use self::isa::*;
 pub use self::indexed::*;
 pub use self::flags::*;
-pub use self::cpu::*;
+pub use self::cpucore::*;
 pub use self::decoder::*;
 pub use self::addrmodes::*;
 

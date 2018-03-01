@@ -11,7 +11,7 @@ bitflags! {
         const N  = 1 << 3;
         const Z  = 1 << 2;
         const V  = 1 << 1;
-        const C  = 1 << 0;
+        const C  = 1 ;
 
         const NZVCH = 
             Self::N.bits |

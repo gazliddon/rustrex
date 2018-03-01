@@ -1,15 +1,16 @@
 // memory trait
 use std::vec::Vec;
-use std;
+use std::ops::Range;
 pub use sha1::Sha1;
 
 
 
 
-fn to_mem_range( address : u16, size :u16 ) -> std::ops::Range<u32> {
+fn to_mem_range( address : u16, size :u16 ) -> Range<u32> {
     use std::cmp::min;
     let last_mem = address as u32 + size as u32;
-    (address as u32 .. min(0x10000, last_mem) )
+
+    ( address as u32 .. min(0x1_0000, last_mem) )
 }
 
 pub fn as_word(lo : u8, hi : u8) -> u16 {
@@ -58,7 +59,9 @@ pub trait MemoryIO {
     }
 
     fn get_mem_as_str(&self, addr:u16, size:u16 ) -> String {
+
         let a32 = addr as u32;
+
 
         let r = to_mem_range( addr, size);
 

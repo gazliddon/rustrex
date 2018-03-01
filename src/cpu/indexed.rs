@@ -1,5 +1,6 @@
 use cpu::RegEnum;
 
+
 #[derive(Debug)]
 pub enum IndexModes {
 
@@ -23,14 +24,14 @@ pub enum IndexModes {
 
 bitflags! {
     pub struct IndexedFlags: u8 {
-        const NOT_IMM     = 0b10000000;
-        const R           = 0b01100000;
-        const D           = 0b00111111;
-        const OFFSET      = 0b00011111;
-        const OFFSET_SIGN = 0b00010000;
+        const NOT_IMM     = 0b_1000_0000;
+        const R           = 0b_0110_0000;
+        const D           = 0b_0011_1111;
+        const OFFSET      = 0b_0001_1111;
+        const OFFSET_SIGN = 0b_0001_0000;
         const IND         = 1 << 4;
-        const TYPE        = 0b00001111;
-        const IS_EA       = 0b10011111;
+        const TYPE        = 0b_0000_1111;
+        const IS_EA       = 0b_1001_1111;
     }
 }
 
@@ -92,14 +93,14 @@ impl IndexedFlags {
                 0b0100 => IndexModes::RZero(r),     //               ,R               0 0 |
                 0b0101 => IndexModes::RAddB(r),     //             (+/- B),R          1 0 |
                 0b0110 => IndexModes::RAddA(r),     //             (+/- A),R          1 0 |
-                0b0111 => IndexModes::Illegal,      //              Illegal           u u |
+                // 0b0111 => IndexModes::Illegal,      //              Illegal           u u |
                 0b1000 => IndexModes::RAddi8(r),    //    (+/- 7 b  it offset),R      1 1 |
                 0b1001 => IndexModes::RAddi16(r),   //      (+/- 15 bit offset),R     4 2 |
-                0b1010 => IndexModes::Illegal,      //              Illegal           u u |
+                // 0b1010 => IndexModes::Illegal,      //              Illegal           u u |
                 0b1011 => IndexModes::RAddD(r),     //             (+/- D),R          4 0 |
                 0b1100 => IndexModes::PCAddi8,      //      (+/- 7 bit offset),PC     1 1 |
                 0b1101 => IndexModes::PCAddi16,     //      (+/- 15 bit offset),PC    5 2 |
-                0b1110 => IndexModes::Illegal,      //              Illegal           u u |
+                // 0b1110 => IndexModes::Illegal,      //              Illegal           u u |
                 _ => IndexModes::Illegal,
             }
         }

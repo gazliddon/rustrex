@@ -7,8 +7,7 @@ use serde_yaml;
 impl diss::SymTab for SymbolTable {
 
     fn get_symbol(&self, val : u16) -> Option<String> {
-        let v = self.lookup_from_val(val);
-        v
+        self.lookup_from_val(val)
     }
 }
 
@@ -35,7 +34,7 @@ impl SymbolTable {
     }
 
     pub fn lookup_from_val(&self, addr : u16) -> Option<String> {
-        for (key, value) in self.syms_to_val.iter() {
+        for (key, value) in &self.syms_to_val {
             if *value == addr {
                 return Some(key.clone());
             }
@@ -43,7 +42,7 @@ impl SymbolTable {
         None
     }
 
-    pub fn lookup(&self, name : &String) -> Option<u16> {
+    pub fn lookup(&self, name : &str) -> Option<u16> {
         match self.syms_to_val.get(name) {
             Some(u16ref) => Some(*u16ref),
             None => None,
