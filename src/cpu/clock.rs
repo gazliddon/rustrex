@@ -11,7 +11,7 @@ pub trait Clock {
     fn cycles_per_second(&self) -> u64;
     fn add_cycles(&mut self, v : usize) -> u64;
 
-    fn inc(&mut self) -> u64 {
+    fn inc_cycles(&mut self) -> u64 {
         self.add_cycles(1)
     }
 }

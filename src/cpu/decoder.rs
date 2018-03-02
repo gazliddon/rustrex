@@ -8,11 +8,7 @@ pub struct InstructionDecoder {
     pub addr : u16,
     pub bytes : usize,
     pub next_addr : u16,
-    pub mem : [u8; 4],
-    pub operand : u16,
 }
-
-
 
 impl InstructionDecoder {
 
@@ -23,6 +19,10 @@ impl InstructionDecoder {
             cycles : 2,
             .. Default::default()
         }
+    }
+    fn bump_fetch(&mut self, v : usize) {
+        self.next_addr = self.next_addr.wrapping_add(v as u16);
+        self.bytes +=  1;
     }
 
     pub fn add_cycles(&mut self, i : u32)  {
@@ -36,11 +36,7 @@ impl InstructionDecoder {
 
     pub fn fetch_byte<M : MemoryIO>(&mut self, mem: &M) -> u8 {
         let b = mem.load_byte(self.next_addr);
-        self.next_addr = self.next_addr.wrapping_add(1);
-
-        self.mem[self.bytes] = b;
-        self.bytes +=  1;
-
+        self.bump_fetch(1);
         b
     }
 
@@ -58,16 +54,8 @@ impl InstructionDecoder {
 
     pub fn fetch_word<M : MemoryIO>(&mut self, mem: &M) -> u16 {
         let w = mem.load_word(self.next_addr);
-        self.next_addr = self.next_addr.wrapping_add(2);
-
-        self.mem[self.bytes] = ((w >> 8) & 0xff) as u8;
-        // self.mem[self.bytes+1] = w as u8;
-        self.bytes +=2;
+        self.bump_fetch(2);
         w   
-    }
-
-    pub fn get_next_addr(&self) -> u16 {
-        self.next_addr
     }
 
     pub fn fetch_instruction<M: MemoryIO>(&mut self, mem: &M) -> u16 {

@@ -3,6 +3,11 @@ name = "rustrex"
 version = "0.1.0"
 authors = ["Gaz Liddon Retina <gaz@gazaxian.com>"]
 
+
+[profile.dev]
+opt-level = 0
+debug = true
+
 [dependencies]
 bitflags="*"
 serde = "1.0"

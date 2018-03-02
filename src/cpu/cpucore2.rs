@@ -3,9 +3,14 @@
 use mem::MemoryIO;
 use cpu::{ Regs, RegEnum, Flags, InstructionDecoder};
 use cpu::{FetchWrite, AddressLines, Direct, Extended, Immediate, Inherent, Relative, Indexed};
+use cpu::{Clock};
 
 use cpu::alu::{GazAlu};
 use cpu::alu;
+
+
+use std::cell::RefCell;
+use std::rc::Rc;
 
 // use cpu::alu;
 
@@ -1172,6 +1177,171 @@ impl Cpu {
     }
 }
 
+struct Context<'a, C : 'a + Clock, M : 'a + MemoryIO> {
+    regs : &'a mut Regs,
+    mem : &'a mut M,
+    ref_clock : &'a Rc<RefCell<C>>,
+    ins : &'a mut InstructionDecoder,
+}
+
+impl<'a, C : 'a + Clock, M : 'a + MemoryIO> Context<'a, C, M> {
+
+    fn fetch_byte<A : AddressLines>(&mut self) -> u8 {
+        A::fetch_byte(self.mem, self.regs, self.ins)
+    }
+
+    fn fetch_word<A : AddressLines>(&mut self) -> u16 {
+        A::fetch_word(self.mem, self.regs, self.ins)
+    }
+
+    fn ea<A : AddressLines>(&mut self) -> u16 {
+        A::fetch_word(self.mem, self.regs, self.ins)
+    }
+
+    fn inc_cycles(&mut self) {
+        self.ins.inc_cycles();
+    }
+
+    fn op8_2<A : AddressLines>( &mut self, write_mask : u8, func : fn(&mut Flags,u8, u32, u32) -> u8, i0 : u8 ) -> u8{
+        let i1 = self.fetch_byte::<A>() as u32;
+        func(&mut self.regs.flags, write_mask, i0 as u32, i1)
+    }
+
+
+    fn op16_2< A : AddressLines>( &mut self,  write_mask : u8, func : fn(&mut Flags,u8, u32, u32) -> u16, i0 : u16 ) -> u16 {
+        let i1 = self.fetch_word::<A>() as u32;
+        func(&mut self.regs.flags, write_mask, i0 as u32,i1)
+    }
+
+    fn opd_2< A : AddressLines>( &mut self, write_mask : u8, func : fn(&mut Flags,u8, u32, u32) -> u16 ) -> u16 {
+        let i0 = self.regs.get_d() ;
+        self.op16_2::<A>(write_mask, func,i0)
+    }
+
+    fn modd_2< A : AddressLines>( &mut self,  write_mask : u8, func : fn(&mut Flags,u8, u32, u32) -> u16 ) {
+        let r = self.opd_2::<A>(write_mask, func);
+        self.regs.set_d(r);
+    }
+
+    fn opa_2< A : AddressLines>( &mut self,  write_mask : u8, func : fn(&mut Flags,u8, u32, u32) -> u8 ) -> u8 {
+        let i0 = self.regs.a as u32;
+        let i1 = self.fetch_byte::<A>() as u32;
+        func(&mut self.regs.flags, write_mask, i0,i1)
+    }
+
+    fn opb_2< A : AddressLines>( &mut self,  write_mask : u8, func : fn(&mut Flags,u8, u32, u32) -> u8 ) -> u8{
+        let i0 = self.regs.b as u32;
+        let i1 = self.fetch_byte::<A>() as u32;
+        func(&mut self.regs.flags, write_mask, i0,i1)
+    }
+
+    fn moda_2< A : AddressLines>( &mut self,  write_mask : u8, func : fn(&mut Flags,u8, u32, u32) -> u8 ) {
+        let r = self.opa_2::<A>(write_mask, func);
+        self.regs.a = r;
+    }
+
+    fn modb_2< A : AddressLines>( &mut self,  write_mask : u8, func : fn(&mut Flags,u8, u32, u32) -> u8 ) {
+        let r = self.opb_2::<A>(write_mask, func);
+        self.regs.b = r;
+    }
+
+    fn opa< A : AddressLines>( &mut self,  write_mask : u8, func : fn(&mut Flags,u8, u32) -> u8 ) -> u8{
+        let i0 = self.regs.a as u32;
+        func(&mut self.regs.flags, write_mask, i0)
+    }
+
+    fn opb< A : AddressLines>( &mut self,  write_mask : u8, func : fn(&mut Flags,u8, u32) -> u8 ) -> u8 {
+        let i0 = self.regs.b as u32;
+        func(&mut self.regs.flags, write_mask, i0)
+    }
+
+    fn moda< A : AddressLines>( &mut self,  write_mask : u8, func : fn(&mut Flags,u8, u32) -> u8 ) {
+        let r = self.opa::<A>(write_mask, func);
+        self.regs.a = r
+    }
+
+    fn modb< A : AddressLines>( &mut self,  write_mask : u8, func : fn(&mut Flags,u8, u32) -> u8 ) {
+        let r = self.opb::<A>(write_mask, func);
+        self.regs.b = r
+    }
+
+    fn rwmod8< A : AddressLines>(&mut self,  write_mask : u8, func : fn(&mut Flags, u8, u32) -> u8) {
+        let ea = self.ea::<A>();
+        let v = self.mem.load_byte(ea) as u32;
+        let r = func(&mut self.regs.flags, write_mask, v );
+        self.mem.store_byte(ea,r);
+    }
+
+    // fn branch< A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder, v : bool)  {
+    //     let offset = A::fetch_byte_as_i16(mem, &mut self.regs, ins);
+
+    //     if v {
+    //         ins.next_addr = ins.next_addr.wrapping_add(offset as u16);
+    //     }
+    // }
+
+    // fn lbranch< A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder, v : bool)  {
+    //     let offset = A::fetch_word(mem, &mut self.regs, ins);
+
+    //     if v {
+    //         ins.next_addr = ins.next_addr.wrapping_add(offset);
+    //     }
+    // }
+
+    // fn post_clear(&mut self) {
+    //     self.regs.flags.set(Flags::Z, true );
+    //     self.regs.flags.set(Flags::N | Flags::V | Flags::C, false );
+    // }
+
+    // fn st8< A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder, v : u8)  {
+    //     A::store_byte(mem, &mut self.regs, ins, v);
+    //     alu::nz::<u8>(&mut self.regs.flags,Flags::NZ.bits(), v as u32);
+    //     self.regs.flags.set(Flags::V, false);
+    // }
+
+    // fn st16< A : AddressLines>(&mut self, mem : &mut M, ins : &mut InstructionDecoder, v : u16)  {
+    //     A::store_word(mem, &mut self.regs, ins, v);
+    //     alu::nz::<u16>(&mut self.regs.flags,Flags::NZ.bits(), v as u32);
+    //     self.regs.flags.set(Flags::V, false);
+    // }
+
+
+}
+
+
+
+impl<'a, C : 'a + Clock, M : 'a + MemoryIO> Context<'a, C, M> {
+    fn orcc<A : AddressLines>(&mut self) {
+        let v = self.fetch_byte::<A>();
+        let cc = self.regs.flags.bits();
+        self.regs.flags.set_flags(v | cc);
+        self.ins.inc_cycles()
+    }
+}
+
+pub fn step<M: MemoryIO, C : Clock>(regs : &mut Regs, mem : &mut M, ref_clock : &Rc<RefCell<C>>) -> InstructionDecoder {
+
+    let mut ins = InstructionDecoder::new(regs.pc);
+
+    let op = ins.fetch_instruction(mem);
+
+    let mut ctx = Context {
+        regs,
+        mem,
+        ref_clock,
+        ins : &mut ins,
+    };
+
+    macro_rules! handle_op {
+        ($addr:ident, $action:ident) => (
+            { ctx.orcc::<$addr>(); }) }
+
+    op_table!(op, { });
+
+    ctx.regs.pc =  ctx.ins.next_addr;
+
+    panic!("");
+}
 
 //
 // }}}
