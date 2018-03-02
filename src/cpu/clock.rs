@@ -1,9 +1,13 @@
+
+
+
+#[derive(Debug, Clone, Default)]
 pub  struct StandardClock {
     cycles : u64,
     cycles_per_second : u64,
 }
 
-trait Clock {
+pub trait Clock {
     fn cycles_per_second(&self) -> u64;
     fn add_cycles(&mut self, v : usize) -> u64;
 

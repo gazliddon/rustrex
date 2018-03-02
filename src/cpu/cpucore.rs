@@ -3,9 +3,14 @@
 use mem::MemoryIO;
 use cpu::{ Regs, RegEnum, Flags, InstructionDecoder};
 use cpu::{FetchWrite, AddressLines, Direct, Extended, Immediate, Inherent, Relative, Indexed};
+use cpu::{Clock};
 
 use cpu::alu::{GazAlu};
 use cpu::alu;
+
+
+use std::cell::RefCell;
+use std::rc::Rc;
 
 // use cpu::alu;
 
@@ -45,12 +50,18 @@ impl Cpu {
         }
     }
 
-    pub fn from_regs(regs : Regs) ->  Cpu {
-        Cpu {
-            regs : regs,
-        }
+    pub fn from_regs(regs : &Regs) ->  Cpu {
+        let mut r = Self::new();
+        r.set_regs(regs);
+        r
+    }
+
+    pub fn set_regs(&mut self, regs : &Regs ) {
+        self.regs = regs.clone()
     }
 }
+
+
 
 ////////////////////////////////////////////////////////////////////////////////
 impl Cpu {
@@ -1168,11 +1179,23 @@ impl  Cpu {
     }
 }
 
-struct Context<'a> {
+struct Context<'a, C : 'a + Clock> {
     regs : &'a mut Regs,
     mem : &'a mut ( MemoryIO + 'a),
-    // ins : InstructionDecoder
+    ref_clock : &'a Rc<RefCell<C>>,
 }
+
+pub fn step<M: MemoryIO, C : Clock>(regs : &mut Regs, mem : &mut M, ref_clock : &Rc<RefCell<C>>) -> InstructionDecoder {
+
+    let ctx = Context {
+        regs,
+        mem,
+        ref_clock
+    };
+
+    panic!("");
+}
+
 //
 // }}}
 

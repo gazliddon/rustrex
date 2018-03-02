@@ -1,6 +1,10 @@
 use mem::{ MemoryIO };
 use sha1::Sha1;
 
+use std::cell::RefCell;
+use std::rc::Rc;
+use cpu::StandardClock;
+
 // http://www.playvectrex.com/designit/chrissalo/via3.htm
 
 #[repr(u16)]
@@ -29,29 +33,30 @@ pub enum Reg {
 }
 
 #[derive(Debug, Clone, Default)]
-
 pub struct M6522 {
     regs : [u8; 16],
     start : u16,
     size :u16,
     last_byte : u16,
     name : String,
+    rc_clock : Rc<RefCell<StandardClock>>,
 }
 
 
 impl M6522 {
 
-    pub fn new(start : u16, size : u16) -> Self {
+    pub fn new(start : u16, size : u16, rc_clock : &Rc<RefCell<StandardClock>>) -> Self {
         let last_byte = (size as u32 + start as u32) - 1;
 
         assert!(last_byte < 0x1_0000);
 
         Self {
+            regs : [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
             start,
             size,
             last_byte : last_byte as u16,
             name : format!("6522 : {:04x} {:04x}", start, size),
-            .. Default::default()
+            rc_clock : rc_clock.clone(),
         }
     }
 

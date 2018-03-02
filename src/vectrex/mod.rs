@@ -4,10 +4,12 @@ use mem::{MemMap, MemBlock, MemoryIO, MemMapIO};
  
 use clap::{ArgMatches};
 use cpu::{Cpu,Regs};
-use clock::StandardClock;
+use cpu::StandardClock;
 use m6522::M6522;
 use sha1::Sha1;
 use std::cell::RefCell;
+use std::rc::Rc;
+
 
 static FAST_ROM: &'static [u8] = include_bytes!("../../resources/fastrom.dat");
 static SYS_ROM: &'static [u8]  = include_bytes!("../../resources/rom.dat");
@@ -18,7 +20,7 @@ pub struct Vectrex {
     m6522 : M6522,
     dac   : dac::Dac,
 
-    ref_clock : RefCell<StandardClock>,
+    rc_clock : Rc<RefCell<StandardClock>>,
 }
 
 impl MemBlock {
@@ -32,7 +34,9 @@ impl MemBlock {
         assert!(last_byte < 0x1_0000);
 
         let mut r = MemBlock::new(name, writeable, addr, data.len() );
-        r.data = data.to_vec(); 
+
+        r.data = data.to_vec();
+
         r
     }
 }
@@ -71,10 +75,13 @@ impl Vectrex {
 
     pub fn new() -> Vectrex {
 
-        let regs = Regs::new();
-        let cpu = Cpu::from_regs(regs);
+        let rc_clock = Rc::new(RefCell::new(StandardClock::new(1_500_000)));
+
+        let cpu = Cpu::from_regs(&Regs::new());
+
         let mut mem = MemMap::new();
-        let m6522 = M6522::new(0,4096);
+
+        let m6522 = M6522::new(0,4096, &rc_clock);
 
         mem.add_memory(mk_data_mem(0xe000,"sysrom", FAST_ROM, false));
         mem.add_mem_block("cart", false, 0, 16 * 1024);
@@ -85,7 +92,7 @@ impl Vectrex {
             cpu   ,
             m6522 ,
             dac   : dac::Dac {},
-            ref_clock : RefCell::new(StandardClock::new(1_500_000)),
+            rc_clock,
         }
     }
 

@@ -1,8 +1,11 @@
 use mem::{MemoryIO, LoggingMemMap, LogEntry, MemMap};
-use cpu::{Cpu, Regs};
+use cpu::{Cpu, Regs, StandardClock};
 use diss::Disassembler;
 use clap::{ArgMatches};
 
+
+use std::cell::RefCell;
+use std::rc::Rc;
 
 use tests::tester;
 use proclog::{Step};
@@ -119,12 +122,14 @@ impl tester::Tester for JsonTest {
 
         println!("Done, {} steps to emulate", run_log.states.len().separated_string());
 
+        let rc_clock = Rc::new(RefCell::new(StandardClock::new(1_500_000)));
+
         JsonTest {
             json_file       : json_file.clone(),
             dont_check_hash : matches.is_present("no-hash-check"),
             log_memory      : matches.is_present("log-memory"),
             mem             : run_log.create_memmap(),
-            cpu             : Cpu::from_regs(run_log.states[0].regs.clone()),
+            cpu             : Cpu::from_regs(&run_log.states[0].regs),
             steps           : run_log.states,
             check_cycles    : matches.is_present("check-cycles"),
             verbose         : matches.is_present("show-disassembly"),
