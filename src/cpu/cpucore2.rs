@@ -33,17 +33,19 @@ fn get_tfr_reg(op : u8 ) -> RegEnum {
 }
 
 pub fn get_tfr_regs(op : u8) -> (RegEnum, RegEnum) {
-    ( get_tfr_reg(op>>4), get_tfr_reg(op&0xf) )
+    ( get_tfr_reg(op>>4), get_tfr_reg(op&0xf) ) 
 }
+
 
 struct Context<'a, C : 'a + Clock, M : 'a + MemoryIO> {
     regs : &'a mut Regs,
     mem : &'a mut M,
     ref_clock : &'a Rc<RefCell<C>>,
-    ins : &'a mut InstructionDecoder,
+    ins : InstructionDecoder,
 }
 
 impl<'a, C : 'a + Clock, M : 'a + MemoryIO> Context<'a, C, M> {
+
     fn set_pc(&mut self, v : u16) {
         self.ins.next_addr = v;
     }
@@ -58,31 +60,31 @@ impl<'a, C : 'a + Clock, M : 'a + MemoryIO> Context<'a, C, M> {
     }
 
     fn fetch_byte_as_i16<A : AddressLines>(&mut self) -> i16 {
-        A::fetch_byte(self.mem, self.regs, self.ins) as i8 as i16
+        self.fetch_byte::<A>() as i8 as i16
     }
 
     fn store_byte<A: AddressLines>(&mut self, v : u8) {
-        A::store_byte(self.mem, self.regs, self.ins, v);
+        A::store_byte(self.mem, self.regs, &mut self.ins, v);
     }
 
     fn store_word<A: AddressLines>(&mut self, v : u16) {
-        A::store_word(self.mem, self.regs, self.ins, v);
+        A::store_word(self.mem, self.regs, &mut self.ins, v);
     }
 
     fn fetch_word_as_i16<A : AddressLines>(&mut self) -> i16 {
-        A::fetch_word(self.mem, self.regs, self.ins) as i16
+        self.fetch_word::<A>() as i16
     }
 
     fn fetch_byte<A : AddressLines>(&mut self) -> u8 {
-        A::fetch_byte(self.mem, self.regs, self.ins)
+        A::fetch_byte(self.mem, self.regs, &mut self.ins)
     }
 
     fn fetch_word<A : AddressLines>(&mut self) -> u16 {
-        A::fetch_word(self.mem, self.regs, self.ins)
+        A::fetch_word(self.mem, self.regs, &mut self.ins)
     }
 
     fn ea<A : AddressLines>(&mut self) -> u16 {
-        A::fetch_word(self.mem, self.regs, self.ins)
+        A::ea(self.mem, self.regs, &mut self.ins)
     }
 
     fn inc_cycles(&mut self) {
@@ -93,7 +95,6 @@ impl<'a, C : 'a + Clock, M : 'a + MemoryIO> Context<'a, C, M> {
         let i1 = self.fetch_byte::<A>() as u32;
         func(&mut self.regs.flags, write_mask, i0 as u32, i1)
     }
-
 
     fn op16_2< A : AddressLines>( &mut self,  write_mask : u8, func : fn(&mut Flags,u8, u32, u32) -> u16, i0 : u16 ) -> u16 {
         let i1 = self.fetch_word::<A>() as u32;
@@ -1166,28 +1167,36 @@ impl<'a, C : 'a + Clock, M : 'a + MemoryIO> Context<'a, C, M> {
     }
 }
 
+impl<'a, C : 'a + Clock, M : 'a + MemoryIO> Context<'a, C, M> {
+
+    fn new(mem : &'a mut M, regs : &'a mut Regs, ref_clock: &'a Rc<RefCell<C>>) -> Context<'a, C,M> {
+        let ins = InstructionDecoder::new(regs.pc);
+
+        Context {
+            regs,
+            mem,
+            ref_clock,
+            ins,
+        }
+    }
+
+    pub fn fetch_instruction(&mut self) -> u16 {
+        self.ins.fetch_instruction(self.mem)
+    }
+}
+
 pub fn step<M: MemoryIO, C : Clock>(regs : &mut Regs, mem : &mut M, ref_clock : &Rc<RefCell<C>>) -> InstructionDecoder {
-
-    let mut ins = InstructionDecoder::new(regs.pc);
-
-    let op = ins.fetch_instruction(mem);
-
-    let mut ctx = Context {
-        regs,
-        mem,
-        ref_clock,
-        ins : &mut ins,
-    };
+    let mut ctx = Context::new(mem,regs,ref_clock);
 
     macro_rules! handle_op {
         ($addr:ident, $action:ident) => (
             { ctx.$action::<$addr>(); }) }
 
-    op_table!(op, { ctx.unimplemented() });
+    op_table!(ctx.fetch_instruction(), { ctx.unimplemented() });
 
     ctx.regs.pc =  ctx.ins.next_addr;
 
-    panic!("");
+    ctx.ins.clone()
 }
 
 //

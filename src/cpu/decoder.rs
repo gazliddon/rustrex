@@ -1,7 +1,6 @@
 use mem::MemoryIO;
 
-#[derive(Default)]
-#[derive(Debug)]
+#[derive(Debug,Clone,Default)]
 pub struct InstructionDecoder {
     pub op_code : u16,
     pub cycles : u32,
