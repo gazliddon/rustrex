@@ -1,8 +1,9 @@
 use mem::{MemoryIO, LoggingMemMap, LogEntry, MemMap};
-use cpu::{Cpu, Regs, StandardClock};
+use cpu::{Regs, StandardClock};
 use diss::Disassembler;
 use clap::{ArgMatches};
 
+use cpu::step;
 
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -42,11 +43,6 @@ use timer::{Timer, RunTime};
 
 ////////////////////////////////////////////////////////////////////////////////
 
-
-
-
-
-
 impl RunLog {
 
     pub fn create_memmap(&self) -> MemMap {
@@ -70,17 +66,15 @@ impl RunLog {
 
 pub struct JsonTest {
 
-    check_cycles : bool,
-    verbose : bool,
-
+    check_cycles    : bool,
+    verbose         : bool,
     dont_check_hash : bool,
-    json_file : String,
-    log_memory: bool,
-
-    mem : MemMap,
-    cpu : Cpu,
-    // run_log : json::RunLog,
-    steps : Vec<Step>,
+    json_file       : String,
+    log_memory      : bool,
+    mem             : MemMap,
+    steps           : Vec<Step>,
+    regs            : Regs,
+    clock           : Rc<RefCell<StandardClock>>,
 }
 
 
@@ -124,15 +118,19 @@ impl tester::Tester for JsonTest {
 
         let rc_clock = Rc::new(RefCell::new(StandardClock::new(1_500_000)));
 
+        let start_regs = run_log.states[0].regs.clone();
+
         JsonTest {
             json_file       : json_file.clone(),
             dont_check_hash : matches.is_present("no-hash-check"),
             log_memory      : matches.is_present("log-memory"),
             mem             : run_log.create_memmap(),
-            cpu             : Cpu::from_regs(&run_log.states[0].regs),
+            // cpu             : Cpu::from_regs(&start_regs),
             steps           : run_log.states,
             check_cycles    : matches.is_present("check-cycles"),
             verbose         : matches.is_present("show-disassembly"),
+            regs            : start_regs.clone(),
+            clock           : rc_clock,
         }
     }
 
@@ -164,13 +162,15 @@ impl tester::Tester for JsonTest {
             let log_regs_after = &log_after.regs;
             let log_regs_before = &log_before.regs;
 
-            let prev_sim = self.cpu.regs.clone();
+            let prev_sim = self.regs.clone();
 
-            let pc = self.cpu.regs.pc;
+            let pc = self.regs.pc;
 
-            let ins = self.cpu.step(&mut self.mem);
+            let ins = step(&mut self.regs, &mut self.mem, &self.clock);
 
-            let sim = &self.cpu.regs;
+            // let ins = self.cpu.step(&mut self.mem);
+
+            let sim = &self.regs;
 
             let is_hash_ok = if self.dont_check_hash {
                 true
@@ -204,11 +204,11 @@ impl tester::Tester for JsonTest {
                 // let writes_str = get_writes_as_str(&mem);
                 // println!("{:04x}   {:20}{:20} : {}", pc, txt, writes_str, sim);
 
-                let (ins, txt) =  diss.diss(&self.mem, self.cpu.regs.pc, None);
+                let (ins, txt) =  diss.diss(&self.mem, self.regs.pc, None);
                 println!();
 
                 println!("Next op:");
-                println!("{:04x}   {:20}", self.cpu.regs.pc, txt);
+                println!("{:04x}   {:20}", self.regs.pc, txt);
 
                 println!();
 

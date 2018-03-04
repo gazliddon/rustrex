@@ -9,7 +9,6 @@ mod addrmodes;
 mod decoder;
 mod alu;
 mod clock;
-mod cpucore2;
 
 pub use self::registers::*;
 pub use self::isa::*;
@@ -19,5 +18,4 @@ pub use self::cpucore::*;
 pub use self::decoder::*;
 pub use self::addrmodes::*;
 pub use self::clock::*;
-
 
