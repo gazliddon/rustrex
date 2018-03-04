@@ -12,6 +12,7 @@ pub struct MemBlock {
 }
 
 impl MemBlock {
+
     pub fn new(name: &str, read_only : bool, base: u16, size: usize) -> MemBlock {
 
         let data = vec![0u8; size as usize];
@@ -29,6 +30,20 @@ impl MemBlock {
             name: name.to_string(),
             last_mem: last_mem,
         }
+    }
+
+    pub fn from_data(addr : u16 ,name : &str, data : &[u8], writeable : bool ) -> MemBlock {
+        let len = data.len() as u32;
+
+        let last_byte = addr as u32 + len;
+
+        assert!(last_byte < 0x1_0000);
+
+        let mut r = MemBlock::new(name, writeable, addr, data.len() );
+
+        r.data = data.to_vec();
+
+        r
     }
 }
 

@@ -4,8 +4,6 @@ use std::ops::Range;
 pub use sha1::Sha1;
 
 
-
-
 fn to_mem_range( address : u16, size :u16 ) -> Range<u32> {
     use std::cmp::min;
     let last_mem = address as u32 + size as u32;
@@ -32,13 +30,14 @@ pub trait MemoryIO {
         
     fn store_byte(&mut self, addr:u16, val:u8);
 
+    fn get_name(&self) -> &String;
+
     fn get_sha1_string(&self) -> String {
         let mut m = Sha1::new();
         self.update_sha1(&mut m);
         m.digest().to_string()
     }
 
-    fn get_name(&self) -> &String;
 
     fn is_in_range(&self, val : u16) -> bool {
         let (base, last) = self.get_range();
