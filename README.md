@@ -1,3 +1,21 @@
-# First Rust Program!
+# Rustrex - Vextrex Enulator in Rust
 
-And that's all
+Early days, lots to do
+
+## Goals
+* Multi-platform
+* Peformant
+* Idiotmatic Rust
+* Accurate
+* Reduce need for running code on Vectrex hardware
+
+## Done
+* First pass 6809
+
+## Todo
+* GDB integration
+* First pass 6522
+* First pass DAC / multiplexer
+* Display
+
+

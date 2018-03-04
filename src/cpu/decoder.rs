@@ -58,7 +58,6 @@ impl InstructionDecoder {
     }
 
     pub fn fetch_instruction<M: MemoryIO>(&mut self, mem: &M) -> u16 {
-
         self.cycles = 2;
 
         let a = self.fetch_byte(mem) as u16;

@@ -36,12 +36,21 @@ pub fn get_tfr_regs(op : u8) -> (RegEnum, RegEnum) {
     ( get_tfr_reg(op>>4), get_tfr_reg(op&0xf) ) 
 }
 
-
 struct Context<'a, C : 'a + Clock, M : 'a + MemoryIO> {
     regs : &'a mut Regs,
     mem : &'a mut M,
     ref_clock : &'a Rc<RefCell<C>>,
     ins : InstructionDecoder,
+}
+
+impl<'a, C : 'a + Clock, M : 'a + MemoryIO> Context<'a, C, M> {
+    fn inc_cycles(&mut self) {
+        self.ins.inc_cycles();
+    }
+
+    fn add_cycles(&mut self, i0 : usize) {
+        self.ins.add_cycles(i0 as u32)
+    }
 }
 
 impl<'a, C : 'a + Clock, M : 'a + MemoryIO> Context<'a, C, M> {
@@ -85,10 +94,6 @@ impl<'a, C : 'a + Clock, M : 'a + MemoryIO> Context<'a, C, M> {
 
     fn ea<A : AddressLines>(&mut self) -> u16 {
         A::ea(self.mem, self.regs, &mut self.ins)
-    }
-
-    fn inc_cycles(&mut self) {
-        self.ins.inc_cycles();
     }
 
     fn op8_2<A : AddressLines>( &mut self, write_mask : u8, func : fn(&mut Flags,u8, u32, u32) -> u8, i0 : u8 ) -> u8{
@@ -198,7 +203,7 @@ impl<'a, C : 'a + Clock, M : 'a + MemoryIO> Context<'a, C, M> {
         let v = self.fetch_byte::<A>();
         let cc = self.regs.flags.bits();
         self.regs.flags.set_flags(v | cc);
-        self.ins.inc_cycles()
+        self.inc_cycles()
     }
 
     fn stx<A : AddressLines>(&mut self)  {
@@ -257,7 +262,7 @@ impl<'a, C : 'a + Clock, M : 'a + MemoryIO> Context<'a, C, M> {
     }
 
     fn tfr<A : AddressLines>(&mut self)  {
-        self.ins.add_cycles(4);
+        self.add_cycles(4);
         let operand = self.fetch_byte::<A>();
         let (a,b) = get_tfr_regs(operand as u8);
         let av = self.regs.get(&a);
@@ -265,7 +270,7 @@ impl<'a, C : 'a + Clock, M : 'a + MemoryIO> Context<'a, C, M> {
     }
 
     fn abx<A : AddressLines>(&mut self)  {
-        self.ins.add_cycles(1);
+        self.add_cycles(1);
         let x = self.regs.x;
         self.regs.x = x.wrapping_add(self.regs.b as u16);
     }
@@ -376,7 +381,7 @@ impl<'a, C : 'a + Clock, M : 'a + MemoryIO> Context<'a, C, M> {
 
     fn bsr< A : AddressLines>(&mut self)  {
         let offset = self.fetch_byte_as_i16::<A>();
-        let next_op = self.ins.next_addr;
+        let next_op = self.get_pc();
         self.pushs_word( next_op);
         self.set_pc_rel(offset);
     }
@@ -412,7 +417,7 @@ impl<'a, C : 'a + Clock, M : 'a + MemoryIO> Context<'a, C, M> {
 
 
     fn andcc<A : AddressLines>(&mut self)  {
-        self.ins.inc_cycles();
+        self.inc_cycles();
 
         let i0 = self.regs.flags.bits() as u32;
         let i1 = self.fetch_byte::<A>() as u32;
@@ -632,7 +637,7 @@ impl<'a, C : 'a + Clock, M : 'a + MemoryIO> Context<'a, C, M> {
 
     fn jsr<A : AddressLines>(&mut self)  {
         let dest = self.ea::<A>();
-        let next_op = self.ins.next_addr;
+        let next_op = self.get_pc();
         self.pushs_word(next_op);
         self.set_pc(dest)
     }
@@ -1171,13 +1176,7 @@ impl<'a, C : 'a + Clock, M : 'a + MemoryIO> Context<'a, C, M> {
 
     fn new(mem : &'a mut M, regs : &'a mut Regs, ref_clock: &'a Rc<RefCell<C>>) -> Context<'a, C,M> {
         let ins = InstructionDecoder::new(regs.pc);
-
-        Context {
-            regs,
-            mem,
-            ref_clock,
-            ins,
-        }
+        Context { regs, mem, ref_clock, ins, }
     }
 
     pub fn fetch_instruction(&mut self) -> u16 {
@@ -1186,16 +1185,15 @@ impl<'a, C : 'a + Clock, M : 'a + MemoryIO> Context<'a, C, M> {
 }
 
 pub fn step<M: MemoryIO, C : Clock>(regs : &mut Regs, mem : &mut M, ref_clock : &Rc<RefCell<C>>) -> InstructionDecoder {
+
     let mut ctx = Context::new(mem,regs,ref_clock);
 
     macro_rules! handle_op {
-        ($addr:ident, $action:ident) => (
-            { ctx.$action::<$addr>(); }) }
+        ($addr:ident, $action:ident) => ({ ctx.$action::<$addr>(); }) }
 
     op_table!(ctx.fetch_instruction(), { ctx.unimplemented() });
 
     ctx.regs.pc =  ctx.ins.next_addr;
-
     ctx.ins.clone()
 }
 
