@@ -20,15 +20,32 @@ static FAST_ROM: &'static [u8] = include_bytes!("../../resources/fastrom.dat");
 static SYS_ROM: &'static [u8]  = include_bytes!("../../resources/rom.dat");
 
 // Contains memory and memmapped perihpherals
+// decodes memory map
 
 struct VecMem {
-    via    : M6522,
-    dac      : dac::Dac,
-    sys_rom  : MemBlock,
-    cart_rom : MemBlock,
-    ram      : MemBlock,
+    via            : M6522,
+    dac            : dac::Dac,
+    sys_rom        : MemBlock,
+    cart_rom       : MemBlock,
+    ram            : MemBlock,
     addr_to_region : [MemRegion; 0x1_0000],
-    name     : String,
+    name           : String,
+}
+
+fn build_addr_to_region(mem_tab :  &[(MemRegion, &MemoryIO )]) -> [MemRegion; 0x1_0000] {
+    use self::MemRegion::*;
+
+    let mut ret = [Illegal; 0x1_0000];
+
+    for (i, id) in ret.iter_mut().enumerate() {
+        for &(this_id, mem) in mem_tab {
+            if mem.is_in_range(i as u16) {
+                *id = this_id;
+            }
+        }
+    }
+
+    ret
 }
 
 impl VecMem {
@@ -44,21 +61,31 @@ impl VecMem {
         let ram       = MemBlock::new("ram", false, 0xc000, 1024);
         let dac       = dac::Dac {};
 
+        let addr_to_region = {
+
+            use self::MemRegion::*;
+
+            let mems : &[(MemRegion, &MemoryIO )] = &[
+                (Rom, &sys_rom ),
+                (Cart, &cart_rom ), 
+                (Ram, &ram )];
+
+            build_addr_to_region(mems)
+        };
+
         VecMem {
-            sys_rom, cart_rom, ram, dac, name,via,
-            addr_to_region :  [MemRegion::Illegal; 0x1_0000],
+            sys_rom, cart_rom, ram, dac, name,via, addr_to_region
         }
     }
 }
 
 impl MemoryIO for VecMem {
-
     fn upload(&mut self, addr : u16, data : &[u8]) {
         unimplemented!("TBD")
     }
 
     fn get_range(&self) -> (u16, u16) {
-        (0 as u16, 0xffff as u16)
+        (0, 0xffff)
     }
 
     fn update_sha1(&self, digest : &mut Sha1) {
@@ -71,10 +98,10 @@ impl MemoryIO for VecMem {
         use self::MemRegion::*;
 
         match region {
-            Ram => self.ram.load_byte(addr),
-            Rom => self.sys_rom.load_byte(addr),
-            Cart => self.cart_rom.load_byte(addr),
-            VIA => 0,
+            Ram     => self.ram.load_byte(addr),
+            Rom     => self.sys_rom.load_byte(addr),
+            Cart    => self.cart_rom.load_byte(addr),
+            VIA     => 0,
             Illegal => panic!("Illegal!"),
         }
     }
@@ -84,9 +111,9 @@ impl MemoryIO for VecMem {
         use self::MemRegion::*;
         match region {
             Cart | Rom => panic!("Illegal wirte to rom"),
-            Illegal => panic!("Illegal!"),
-            Ram => self.ram.store_byte(addr,val),
-            VIA => (),
+            Illegal    => panic!("Illegal!"),
+            Ram        => self.ram.store_byte(addr,val),
+            VIA        => (),
         }
     }
 
@@ -96,11 +123,10 @@ impl MemoryIO for VecMem {
 }
 
 pub struct Vectrex {
-    mem      : MemMap,
-    m6522    : M6522,
     regs     : Regs,
     dac      : dac::Dac,
     rc_clock : Rc<RefCell<StandardClock>>,
+    vec_mem  : VecMem,
 }
 
 fn mk_data_mem(addr : u16 ,name : &str, data : &[u8], writeable : bool ) -> Box<MemoryIO> {
@@ -112,19 +138,13 @@ impl Vectrex {
     pub fn new() -> Vectrex {
 
         let rc_clock = Rc::new(RefCell::new(StandardClock::new(1_500_000)));
-
-        let mut mem = MemMap::new();
-
-        let m6522 = M6522::new(0,4096, &rc_clock);
-
-        mem.add_memory(mk_data_mem(0xe000,"sysrom", FAST_ROM, false));
-        mem.add_mem_block("cart", false, 0, 16 * 1024);
-        mem.add_mem_block("ram", true, 0xc800,  1024);
+        let vec_mem = VecMem::new(&rc_clock);
 
         Vectrex {
-            mem, m6522,rc_clock,
+            rc_clock,
             dac   : dac::Dac {},
             regs  : Regs::new(),
+            vec_mem,
         }
     }
 
@@ -133,7 +153,7 @@ impl Vectrex {
     }
 
     pub fn step(&mut self) {
-        let ins = step(&mut self.regs, &mut self.mem, &self.rc_clock);
+        let ins = step(&mut self.regs, &mut self.vec_mem, &self.rc_clock);
     }
 }
 
