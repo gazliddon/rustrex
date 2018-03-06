@@ -46,10 +46,12 @@ struct Context<'a, C : 'a + Clock, M : 'a + MemoryIO> {
 impl<'a, C : 'a + Clock, M : 'a + MemoryIO> Context<'a, C, M> {
     fn inc_cycles(&mut self) {
         self.ins.inc_cycles();
+        self.ref_clock.borrow_mut().inc_cycles();
     }
 
     fn add_cycles(&mut self, i0 : usize) {
-        self.ins.add_cycles(i0 as u32)
+        self.ins.add_cycles(i0 as u32);
+        self.ref_clock.borrow_mut().add_cycles(i0);
     }
 }
 
@@ -1182,6 +1184,21 @@ impl<'a, C : 'a + Clock, M : 'a + MemoryIO> Context<'a, C, M> {
     pub fn fetch_instruction(&mut self) -> u16 {
         self.ins.fetch_instruction(self.mem)
     }
+}
+
+struct Tester {
+    a : usize,
+}
+
+pub fn reset<M: MemoryIO, C : Clock>(regs : &mut Regs, mem : &mut M, ref_clock : &Rc<RefCell<C>>) {
+    
+   ref_clock.borrow_mut().set_cycles(0);
+
+    *regs = Regs {
+        pc : mem.load_word(0xfffe),
+        flags : Flags::I | Flags::F,
+        .. Default::default()
+    };
 }
 
 pub fn step<M: MemoryIO, C : Clock>(regs : &mut Regs, mem : &mut M, ref_clock : &Rc<RefCell<C>>) -> InstructionDecoder {

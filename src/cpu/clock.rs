@@ -10,6 +10,7 @@ pub  struct StandardClock {
 pub trait Clock {
     fn cycles_per_second(&self) -> u64;
     fn add_cycles(&mut self, v : usize) -> u64;
+    fn set_cycles(&mut self, v : u64);
 
     fn inc_cycles(&mut self) -> u64 {
         self.add_cycles(1)
@@ -28,6 +29,10 @@ impl StandardClock {
 impl Clock for StandardClock {
     fn cycles_per_second(&self) -> u64 {
         self.cycles_per_second
+    }
+
+    fn set_cycles(&mut self, v : u64) {
+        self.cycles = v;
     }
 
     fn add_cycles(&mut self, v : usize) -> u64 {

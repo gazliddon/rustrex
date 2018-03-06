@@ -80,6 +80,7 @@ impl VecMem {
 }
 
 impl MemoryIO for VecMem {
+
     fn upload(&mut self, addr : u16, data : &[u8]) {
         unimplemented!("TBD")
     }
@@ -93,6 +94,7 @@ impl MemoryIO for VecMem {
     }
 
     fn load_byte(&self, addr:u16) -> u8 {
+
         let region = self.addr_to_region[addr as usize];
 
         use self::MemRegion::*;
@@ -107,8 +109,11 @@ impl MemoryIO for VecMem {
     }
 
     fn store_byte(&mut self, addr:u16, val:u8) {
+
         let region = self.addr_to_region[addr as usize];
+
         use self::MemRegion::*;
+
         match region {
             Cart | Rom => panic!("Illegal wirte to rom"),
             Illegal    => panic!("Illegal!"),
@@ -124,7 +129,6 @@ impl MemoryIO for VecMem {
 
 pub struct Vectrex {
     regs     : Regs,
-    dac      : dac::Dac,
     rc_clock : Rc<RefCell<StandardClock>>,
     vec_mem  : VecMem,
 }
@@ -138,11 +142,11 @@ impl Vectrex {
     pub fn new() -> Vectrex {
 
         let rc_clock = Rc::new(RefCell::new(StandardClock::new(1_500_000)));
+
         let vec_mem = VecMem::new(&rc_clock);
 
         Vectrex {
             rc_clock,
-            dac   : dac::Dac {},
             regs  : Regs::new(),
             vec_mem,
         }
