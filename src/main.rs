@@ -42,6 +42,7 @@ mod vectrex;
 use tests::{GregTest, JsonTest, Tester};
 use clap::{Arg, App, SubCommand, ArgMatches};
 
+
 fn do_test<T : Tester>(matches : &ArgMatches) -> T{
     let mut tester = T::from_matches(matches);
     tester.run();
@@ -102,6 +103,15 @@ fn main() {
                          .long("log-memory")
                          .help("enable memory logging")))
         .get_matches();
+
+    if let Some(matches) = matches.subcommand_matches("emu") {
+        let mut emu = vectrex::Vectrex::from_matches(matches);
+
+        for i in 0..10_000_000 {
+            emu.step();
+        }
+    }
+
 
     if let Some(matches) = matches.subcommand_matches("greg") {
         do_test::<GregTest>(matches);

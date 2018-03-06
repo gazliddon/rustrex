@@ -11,6 +11,11 @@ use cpu::alu;
 use std::cell::RefCell;
 use std::rc::Rc;
 
+pub trait Host<M: MemoryIO, C : Clock> {
+    fn mem(&mut self) -> &mut M;
+    fn clock(&mut self) -> &Rc<RefCell<C>>;
+    fn regs(&mut self) -> &mut Regs;
+}
 // use cpu::alu;
 
 fn get_tfr_reg(op : u8 ) -> RegEnum {
@@ -1186,13 +1191,7 @@ impl<'a, C : 'a + Clock, M : 'a + MemoryIO> Context<'a, C, M> {
     }
 }
 
-struct Tester {
-    a : usize,
-}
-
-pub fn reset<M: MemoryIO, C : Clock>(regs : &mut Regs, mem : &mut M, ref_clock : &Rc<RefCell<C>>) {
-    
-   ref_clock.borrow_mut().set_cycles(0);
+pub fn reset<M: MemoryIO>(regs : &mut Regs, mem : &mut M) {
 
     *regs = Regs {
         pc : mem.load_word(0xfffe),
@@ -1212,6 +1211,20 @@ pub fn step<M: MemoryIO, C : Clock>(regs : &mut Regs, mem : &mut M, ref_clock : 
 
     ctx.regs.pc =  ctx.ins.next_addr;
     ctx.ins.clone()
+}
+
+pub fn step_host<M: MemoryIO, C: Clock>(host : &mut Host<M,C>) -> InstructionDecoder {
+
+    //let mem = {host.mem() };
+
+    //let regs = host.regs();
+
+    //let clock = host.clock();
+
+    //let ctx = Context::new(mem, regs, clock);
+
+    ////
+    unimplemented!();
 }
 
 //

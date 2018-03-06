@@ -41,8 +41,8 @@ impl MemoryIO for MemMap {
         }
     }
 
-    fn get_name(&self) -> &String {
-        &self.name
+    fn get_name(&self) -> String {
+        self.name.clone()
     }
 
     fn get_range(&self) -> (u16, u16) {

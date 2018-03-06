@@ -30,7 +30,9 @@ pub trait MemoryIO {
         
     fn store_byte(&mut self, addr:u16, val:u8);
 
-    fn get_name(&self) -> &String;
+    fn get_name(&self) -> String {
+        "default".to_string()
+    }
 
     fn get_sha1_string(&self) -> String {
         let mut m = Sha1::new();

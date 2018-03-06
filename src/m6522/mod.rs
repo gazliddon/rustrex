@@ -3,7 +3,7 @@ use sha1::Sha1;
 
 use std::cell::RefCell;
 use std::rc::Rc;
-use cpu::StandardClock;
+use cpu::Clock;
 
 // http://www.playvectrex.com/designit/chrissalo/via3.htm
 
@@ -33,19 +33,19 @@ pub enum Reg {
 }
 
 #[derive(Debug, Clone, Default)]
-pub struct M6522 {
+pub struct M6522<C : Clock> {
     regs : [u8; 16],
     start : u16,
     size :u16,
     last_byte : u16,
     name : String,
-    rc_clock : Rc<RefCell<StandardClock>>,
+    rc_clock : Rc<RefCell<C>>,
 }
 
 
-impl M6522 {
+impl <C : Clock> M6522 <C> {
 
-    pub fn new(start : u16, size : u16, rc_clock : &Rc<RefCell<StandardClock>>) -> Self {
+    pub fn new(start : u16, size : u16, rc_clock : &Rc<RefCell<C>>) -> Self {
         let last_byte = (size as u32 + start as u32) - 1;
 
         assert!(last_byte < 0x1_0000);
@@ -68,7 +68,7 @@ impl M6522 {
 
 }
 
-impl MemoryIO for M6522 {
+impl<C : Clock> MemoryIO for M6522<C> {
 
     fn get_range(&self) -> (u16, u16) {
         (self.start, self.last_byte)
@@ -82,8 +82,8 @@ impl MemoryIO for M6522 {
         panic!("tbd")
     }
 
-    fn get_name(&self) -> &String {
-        &self.name
+    fn get_name(&self) -> String {
+        "via".to_string()
     }
 
     fn load_byte(&self, addr:u16) -> u8 {

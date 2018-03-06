@@ -35,14 +35,15 @@ impl MemBlock {
     pub fn from_data(addr : u16 ,name : &str, data : &[u8], writeable : bool ) -> MemBlock {
         let len = data.len() as u32;
 
-        let last_byte = addr as u32 + len;
+        let last_byte = ( addr as u32 + len ) -1;
 
-        assert!(last_byte < 0x1_0000);
+        if last_byte >= 0x1_0000 {
+            println!("len: {:04x} base: {:04x} last: {:04x}", len ,addr, last_byte);
+            assert!(last_byte < 0x1_0000);
+        }
 
         let mut r = MemBlock::new(name, writeable, addr, data.len() );
-
         r.data = data.to_vec();
-
         r
     }
 }
@@ -63,8 +64,8 @@ impl MemoryIO for MemBlock {
         panic!("not done")
     }
 
-    fn get_name(&self) -> &String {
-        &self.name
+    fn get_name(&self) -> String {
+        self.name.clone()
     }
 
     fn get_range(&self) -> (u16, u16) {
