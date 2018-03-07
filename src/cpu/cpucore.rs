@@ -41,7 +41,7 @@ pub fn get_tfr_regs(op : u8) -> (RegEnum, RegEnum) {
     ( get_tfr_reg(op>>4), get_tfr_reg(op&0xf) ) 
 }
 
-struct Context<'a, C : 'a + Clock, M : 'a + MemoryIO> {
+pub struct Context<'a, C : 'a + Clock, M : 'a + MemoryIO> {
     regs : &'a mut Regs,
     mem : &'a mut M,
     ref_clock : &'a Rc<RefCell<C>>,
@@ -50,12 +50,12 @@ struct Context<'a, C : 'a + Clock, M : 'a + MemoryIO> {
 
 impl<'a, C : 'a + Clock, M : 'a + MemoryIO> Context<'a, C, M> {
     fn inc_cycles(&mut self) {
-        self.ins.inc_cycles();
+        // self.ins.inc_cycles();
         self.ref_clock.borrow_mut().inc_cycles();
     }
 
     fn add_cycles(&mut self, i0 : usize) {
-        self.ins.add_cycles(i0 as u32);
+        // self.ins.add_cycles(i0 as u32);
         self.ref_clock.borrow_mut().add_cycles(i0);
     }
 }

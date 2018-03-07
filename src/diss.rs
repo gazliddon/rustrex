@@ -50,14 +50,14 @@ impl Disassembler {
         self.text =  op_str.replace("OP", def_str);
     }
 
-    fn text_from_byte_op<M : MemoryIO>(&mut self, text : &'static str, mem: &M, diss : &mut InstructionDecoder) { 
+    fn text_from_byte_op<M : MemoryIO>(&mut self, text : &'static str, mem: &mut M, diss : &mut InstructionDecoder) { 
 
         let v = diss.fetch_byte(mem);
         let def_str  = format!("${:02X}", v);
         self.expand(v as u16, &def_str, text, mem, diss)
     }
 
-    fn text_from_word_op<M : MemoryIO>(&mut self, text : &'static str, mem: &M, diss : &mut InstructionDecoder) { 
+    fn text_from_word_op<M : MemoryIO>(&mut self, text : &'static str, mem: &mut M, diss : &mut InstructionDecoder) { 
         let v = diss.fetch_word(mem);
         let def_str  = format!("${:04X}", v);
         self.expand(v as u16, &def_str, text, mem, diss)
@@ -120,37 +120,37 @@ fn regs_to_str(byte : u8, f : fn(u8) -> Vec<RegEnum>) ->  String {
 } 
 
 impl Disassembler {
-    fn direct_8<M : MemoryIO>(&mut self, mem : &M, diss : &mut InstructionDecoder) { self.text_from_byte_op("<OP", mem,diss) }
-    fn direct_16<M : MemoryIO>(&mut self, mem : &M, diss : &mut InstructionDecoder) { self.text_from_byte_op("<OP", mem,diss) }
+    fn direct_8<M : MemoryIO>(&mut self, mem : &mut M, diss : &mut InstructionDecoder) { self.text_from_byte_op("<OP", mem,diss) }
+    fn direct_16<M : MemoryIO>(&mut self, mem : &mut M, diss : &mut InstructionDecoder) { self.text_from_byte_op("<OP", mem,diss) }
 
-    fn extended_16<M : MemoryIO>(&mut self, mem : &M, diss : &mut InstructionDecoder) { self.text_from_word_op("OP", mem, diss) }
-    fn extended_8<M : MemoryIO>(&mut self, mem : &M, diss : &mut InstructionDecoder) { self.text_from_word_op("OP", mem, diss) }
+    fn extended_16<M : MemoryIO>(&mut self, mem : &mut M, diss : &mut InstructionDecoder) { self.text_from_word_op("OP", mem, diss) }
+    fn extended_8<M : MemoryIO>(&mut self, mem : &mut M, diss : &mut InstructionDecoder) { self.text_from_word_op("OP", mem, diss) }
 
-    fn immediate8<M : MemoryIO>(&mut self, mem : &M, diss : &mut InstructionDecoder) { self.text_from_byte_op("#OP", mem, diss) }
+    fn immediate8<M : MemoryIO>(&mut self, mem : &mut M, diss : &mut InstructionDecoder) { self.text_from_byte_op("#OP", mem, diss) }
 
-    fn immediate16<M : MemoryIO>(&mut self, mem : &M, diss : &mut InstructionDecoder) { self.text_from_word_op("#OP", mem, diss) }
+    fn immediate16<M : MemoryIO>(&mut self, mem : &mut M, diss : &mut InstructionDecoder) { self.text_from_word_op("#OP", mem, diss) }
 
-    fn inherent<M : MemoryIO>(&mut self, mem : &M, diss : &mut InstructionDecoder) { }
+    fn inherent<M : MemoryIO>(&mut self, mem : &mut M, diss : &mut InstructionDecoder) { }
 
-    fn inherent_reg_stack<M : MemoryIO>(&mut self, mem : &M, diss : &mut InstructionDecoder) { 
+    fn inherent_reg_stack<M : MemoryIO>(&mut self, mem : &mut M, diss : &mut InstructionDecoder) { 
         let byte = diss.fetch_byte(mem);
         self.text = regs_to_str(byte,stack_regs);
     }
 
-    fn inherent_reg_reg<M : MemoryIO>(&mut self, mem : &M, diss : &mut InstructionDecoder) { 
+    fn inherent_reg_reg<M : MemoryIO>(&mut self, mem : &mut M, diss : &mut InstructionDecoder) { 
         let byte = diss.fetch_byte(mem);
         self.text = regs_to_str(byte,tfr_regs)
     }
 
-    fn indexed_8<M : MemoryIO>(&mut self, mem : &M, diss : &mut InstructionDecoder) {
+    fn indexed_8<M : MemoryIO>(&mut self, mem : &mut M, diss : &mut InstructionDecoder) {
         self.indexed(mem,diss)
     }
 
-    fn indexed_16<M : MemoryIO>(&mut self, mem : &M, diss : &mut InstructionDecoder) {
+    fn indexed_16<M : MemoryIO>(&mut self, mem : &mut M, diss : &mut InstructionDecoder) {
         self.indexed(mem,diss)
     }
 
-    fn indexed<M : MemoryIO>(&mut self, mem : &M, diss : &mut InstructionDecoder) {
+    fn indexed<M : MemoryIO>(&mut self, mem : &mut M, diss : &mut InstructionDecoder) {
 
         let iflags = IndexedFlags::new(diss.fetch_byte(mem));
 
@@ -226,13 +226,13 @@ impl Disassembler {
         self.text = s;
     }
 
-    fn relative8<M : MemoryIO>(&mut self, mem : &M, diss : &mut InstructionDecoder) {
+    fn relative8<M : MemoryIO>(&mut self, mem : &mut M, diss : &mut InstructionDecoder) {
         let v = diss.fetch_byte(mem) as i8;
         let vstr = format!("{}", v);
         self.text = vstr;
     }
 
-    fn relative16<M : MemoryIO>(&mut self, mem: &M, diss : &mut InstructionDecoder) {
+    fn relative16<M : MemoryIO>(&mut self, mem: &mut M, diss : &mut InstructionDecoder) {
         let v = diss.fetch_word(mem) as i16;
         let vstr = format!("{}", v);
         self.text = vstr;
@@ -241,7 +241,7 @@ impl Disassembler {
 
 macro_rules! op {
     ($op:ident, $text:expr) => {
-        fn $op<M: MemoryIO>(&mut self, mem : &M,  res : &mut InstructionDecoder) { self.add_op(mem, res, $text) }
+        fn $op<M: MemoryIO>(&mut self, mem : &mut M,  res : &mut InstructionDecoder) { self.add_op(mem, res, $text) }
     };
     ($op:ident) => {
         op!($op, stringify!($op));
@@ -388,7 +388,7 @@ impl Disassembler {
 
     }
 
-    pub fn diss<M: MemoryIO>(&mut self, mem : &M, addr : u16, syms : Option<&SymTab> ) -> (InstructionDecoder, String) {
+    pub fn diss<M: MemoryIO>(&mut self, mem : &mut M, addr : u16, syms : Option<&SymTab> ) -> (InstructionDecoder, String) {
         self.text = "".to_string();
 
         let mut diss = InstructionDecoder::new(addr);

@@ -1,7 +1,6 @@
 use clap::{ArgMatches};
 use std::cell::RefCell;
 use std::rc::Rc;
-use diss::Disassembler;
 
 use mem::*;
 use cpu::{Regs, StandardClock, Clock, InstructionDecoder};
@@ -63,6 +62,7 @@ impl<C: Clock> VecMem<C> {
         let sys_rom   = MemBlock::from_data(0xe000, "sys_rom", FAST_ROM, false);
         let cart_rom  = MemBlock::new("cart", true, 0, 16 * 1024);
         let ram       = MemBlock::new("ram", false, 0xc800, 1024);
+
         let dac       = dac::Dac {};
 
         let addr_to_region = {
@@ -98,8 +98,7 @@ impl<C : Clock> MemoryIO for VecMem<C> {
         unimplemented!("TBD")
     }
 
-    fn load_byte(&self, addr:u16) -> u8 {
-
+    fn load_byte(&mut self, addr:u16) -> u8 {
         let region = self.addr_to_region[addr as usize];
 
         use self::MemRegion::*;
@@ -108,7 +107,7 @@ impl<C : Clock> MemoryIO for VecMem<C> {
             Ram     => self.ram.load_byte(addr),
             Rom     => self.sys_rom.load_byte(addr),
             Cart    => self.cart_rom.load_byte(addr),
-            VIA     => 0,
+            VIA     => self.via.load_byte(addr),
             Illegal => panic!("Illegal! read from {:02x}", addr),
         }
     }
@@ -123,7 +122,7 @@ impl<C : Clock> MemoryIO for VecMem<C> {
             Cart | Rom => panic!("Illegal wirte to rom"),
             Illegal    => panic!("Illegal write of {}  to {:04X}", val, addr),
             Ram        => self.ram.store_byte(addr,val),
-            VIA        => (),
+            VIA        => self.via.store_byte(addr,val),
         }
     }
 
@@ -164,8 +163,6 @@ fn mk_data_mem(addr : u16 ,name : &str, data : &[u8], writeable : bool ) -> Box<
 impl Vectrex {
 
     pub fn new() -> Vectrex {
-
-
         let rc_clock = Rc::new(RefCell::new(StandardClock::new(1_500_000)));
 
         let vec_mem = VecMem::new(&rc_clock);

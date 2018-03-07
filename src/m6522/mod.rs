@@ -8,6 +8,7 @@ use cpu::Clock;
 // http://www.playvectrex.com/designit/chrissalo/via3.htm
 
 #[repr(u16)]
+#[derive(Debug, Clone)]
 pub enum Reg {
     PortA      = 0x0,
     PortB      = 0x1,
@@ -60,12 +61,19 @@ impl <C : Clock> M6522 <C> {
         }
     }
 
-    pub fn get_reg(&self, addr : u16) -> Reg {
+    pub fn get_reg(&self, addr : u16) -> (Reg, usize) {
         let reg_num = (addr - self.start) % self.size;
         let r: Reg = unsafe { ::std::mem::transmute(reg_num) };
-        r
+        (r, reg_num as usize)
     }
 
+    fn store(&mut self, idx : usize, val : u8 ) {
+        self.regs[idx] = val;
+    }
+
+    fn load(&self, idx : usize ) -> u8{
+        self.regs[idx]
+    }
 }
 
 impl<C : Clock> MemoryIO for M6522<C> {
@@ -86,59 +94,69 @@ impl<C : Clock> MemoryIO for M6522<C> {
         "via".to_string()
     }
 
-    fn load_byte(&self, addr:u16) -> u8 {
-        let reg = self.get_reg(addr);
+
+    fn load_byte(&mut self, addr:u16) -> u8 {
+        let (reg, i) = self.get_reg(addr);
+        println!("reading {:?}", reg);
+
+        use self::Reg::*;
 
         match reg {
-            Reg::PortA       => {0} ,
-            Reg::PortB       => {1} ,
-            Reg::DdrA        => {2} ,
-            Reg::DdrB        => {3} ,
-            Reg::T1CntL      => {4} ,
-            Reg::T1CntH      => {5} ,
+            DdrA | DdrB => self.load(i) ,
+            _ => {0},
 
-            Reg::T2CntL      => {6} ,
-            Reg::T2CntH      => {7} ,
+            // PortA       => {0} ,
+            // PortB       => {1} ,
+            // T1CntL      => {4} ,
+            // T1CntH      => {5} ,
 
-            Reg::T2Lo        => {8} ,
-            Reg::T2Hi        => {9} ,
+            // T2CntL      => {6} ,
+            // T2CntH      => {7} ,
 
-            Reg::ShiftReg    => {10} ,
+            // T2Lo        => {8} ,
+            // T2Hi        => {9} ,
 
-            Reg::AuxCntl     => {11} ,
+            // ShiftReg    => {10} ,
 
-            Reg::Cnt1        => {12} ,
-            Reg::IntFlags    => {13} ,
-            Reg::IntEnable   => {14} ,
-            Reg::PortANhs    => {15} ,
+            // AuxCntl     => {11} ,
+
+            // Cnt1        => {12} ,
+            // IntFlags    => {13} ,
+            // IntEnable   => {14} ,
+            // PortANhs    => {15} ,
         }
+
     }
 
     fn store_byte(&mut self, addr:u16, val:u8) {
-        let reg = self.get_reg(addr);
+        let (reg, i) = self.get_reg(addr);
+        println!("writing {:10?} : 0x{:02x}", reg, val);
 
-        let dummy = match reg {
-            Reg::PortA       => {0} ,
-            Reg::PortB       => {1} ,
-            Reg::DdrA        => {2} ,
-            Reg::DdrB        => {3} ,
-            Reg::T1CntL      => {4} ,
-            Reg::T1CntH      => {5} ,
+        use self::Reg::*;
 
-            Reg::T2CntL      => {6} ,
-            Reg::T2CntH      => {7} ,
+        match reg {
+            DdrA | DdrB  => self.store(i,val) ,
+            _ => (),
+            
+            // PortA        => () ,
+            // PortB        => () ,
+            // T1CntL       => () ,
+            // T1CntH       => () ,
 
-            Reg::T2Lo        => {8} ,
-            Reg::T2Hi        => {9} ,
+            // T2CntL       => () ,
+            // T2CntH       => () ,
 
-            Reg::ShiftReg    => {10} ,
+            // T2Lo         => () ,
+            // T2Hi         => () ,
 
-            Reg::AuxCntl     => {11} ,
+            // ShiftReg     => () ,
 
-            Reg::Cnt1        => {12} ,
-            Reg::IntFlags    => {13} ,
-            Reg::IntEnable   => {14} ,
-            Reg::PortANhs    => {15} ,
+            // AuxCntl      => () ,
+
+            // Cnt1         => () ,
+            // IntFlags     => () ,
+            // IntEnable    => () ,
+            // PortANhs     => () ,
         };
     }
 }

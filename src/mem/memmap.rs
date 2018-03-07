@@ -49,8 +49,8 @@ impl MemoryIO for MemMap {
         (0, 0xffff)
     }
 
-    fn load_byte(&self, addr:u16) -> u8 {
-        for m in &self.all_memory {
+    fn load_byte(&mut self, addr:u16) -> u8 {
+        for m in &mut self.all_memory {
             if m.is_in_range(addr) {
                 return m.load_byte(addr)
             }

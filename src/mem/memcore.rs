@@ -20,13 +20,23 @@ pub fn as_bytes(val : u16) -> (u8,u8) {
 }
 
 pub trait MemoryIO {
+
+    fn inspect_byte(&self, addr:u16) -> u8 {
+        panic!("TBD")
+    }
+
+    fn inspect_word(&self, addr:u16) -> u8 {
+        panic!("TBD")
+
+    }
+
     fn upload(&mut self, addr : u16, data : &[u8]);
 
     fn get_range(&self) -> (u16, u16);
 
     fn update_sha1(&self, digest : &mut Sha1);
 
-    fn load_byte(&self, addr:u16) -> u8;
+    fn load_byte(&mut self, addr:u16) -> u8;
         
     fn store_byte(&mut self, addr:u16, val:u8);
 
@@ -53,7 +63,7 @@ pub trait MemoryIO {
         self.store_byte(addr.wrapping_add(1), lo);
     }
 
-    fn load_word(&self, addr:u16) -> u16 {
+    fn load_word(&mut self, addr:u16) -> u16 {
         let lo = self.load_byte(addr.wrapping_add(1));
         let hi = self.load_byte(addr);
         as_word(lo, hi)
@@ -69,7 +79,7 @@ pub trait MemoryIO {
         let mut v : Vec<String> = Vec::new();
 
         for a in r {
-            let b = self.load_byte(a as u16);
+            let b = self.inspect_byte(a as u16);
             let t = format!("{:02X}", b);
             v.push(t);
         }

@@ -72,7 +72,7 @@ impl MemoryIO for MemBlock {
         (self.base, self.last_mem)
     }
 
-    fn load_byte(&self, addr:u16) -> u8 {
+    fn load_byte(&mut self, addr:u16) -> u8 {
         assert!(addr >= self.base && addr <= self.last_mem);
         self.data[(addr - self.base) as usize]
     }

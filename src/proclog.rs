@@ -71,7 +71,7 @@ impl Step {
 
     }
 
-    pub fn from_sim<M : MemoryIO>(mem : &M, regs : &Regs, cycles : usize) -> Step {
+    pub fn from_sim<M : MemoryIO>(mem : &mut M, regs : &Regs, cycles : usize) -> Step {
 
         let mut diss = Disassembler::new();
         let (ins, txt) =  diss.diss(mem, regs.pc, None);

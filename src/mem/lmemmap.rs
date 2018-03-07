@@ -137,7 +137,7 @@ impl MemoryIO for LoggingMemMap {
         self.mem_map.get_range()
     }
 
-    fn load_byte(&self, addr:u16) -> u8 {
+    fn load_byte(&mut self, addr:u16) -> u8 {
         let val = self.mem_map.load_byte(addr);
         let msg = LogEntry::read_byte(addr, val);
         self.log(msg);
@@ -156,7 +156,7 @@ impl MemoryIO for LoggingMemMap {
         self.log(msg);
     }
 
-    fn load_word(&self, addr:u16) -> u16 {
+    fn load_word(&mut self, addr:u16) -> u16 {
         let val = self.mem_map.load_word(addr);
 
         let msg = LogEntry::read_word(addr, val);

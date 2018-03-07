@@ -185,7 +185,7 @@ impl tester::Tester for JsonTest {
             };
 
             if self.verbose {
-                let (_, txt) =  diss.diss(&self.mem, pc, None);
+                let (_, txt) =  diss.diss(&mut self.mem, pc, None);
                 println!("({:5}) : ${:04x}   {:20} : {} ", ins.cycles, pc, txt, sim);
             }
 
@@ -204,7 +204,7 @@ impl tester::Tester for JsonTest {
                 // let writes_str = get_writes_as_str(&mem);
                 // println!("{:04x}   {:20}{:20} : {}", pc, txt, writes_str, sim);
 
-                let (ins, txt) =  diss.diss(&self.mem, self.regs.pc, None);
+                let (ins, txt) =  diss.diss(&mut self.mem, self.regs.pc, None);
                 println!();
 
                 println!("Next op:");
