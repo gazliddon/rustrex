@@ -10,18 +10,18 @@ use cpu::Clock;
 #[repr(u16)]
 #[derive(Debug, Clone)]
 pub enum Reg {
-    PortA      = 0x0,
-    PortB      = 0x1,
-    DdrA       = 0x2,
-    DdrB       = 0x3,
-    T1CntL     = 0x4,
-    T1CntH     = 0x5,
+    PortB      = 0x0,
+    PortA      = 0x1,
+    DdrB       = 0x2,
+    DdrA       = 0x3,
+    T1CntH     = 0x4,
+    T1CntL     = 0x5,
 
-    T2CntL     = 0x6,
-    T2CntH     = 0x7,
+    T2CntH     = 0x6,
+    T2CntL     = 0x7,
 
-    T2Lo       = 0x8,
-    T2Hi       = 0x9,
+    T2Hi       = 0x8,
+    T2Lo       = 0x9,
 
     ShiftReg   = 0xa,
 
@@ -93,11 +93,11 @@ impl<C : Clock> MemoryIO for M6522<C> {
     fn get_name(&self) -> String {
         "via".to_string()
     }
-
+    // http://archive.6502.org/datasheets/synertek_sy6522.pdf
 
     fn load_byte(&mut self, addr:u16) -> u8 {
         let (reg, i) = self.get_reg(addr);
-        println!("reading {:?}", reg);
+        println!("R  0x{:04X} {:?}",addr, reg);
 
         use self::Reg::*;
 
@@ -130,12 +130,17 @@ impl<C : Clock> MemoryIO for M6522<C> {
 
     fn store_byte(&mut self, addr:u16, val:u8) {
         let (reg, i) = self.get_reg(addr);
-        println!("writing {:10?} : 0x{:02x}", reg, val);
+
+        let reg_str = format!("{:?}", reg);
+
+        println!("W  0x{:04X} {:10} : 0x{:02x} 0b{:08b}",addr, reg_str, val, val);
 
         use self::Reg::*;
 
         match reg {
-            DdrA | DdrB  => self.store(i,val) ,
+            DdrA | DdrB  
+                => self.store(i,val) ,
+
             _ => (),
             
             // PortA        => () ,
@@ -155,7 +160,6 @@ impl<C : Clock> MemoryIO for M6522<C> {
 
             // Cnt1         => () ,
             // IntFlags     => () ,
-            // IntEnable    => () ,
             // PortANhs     => () ,
         };
     }
