@@ -2,6 +2,8 @@ use clap::{ArgMatches};
 use std::cell::RefCell;
 use std::rc::Rc;
 
+use diss::Disassembler;
+
 use mem::*;
 use cpu::{Regs, StandardClock, Clock, InstructionDecoder};
 use cpu;
@@ -10,7 +12,7 @@ use m6522::M6522;
 
 use vectrex::dac;
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 enum MemRegion {
     Illegal,
     Ram,
@@ -126,6 +128,27 @@ impl<C : Clock> MemoryIO for VecMem<C> {
         }
     }
 
+    fn store_word(&mut self, addr:u16, val:u16) {
+        use self::MemRegion::*;
+
+        let ah = addr.wrapping_add(1);
+
+        let r1 = self.addr_to_region[addr as usize];
+        let r2 = self.addr_to_region[ah as usize];
+
+        if r1 == r2 {
+            match r1 {
+                Cart | Rom => panic!("Illegal wirte to rom"),
+                Illegal    => panic!("Illegal write of {}  to {:04X}", val, addr),
+                Ram        => self.ram.store_word(addr,val),
+                VIA        => self.via.store_word(addr,val),
+            }
+        } else {
+            self.store_byte(addr, ( val >> 8 ) as u8);
+            self.store_byte(ah, val as u8);
+        }
+    }
+
     fn get_name(&self) -> String {
         self.name.clone()
     }
@@ -184,13 +207,21 @@ impl Vectrex {
     }
 
     pub fn step(&mut self) -> InstructionDecoder {
-        // let mut diss = Disassembler::new();
-        // let pc = self.regs.pc;
-        // let (_, txt) =  diss.diss(&self.vec_mem, pc, None);
 
-        // println!("${:04x}   {:20} : {} ",  pc, txt, self.regs);
+        let mut diss = Disassembler::new();
+        let pc = self.regs.pc;
+        let (_, txt) =  diss.diss(&mut self.vec_mem, pc, None);
 
-        cpu::step(&mut self.regs, &mut self.vec_mem, &self.rc_clock)
+
+        let r = cpu::step(&mut self.regs, &mut self.vec_mem, &self.rc_clock);
+
+        if self.vec_mem.via.is_dirty() {
+            println!("${:04x}   {:20} : {} ",  pc, txt, self.regs);
+            println!();
+            self.vec_mem.via.clear_dirty();
+        }
+
+        r
     }
 
     pub fn reset(&mut self) {
