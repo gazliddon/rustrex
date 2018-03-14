@@ -227,33 +227,25 @@ pub struct M6522<C : Clock> {
 }
 
 #[derive(Debug, Clone)]
-pub enum MuxDest {
-    YAxis,
-    XYAxis,
-    ZAxis,
-    Sound,
-}
-
-#[derive(Debug, Clone)]
 pub enum SoundReg {
     TBD,
+}
+#[derive(Debug, Clone)]
+pub enum MuxDest {
+    Disabled,
+    XAxis,
+    YAxis,
+    XYAxisIntegrator,
+    ZAxis,
+    SoundChip,
 }
 
 impl <C : Clock> M6522 <C> {
 
-    pub fn mux_sel(&self) -> MuxDest {
-        match (self.port_b.bits >> 1) & 3  {
-            0 => MuxDest::YAxis,
-            1 => MuxDest::XYAxis,
-            2 => MuxDest::ZAxis,
-            3 => MuxDest::Sound,
-            _ => panic!("really?")
-        }
-    }
 
-    pub fn ramp(&self) -> bool { ((self.port_b.bits >> 7) & 1) == 1 }
-    pub fn comparator(&self) -> bool { ((self.port_b.bits >> 5) & 1) == 1 }
-    pub fn sample_hold(&self) -> bool { self.port_b.bits & 1 == 1 }
+    pub fn ramp(&self) -> bool { self.port_b.bits.get_bit(7) }
+    pub fn comparator(&self) -> bool { self.port_b.bits.get_bit(5) }
+    pub fn sample_hold(&self) -> bool { self.port_b.bits.get_bit(1)  }
 
     pub fn sound(&self) -> SoundReg {
         match (self.port_b.bits >> 3) & 3 {
@@ -261,22 +253,36 @@ impl <C : Clock> M6522 <C> {
         }
     }
 
+    pub fn get_mux_dest(&self) -> MuxDest {
+        if self.sample_hold() {
+            MuxDest::XAxis
+        } else {
+
+            match (self.port_b.bits >> 1) & 3  {
+                0 => MuxDest::YAxis,
+                1 => MuxDest::XYAxisIntegrator,
+                2 => MuxDest::ZAxis,
+                3 => MuxDest::SoundChip,
+                _ => panic!("really?")
+            }
+        }
+    }
+
+
     pub fn port_b_report(&self) {
+
         let rtext = if self.ramp() {
-            "true : gun off" 
+            "true : gun on" 
         } 
         else { 
-            "false : gun on"
+            "false : gun off"
         };
 
         println!("PortB setup");
-        println!("SH         : {}", self.sample_hold());
-        println!("MUXSEL     : {:?}", self.mux_sel());
+        println!("MuxDest    : {:?}", self.get_mux_dest());
         println!("SOUND      : {:?}", self.sound());
         println!("COMPARATOR : {}", self.comparator());
         println!("RAMP       : {} ", rtext);
-
-        println!("bits       : {:08b}", self.port_b.bits);
     }
 }
 
@@ -512,7 +518,7 @@ impl<C : Clock> MemoryIO for M6522<C> {
 
             AuxCntl      => {
                 self.write_aux_cntl(val);
-                self.aux_cntl_report();
+                // self.aux_cntl_report();
             },
 
             T1CntL       => self.timer_1.write_lo(val),
@@ -520,7 +526,7 @@ impl<C : Clock> MemoryIO for M6522<C> {
 
             Cntl             => {
                 self.write_cntl(val);
-                self.cntl_report()
+                // self.cntl_report()
             },
 
             ShiftReg     => self.shift_reg = val,
