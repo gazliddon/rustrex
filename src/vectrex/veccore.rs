@@ -2,6 +2,8 @@ use clap::{ArgMatches};
 use std::cell::RefCell;
 use std::rc::Rc;
 
+use gdbstub;
+
 
 use diss::Disassembler;
 
@@ -37,6 +39,7 @@ struct VecMem<C : Clock> {
     addr_to_region : [MemRegion; 0x1_0000],
     name           : String,
 }
+
 
 fn build_addr_to_region(mem_tab :  &[(MemRegion, &MemoryIO )]) -> [MemRegion; 0x1_0000] {
     use self::MemRegion::*;
@@ -215,7 +218,18 @@ impl Vectrex {
 
         if gdb_enabled {
             let listener = TcpListener::bind("127.0.0.1:6809").unwrap();
-            let gdb = GdbRemote::new(&listener);
+            let mut gdb = GdbRemote::new(&listener);
+
+            let mut cpu = gdbstub::Cpu {
+                regs: [0;32]
+            };
+
+            let mut debugger = gdbstub::Debugger {};
+
+            loop {
+                let r = gdb.serve(&mut debugger, &mut cpu );
+                info!("{:?}", r);
+            }
         }
 
         ret

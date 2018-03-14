@@ -28,13 +28,12 @@ impl Debugger {
     pub fn del_write_watchpoint(&self, addr : u32) { }
     pub fn del_read_watchpoint(&self, addr : u32) { }
 
-
     // pub fn add_breakpoint(&self, addr : u32) {}
 
 }
 
 pub struct Cpu {
-    regs : [u32; 32],
+    pub regs : [u32; 32],
 }
 
 impl Cpu {
