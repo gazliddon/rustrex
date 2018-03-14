@@ -2,6 +2,7 @@ use clap::{ArgMatches};
 use std::cell::RefCell;
 use std::rc::Rc;
 
+
 use diss::Disassembler;
 
 use mem::*;
@@ -203,7 +204,22 @@ impl Vectrex {
 
 
     pub fn from_matches(matches : &ArgMatches) -> Vectrex {
-        Vectrex::new()
+
+        use std::net::TcpListener;
+        use gdbstub::GdbRemote;
+
+        let ret = Vectrex::new();
+
+        let gdb_enabled = matches.is_present("enable-gdb");
+
+
+        if gdb_enabled {
+            let listener = TcpListener::bind("127.0.0.1:6809").unwrap();
+            let gdb = GdbRemote::new(&listener);
+        }
+
+        ret
+
     }
 
     pub fn step(&mut self) -> InstructionDecoder {

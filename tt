@@ -1,1 +1,1 @@
-cargo run -- emu resources/ROCKS.BIN
+RUST_LOG=src::main cargo run -- emu -g resources/ROCKS.BIN

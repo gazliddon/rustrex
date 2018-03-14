@@ -22,6 +22,7 @@ extern crate regex;
 extern crate num;
 extern crate clap;
 
+extern crate env_logger;
 #[macro_use] extern crate log;
 
 #[macro_use] mod cpu;
@@ -50,6 +51,10 @@ fn do_test<T : Tester>(matches : &ArgMatches) -> T{
 }
 
 fn main() {
+    use std::env;
+    env::set_var("RUST_LOG", "info");
+
+    env_logger::init();
 
     let matches = App::new("Vectrex Emulator")
 
@@ -105,6 +110,7 @@ fn main() {
         .get_matches();
 
     if let Some(matches) = matches.subcommand_matches("emu") {
+        info!("Running EMU");
         let mut emu = vectrex::Vectrex::from_matches(matches);
 
         for i in 0..10_000_000 {
