@@ -6,7 +6,7 @@ use std::io::{Read, Write};
 // use memory::{Byte, HalfWord, Word};
 // use interrupt::InterruptState;
 
-use self::reply::Reply;
+use self::reply::{Reply, Endian};
 
 mod reply;
 
@@ -14,11 +14,13 @@ pub type GdbResult = Result<(), ()>;
 
 pub struct GdbRemote {
     remote: TcpStream,
+    endian : Endian,
 }
 
 pub struct Debugger { }
 
 impl Debugger {
+
     pub fn resume(&self) {}
     pub fn set_step(&self) {}
     pub fn add_breakpoint(&self, addr : u32) { }
@@ -29,7 +31,23 @@ impl Debugger {
     pub fn del_read_watchpoint(&self, addr : u32) { }
 
     // pub fn add_breakpoint(&self, addr : u32) {}
+    fn examine(&self, addr : u16) -> u8 { 
+        0x12
+    }
+}
 
+
+pub trait DebuggerHost {
+
+    fn resume(&self) ;
+    fn set_step(&self) ;
+    fn add_breakpoint(&self, addr : u16) ;
+    fn add_write_watchpoint (&self, addr : u16);
+    fn add_read_watchpoint(&self, addr : u16);
+    fn del_breakpoint(&self, addr : u16) ;
+    fn del_write_watchpoint(&self, addr : u16) ;
+    fn del_read_watchpoint(&self, addr : u16) ;
+    fn examine(&self, addr : u16) -> u8 ;
 }
 
 pub struct Cpu {
@@ -46,7 +64,7 @@ impl Cpu {
     pub fn hi(&self) -> u32 {0}
     pub fn pc(&self) -> u32 {0}
     pub fn bad(&self) -> u32 {0}
- 
+
     pub fn cause(&self, is : &InterruptState) -> u32 {
         0
     }
@@ -70,9 +88,6 @@ struct Word {}
 
 impl Cpu {
 
-    pub fn examine<T>(&self, a : u32 ) -> u32 {
-        0
-    }
 
     pub fn force_pc(&self, a : u32 ) {
 
@@ -96,6 +111,7 @@ impl GdbRemote {
 
         GdbRemote {
             remote,
+            endian : Endian::Big
         }
     }
 
@@ -172,7 +188,7 @@ impl GdbRemote {
                         }
                         None => {
                             warn!("Got invalid GDB checksum char {}",
-                                     byte);
+                                  byte);
                             return PacketResult::BadChecksum(packet);
                         }
                     }
@@ -234,10 +250,12 @@ impl GdbRemote {
         let command = packet[0];
         let args = &packet[1..];
 
+        info!("received command {}", command as char);
+
         let res =
             match command {
                 b'?' => self.send_status(),
-                b'm' => self.read_memory(cpu, args),
+                b'm' => self.read_memory(debugger, args),
                 b'g' => self.read_registers(cpu),
                 b'c' => self.resume(debugger, cpu, args),
                 b's' => self.step(debugger, cpu, args),
@@ -266,11 +284,12 @@ impl GdbRemote {
     }
 
     fn send_empty_reply(&mut self) -> GdbResult {
-        self.send_reply(Reply::new())
+        let reply = Reply::new(&self.endian);
+        self.send_reply(reply)
     }
 
     fn send_string(&mut self, string: &[u8]) -> GdbResult {
-        let mut reply = Reply::new();
+        let mut reply = Reply::new(&self.endian);
 
         reply.push(string);
 
@@ -295,49 +314,66 @@ impl GdbRemote {
 
     fn read_registers(&mut self, cpu: &mut Cpu) -> GdbResult {
 
-        let mut reply = Reply::new();
+        let mut reply = Reply::new(&self.endian);
 
-        // Send general purpose registers
-        for &r in cpu.regs() {
-            reply.push_u32(r);
-        }
+        //// Send general purpose registers
+        //for &r in cpu.regs() {
+        //    reply.push_u32(r);
+        //}
 
-        // Send control registers
-        for &r in &[ cpu.sr(),
-                     cpu.lo(),
-                     cpu.hi(),
-                     cpu.bad(),
-                     // XXX We should figure out a way to get the real
-                     // irq_state over here...
-                     cpu.cause(&InterruptState::new()),
-                     cpu.pc() ] {
-            reply.push_u32(r);
-        }
+        //// Send control registers
+        //for &r in &[ cpu.sr(),
+        //             cpu.lo(),
+        //             cpu.hi(),
+        //             cpu.bad(),
+        //             // XXX We should figure out a way to get the real
+        //             // irq_state over here...
+        //             cpu.cause(&InterruptState::new()),
+        //             cpu.pc() ] {
+        //    reply.push_u32(r);
+        //}
 
-        // GDB expects 73 registers for the MIPS architecture: the 38
-        // above plus all the floating point registers. Since the
-        // playstation doesn't support those we just return `x`s to
-        // notify GDB that those registers are unavailable.
+        //// GDB expects 73 registers for the MIPS architecture: the 38
+        //// above plus all the floating point registers. Since the
+        //// playstation doesn't support those we just return `x`s to
+        //// notify GDB that those registers are unavailable.
+        ////
+        //// The doc says that it's normally used for core dumps however
+        //// (when the value of a register can't be found in a trace) so
+        //// I'm not sure it's the right thing to do. If it causes
+        //// problems we might just return 0 (or some sane default
+        //// value) instead.
+        //for _ in 38..73 {
+        //    reply.push(b"xxxxxxxx");
+        //}
         //
-        // The doc says that it's normally used for core dumps however
-        // (when the value of a register can't be found in a trace) so
-        // I'm not sure it's the right thing to do. If it causes
-        // problems we might just return 0 (or some sane default
-        // value) instead.
-        for _ in 38..73 {
-            reply.push(b"xxxxxxxx");
-        }
+
+        // TBD these need endian swap 
+
+        reply.push_u8(0x11); // cc
+        reply.push_u8(0x22); // A 
+        reply.push_u8(0x33); // a
+        reply.push_u8(0x44); // dp
+
+        reply.push_u16(0x55); // x
+        reply.push_u16(0x66); // y 
+        reply.push_u16(0x77); // u
+        reply.push_u16(0x88); // s
+        reply.push_u16(0x99); //  PC
+
+
 
         self.send_reply(reply)
     }
 
     /// Read a region of memory. The packet format should be
     /// `ADDR,LEN`, both in hexadecimal
-    fn read_memory(&mut self, cpu: &mut Cpu, args: &[u8]) -> GdbResult {
+    fn read_memory(&mut self, debugger : &mut Debugger, args: &[u8]) -> GdbResult {
 
-        let mut reply = Reply::new();
+        let mut reply = Reply::new(&self.endian);
 
         let (addr, len) = try!(parse_addr_len(args));
+
 
         if len == 0 {
             // Should we reply with an empty string here? Probably
@@ -345,67 +381,74 @@ impl GdbRemote {
             return self.send_error();
         }
 
-        // We can now fetch the data. First we handle the case where
-        // addr is not aligned using an ad-hoc heuristic. A better way
-        // to do this might be to figure out which peripheral we're
-        // accessing and select the most meaningful access width.
-        let align = addr % 4;
+        info!("reading {:02x} bytes from {:04x}", len, addr);
 
-        let sent =
-            match align {
-                1|3 => {
-                    // If we fall on the first or third byte of a word
-                    // we use byte accesses until we reach the next
-                    // word or the end of the requested length
-                    let count = ::std::cmp::min(len, 4 - align);
+        for i in 0..len {
+            let a = (addr as u16).wrapping_add(i as u16);
+            let b = debugger.examine(a);
+            reply.push_u8(b);
+        }
+        // // We can now fetch the data. First we handle the case where
+        // // addr is not aligned using an ad-hoc heuristic. A better way
+        // // to do this might be to figure out which peripheral we're
+        // // accessing and select the most meaningful access width.
+        // let align = addr % 4;
 
-                    for i in 0..count {
-                        reply.push_u8(cpu.examine::<Byte>(addr + i) as u8);
-                    }
-                    count
-                }
-                2 => {
-                    if len == 1 {
-                        // Only one byte to read
-                        reply.push_u8(cpu.examine::<Byte>(addr) as u8);
-                        1
-                    } else {
-                        reply.push_u16(cpu.examine::<HalfWord>(addr) as u16);
-                        2
-                    }
-                }
-                _ => 0,
-            };
+        // let sent =
+        //     match align {
+        //         1|3 => {
+        //             // If we fall on the first or third byte of a word
+        //             // we use byte accesses until we reach the next
+        //             // word or the end of the requested length
+        //             let count = ::std::cmp::min(len, 4 - align);
 
-        let addr = addr + sent;
-        let len = len + sent;
+        //             for i in 0..count {
+        //                 reply.push_u8(cpu.examine::<Byte>(addr + i) as u8);
+        //             }
+        //             count
+        //         }
+        //         2 => {
+        //             if len == 1 {
+        //                 // Only one byte to read
+        //                 reply.push_u8(cpu.examine::<Byte>(addr) as u8);
+        //                 1
+        //             } else {
+        //                 reply.push_u16(cpu.examine::<HalfWord>(addr) as u16);
+        //                 2
+        //             }
+        //         }
+        //         _ => 0,
+        //     };
+
+        // let addr = addr + sent;
+        // let len = len + sent;
 
         // We can now deal with the word-aligned portion of the
         // transfer (if any). It's possible that addr is not word
         // aligned here if we entered the case "align == 2, len == 1"
         // above but it doesn't matter because in this case "nwords"
         // will be 0 so nothing will be fetched.
-        let nwords = len / 4;
+        // let nwords = len / 4;
 
-        for i in 0..nwords {
-            reply.push_u32(cpu.examine::<Word>(addr + i * 4));
-        }
+        // for i in 0..nwords {
+        //     reply.push_u32(cpu.examine::<Word>(addr + i * 4));
+        // }
 
-        // See if we have anything remaining
-        let addr = addr + nwords * 4;
-        let rem = len - nwords * 4;
+        // // See if we have anything remaining
+        // let addr = addr + nwords * 4;
+        // let rem = len - nwords * 4;
 
-        match rem {
-            1|3 => {
-                for i in 0..rem {
-                    reply.push_u8(cpu.examine::<Byte>(addr + i) as u8);
-                }
-            }
-            2 => {
-                reply.push_u16(cpu.examine::<HalfWord>(addr) as u16);
-            }
-            _ => ()
-        }
+        // match rem {
+        //     1|3 => {
+        //         for i in 0..rem {
+        //             reply.push_u8(cpu.examine::<Byte>(addr + i) as u8);
+        //         }
+        //     }
+        //     2 => {
+        //         reply.push_u16(cpu.examine::<HalfWord>(addr) as u16);
+        //     }
+        //     _ => ()
+        // }
 
         self.send_reply(reply)
     }

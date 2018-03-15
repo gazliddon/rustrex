@@ -25,9 +25,10 @@ pub trait MemoryIO {
         panic!("TBD")
     }
 
-    fn inspect_word(&self, addr:u16) -> u8 {
-        panic!("TBD")
-
+    fn inspect_word(&self, addr:u16) -> u16 {
+        let lo = self.inspect_byte(addr.wrapping_add(1));
+        let hi = self.inspect_byte(addr);
+        as_word(lo, hi)
     }
 
     fn upload(&mut self, addr : u16, data : &[u8]);

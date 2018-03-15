@@ -1,9 +1,7 @@
 use clap::{ArgMatches};
 use std::cell::RefCell;
 use std::rc::Rc;
-
 use gdbstub;
-
 
 use diss::Disassembler;
 
@@ -104,6 +102,21 @@ impl<C : Clock> MemoryIO for VecMem<C> {
         unimplemented!("TBD")
     }
 
+    fn inspect_byte(&self, addr:u16) -> u8 {
+
+        let region = self.addr_to_region[addr as usize];
+
+        use self::MemRegion::*;
+
+        match region {
+            Ram     => self.ram.inspect_byte(addr),
+            Rom     => self.sys_rom.inspect_byte(addr),
+            Cart    => self.cart_rom.inspect_byte(addr),
+            VIA     => self.via.inspect_byte(addr),
+            Illegal => panic!("Illegal! read from {:02x}", addr),
+        }
+    }
+
     fn load_byte(&mut self, addr:u16) -> u8 {
         let region = self.addr_to_region[addr as usize];
 
@@ -187,6 +200,37 @@ fn mk_data_mem(addr : u16 ,name : &str, data : &[u8], writeable : bool ) -> Box<
     Box::new(MemBlock::from_data(addr, name, data, writeable))
 }
 
+impl gdbstub::DebuggerHost for Vectrex {
+    fn resume(&self)  {
+
+    }
+    fn set_step(&self)  {
+
+    }
+    fn add_breakpoint(&self, addr : u16)  {
+
+    }
+    fn add_write_watchpoint (&self, addr : u16) {
+
+    }
+    fn add_read_watchpoint(&self, addr : u16) {
+
+    }
+    fn del_breakpoint(&self, addr : u16)  {
+
+    }
+    fn del_write_watchpoint(&self, addr : u16)  {
+
+    }
+    fn del_read_watchpoint(&self, addr : u16)  {
+        
+    }
+
+    fn examine(&self, addr : u16) -> u8  {
+        self.vec_mem.inspect_byte(addr)
+    }
+}
+
 impl Vectrex {
 
     pub fn new() -> Vectrex {
@@ -205,35 +249,52 @@ impl Vectrex {
         ret
     }
 
-
     pub fn from_matches(matches : &ArgMatches) -> Vectrex {
 
+        use std::thread;
         use std::net::TcpListener;
         use gdbstub::GdbRemote;
+        use std::sync::mpsc;
 
         let ret = Vectrex::new();
 
         let gdb_enabled = matches.is_present("enable-gdb");
 
+        let (tx, rx) = mpsc::channel();
+
+        let is_running = false;
 
         if gdb_enabled {
-            let listener = TcpListener::bind("127.0.0.1:6809").unwrap();
-            let mut gdb = GdbRemote::new(&listener);
 
-            let mut cpu = gdbstub::Cpu {
-                regs: [0;32]
-            };
+            thread::spawn(move || {
 
-            let mut debugger = gdbstub::Debugger {};
+                let listener = TcpListener::bind("127.0.0.1:6809").unwrap();
+
+                let mut gdb = GdbRemote::new(&listener);
+
+                let mut cpu = gdbstub::Cpu {
+                    regs: [0;32]
+                };
+
+                let mut debugger = gdbstub::Debugger {};
+
+                loop {
+                    let r = gdb.serve(&mut debugger, &mut cpu );
+                    tx.send(r).unwrap();
+                }
+            });
 
             loop {
-                let r = gdb.serve(&mut debugger, &mut cpu );
-                info!("{:?}", r);
+                let received = rx.recv().unwrap();
+
+                match received {
+                    Err(x) => panic!("{:?}",received),
+                    _ => print!("{:?}", received),
+                }
             }
         }
 
         ret
-
     }
 
     pub fn step(&mut self) -> InstructionDecoder {
@@ -258,6 +319,58 @@ impl Vectrex {
 
         cpu::reset(&mut self.regs, &mut self.vec_mem);
     }
+}
+// use self::glutin;
+extern crate gl;
+extern crate glutin;
+use self::glutin::{GlContext};
+
+struct Window {
+    events_loop : glutin::EventsLoop,
+    gl_window : glutin::GlWindow,
+}
+
+impl Window {
+
+    pub fn new() -> Window {
+        let events_loop = glutin::EventsLoop::new();
+        let window = glutin::WindowBuilder::new().with_title("A fantastic window!");
+        let context = glutin::ContextBuilder::new();
+        let gl_window = glutin::GlWindow::new(window, context, &events_loop).unwrap();
+        let _ = unsafe { gl_window.make_current() };
+
+        Window {
+            events_loop ,
+            gl_window ,
+        }
+    }
+
+    pub fn update(&mut self) {
+
+        let ev_loop = &mut self.events_loop;
+        let win = &mut self.gl_window;
+
+        ev_loop.poll_events( |event| {
+
+            println!("{:?}", event);
+
+            match event {
+                glutin::Event::WindowEvent { event, .. } => match event {
+                    glutin::WindowEvent::Closed => panic!("quit"),
+                    glutin::WindowEvent::Resized(w, h) => win.resize(w, h),
+                    _ => (),
+                },
+                _ => ()
+            }
+
+            // gl.draw_frame([0.0, 1.0, 0.0, 1.0]);
+
+            let _ = win.swap_buffers();
+            // glutin::ControlFlow::Continue
+        });
+    }
+
+
 }
 
 
