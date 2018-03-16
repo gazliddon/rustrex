@@ -194,6 +194,7 @@ pub struct Vectrex {
     regs     : Regs,
     rc_clock : Rc<RefCell<StandardClock>>,
     vec_mem  : VecMem<StandardClock>,
+    window   : Window,
 }
 
 fn mk_data_mem(addr : u16 ,name : &str, data : &[u8], writeable : bool ) -> Box<MemoryIO> {
@@ -242,6 +243,7 @@ impl Vectrex {
             rc_clock,
             regs  : Regs::new(),
             vec_mem,
+            window : Window::new(),
         };
 
         ret.reset();
@@ -251,55 +253,66 @@ impl Vectrex {
 
     pub fn from_matches(matches : &ArgMatches) -> Vectrex {
 
-        use std::thread;
-        use std::net::TcpListener;
-        use gdbstub::GdbRemote;
-        use std::sync::mpsc;
+        // use std::thread;
+        // use std::net::TcpListener;
+        // use gdbstub::GdbRemote;
+        // use std::sync::mpsc;
 
-        let ret = Vectrex::new();
+        let mut ret = Vectrex::new();
 
         let gdb_enabled = matches.is_present("enable-gdb");
 
-        let (tx, rx) = mpsc::channel();
+        // let (tx, rx) = mpsc::channel();
 
-        let is_running = false;
+        ret.reset();
 
-        if gdb_enabled {
+        // if gdb_enabled {
 
-            thread::spawn(move || {
+        //     // thread::spawn(move || {
 
-                let listener = TcpListener::bind("127.0.0.1:6809").unwrap();
+        //     //     let listener = TcpListener::bind("127.0.0.1:6809").unwrap();
 
-                let mut gdb = GdbRemote::new(&listener);
+        //     //     let mut gdb = GdbRemote::new(&listener);
 
-                let mut cpu = gdbstub::Cpu {
-                    regs: [0;32]
-                };
+        //     //     let mut cpu = gdbstub::Cpu {
+        //     //         regs: [0;32]
+        //     //     };
 
-                let mut debugger = gdbstub::Debugger {};
+        //     //     let mut debugger = gdbstub::Debugger {};
 
-                loop {
-                    let r = gdb.serve(&mut debugger, &mut cpu );
-                    tx.send(r).unwrap();
-                }
-            });
+        //     //     loop {
+        //     //         let r = gdb.serve(&mut debugger, &mut cpu );
+        //     //         tx.send(r).unwrap();
+        //     //     }
+        //     // });
 
-            loop {
-                let received = rx.recv().unwrap();
+        //     // loop {
+        //     //     let received = rx.recv().unwrap();
 
-                match received {
-                    Err(x) => panic!("{:?}",received),
-                    _ => print!("{:?}", received),
-                }
-            }
-        }
+        //     //     match received {
+        //     //         Err(x) => panic!("{:?}",received),
+        //     //         _ => print!("{:?}", received),
+        //     //     }
+        //     // }
+        // }
 
         ret
     }
 
+    pub fn update(&mut self) -> InstructionDecoder {
+        let pc = self.regs.pc;
+        let r = cpu::step(&mut self.regs, &mut self.vec_mem, &self.rc_clock);
+
+        self.window.update();
+
+        r
+    }
+
     pub fn step(&mut self) -> InstructionDecoder {
 
+
         let mut diss = Disassembler::new();
+
         let pc = self.regs.pc;
         let (_, txt) =  diss.diss(&mut self.vec_mem, pc, None);
 
@@ -314,6 +327,10 @@ impl Vectrex {
 
         r
     }
+
+
+
+
 
     pub fn reset(&mut self) {
 
@@ -346,6 +363,7 @@ impl Window {
     }
 
     pub fn update(&mut self) {
+        use self::glutin::{VirtualKeyCode, Event, WindowEvent};
 
         let ev_loop = &mut self.events_loop;
         let win = &mut self.gl_window;
@@ -354,10 +372,19 @@ impl Window {
 
             println!("{:?}", event);
 
+
             match event {
-                glutin::Event::WindowEvent { event, .. } => match event {
-                    glutin::WindowEvent::Closed => panic!("quit"),
-                    glutin::WindowEvent::Resized(w, h) => win.resize(w, h),
+
+                Event::WindowEvent { event, .. } => match event {
+
+                    WindowEvent::KeyboardInput {input, ..} => {
+                        if let Some(VirtualKeyCode::Escape) = input.virtual_keycode {
+                            panic!("quit")
+                        }
+                    },
+
+                    WindowEvent::Closed => panic!("quit"),
+                    WindowEvent::Resized(w, h) => win.resize(w, h),
                     _ => (),
                 },
                 _ => ()

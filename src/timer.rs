@@ -42,16 +42,16 @@ impl RunTime {
 
     pub fn secs(&self) -> f64 {
         let nanos = self.nanos();
-        nanos / 1000000000.0
+        nanos / 1_000_000_000.0
     }
 
     pub fn millis(&self) -> f64 {
         let nanos = self.nanos();
-        nanos / 1000000.0
+        nanos / 1_000_000.0
     }
     pub fn micros(&self) -> f64 {
         let nanos = self.nanos();
-        nanos / 1000.0
+        nanos / 1_000.0
     }
 }
 
