@@ -1,0 +1,6 @@
+CODE_end	equ	97
+BSS_end	equ	97
+DATA_end	equ	97
+CODE_start	equ	0
+BSS_start	equ	97
+DATA_start	equ	97

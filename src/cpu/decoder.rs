@@ -47,9 +47,6 @@ impl InstructionDecoder {
         self.fetch_byte_as_i8(mem) as i16 
     }
 
-    pub fn fetch_word_as_i16<M : MemoryIO>(&mut self, mem: &mut M) -> i16 {
-        self.fetch_word(mem) as i16
-    }
 
     pub fn fetch_word<M : MemoryIO>(&mut self, mem: &mut M) -> u16 {
         let w = mem.load_word(self.next_addr);

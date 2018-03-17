@@ -39,7 +39,7 @@ impl BreakPoints {
     }
 
     fn add_breakpoint(&mut self, b : &BreakPoint ) {
-        if let Some(x) = self.find(b) {
+        if let Some(_) = self.find(b) {
             self.clear_breakpoint(b)
         }
 
@@ -52,7 +52,7 @@ impl BreakPoints {
         }
     }
 
-    fn clear_breakpoints_at_addr(&mut self, addr : u16) {
+    fn clear_breakpoints_at_addr(&mut self, _addr : u16) {
         panic!("tbd")
     }
 

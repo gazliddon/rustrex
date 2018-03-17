@@ -3,7 +3,7 @@ use cpu::{ Regs, InstructionDecoder, IndexedFlags, IndexModes};
 
 pub trait AddressLines {
 
-    fn ea<M: MemoryIO>(mem : &mut M, regs : &mut Regs, ins : &mut InstructionDecoder) -> u16 {
+    fn ea<M: MemoryIO>(_mem : &mut M, _regs : &mut Regs, _ins : &mut InstructionDecoder) -> u16 {
         panic!("EA for {}", Self::name());
     }
 
@@ -19,11 +19,11 @@ pub trait AddressLines {
 
     fn name() -> String;
 
-    fn diss_byte<M: MemoryIO>(mem : &mut M, regs : &mut Regs, ins : &mut InstructionDecoder) -> String {
+    fn diss_byte<M: MemoryIO>(_mem : &mut M,_regs : &mut Regs, _ins : &mut InstructionDecoder) -> String {
         "TBD".to_string()
     }
 
-    fn diss_word<M: MemoryIO>(mem : &mut M, regs : &mut Regs, ins : &mut InstructionDecoder) -> String {
+    fn diss_word<M: MemoryIO>(_mem : &mut M, _regs : &mut Regs, _ins : &mut InstructionDecoder) -> String {
         "TBD".to_string()
     }
 }
@@ -66,7 +66,7 @@ impl AddressLines for Direct {
         ea
     }
 
-    fn diss_byte<M: MemoryIO>(mem : &mut M, regs : &mut Regs, ins : &mut InstructionDecoder) -> String {
+    fn diss_byte<M: MemoryIO>(mem : &mut M, _regs : &mut Regs, ins : &mut InstructionDecoder) -> String {
         let val = ins.fetch_byte(mem);
         format!("<{:02x}", val)
     }
@@ -77,7 +77,7 @@ impl AddressLines for Direct {
 pub struct Extended { }
 
 impl AddressLines for Extended {
-    fn ea<M: MemoryIO>(mem : &mut M, regs : &mut Regs, ins : &mut InstructionDecoder) -> u16 {
+    fn ea<M: MemoryIO>(mem : &mut M, _regs : &mut Regs, ins : &mut InstructionDecoder) -> u16 {
         ins.add_cycles(2);
         ins.fetch_word(mem)
     }
@@ -111,7 +111,7 @@ impl AddressLines for Extended {
         addr
     }
 
-    fn diss_byte<M: MemoryIO>(mem : &mut M, regs : &mut Regs, ins : &mut InstructionDecoder) -> String {
+    fn diss_byte<M: MemoryIO>(mem : &mut M, _regs : &mut Regs, ins : &mut InstructionDecoder) -> String {
         let val = ins.fetch_word(mem);
         format!("{:02x}", val)
     }
@@ -125,25 +125,25 @@ impl AddressLines for Immediate {
         "Immediate".to_string()
     }
 
-    fn fetch_byte<M: MemoryIO>(mem : &mut M, regs : &mut Regs, ins : &mut InstructionDecoder) -> u8 {
+    fn fetch_byte<M: MemoryIO>(mem : &mut M, _regs : &mut Regs, ins : &mut InstructionDecoder) -> u8 {
         ins.fetch_byte(mem)
     }
 
-    fn fetch_word<M: MemoryIO>(mem : &mut M, regs : &mut Regs, ins : &mut InstructionDecoder) -> u16 {
+    fn fetch_word<M: MemoryIO>(mem : &mut M, _regs : &mut Regs, ins : &mut InstructionDecoder) -> u16 {
         ins.add_cycles(1);
         ins.fetch_word(mem)
     }
 
-    fn store_byte<M: MemoryIO>(mem : &mut M, regs : &mut Regs, ins : &mut InstructionDecoder, val : u8 ) -> u16{
+    fn store_byte<M: MemoryIO>(_mem : &mut M, _regs : &mut Regs, _ins : &mut InstructionDecoder, _val : u8 ) -> u16{
         panic!("tbd")
     }
 
-    fn store_word<M: MemoryIO>(mem : &mut M, regs : &mut Regs, ins : &mut InstructionDecoder, val : u16 ) -> u16 {
+    fn store_word<M: MemoryIO>(_mem : &mut M, _regs : &mut Regs, _ins : &mut InstructionDecoder, _val : u16 ) -> u16 {
         panic!("tbd")
 
     }
 
-    fn diss_byte<M: MemoryIO>(mem : &mut M, regs : &mut Regs, ins : &mut InstructionDecoder) -> String {
+    fn diss_byte<M: MemoryIO>(mem : &mut M, _regs : &mut Regs, ins : &mut InstructionDecoder) -> String {
         let val = ins.fetch_word(mem);
         format!("#{:02x}", val)
     }
@@ -156,23 +156,23 @@ impl AddressLines for Inherent {
     fn name() -> String {
         "Inherent".to_string()
     }
-    fn fetch_byte<M: MemoryIO>(mem : &mut M, regs : &mut Regs, ins : &mut InstructionDecoder) -> u8 {
+    fn fetch_byte<M: MemoryIO>(mem : &mut M, _regs : &mut Regs, ins : &mut InstructionDecoder) -> u8 {
         ins.fetch_byte(mem)
     }
 
-    fn fetch_word<M: MemoryIO>(mem : &mut M, regs : &mut Regs, ins : &mut InstructionDecoder) -> u16 {
+    fn fetch_word<M: MemoryIO>(_mem : &mut M, _regs : &mut Regs, _ins : &mut InstructionDecoder) -> u16 {
         panic!("no")
     }
 
-    fn store_byte<M: MemoryIO>(mem : &mut M, regs : &mut Regs, ins : &mut InstructionDecoder, val : u8 ) -> u16{
+    fn store_byte<M: MemoryIO>(_mem : &mut M, _regs : &mut Regs, _ins : &mut InstructionDecoder, _val : u8 ) -> u16{
         panic!("no")
     }
 
-    fn store_word<M: MemoryIO>(mem : &mut M, regs : &mut Regs, ins : &mut InstructionDecoder, val : u16 ) -> u16 {
+    fn store_word<M: MemoryIO>(_mem : &mut M, _regs : &mut Regs, _ins : &mut InstructionDecoder, _val : u16 ) -> u16 {
         panic!("no")
 
     }
-    fn diss_byte<M: MemoryIO>(mem : &mut M, regs : &mut Regs, ins : &mut InstructionDecoder) -> String {
+    fn diss_byte<M: MemoryIO>(_mem : &mut M, _regs : &mut Regs, _ins : &mut InstructionDecoder) -> String {
         "".to_string()
     }
 }
@@ -323,19 +323,19 @@ impl AddressLines for Relative {
         "Relative".to_string()
     }
 
-    fn fetch_byte<M: MemoryIO>(mem : &mut M, regs : &mut Regs, ins : &mut InstructionDecoder) -> u8 {
+    fn fetch_byte<M: MemoryIO>(mem : &mut M, _regs : &mut Regs, ins : &mut InstructionDecoder) -> u8 {
         ins.fetch_byte(mem)
     }
 
-    fn fetch_word<M: MemoryIO>(mem : &mut M, regs : &mut Regs, ins : &mut InstructionDecoder) -> u16 {
+    fn fetch_word<M: MemoryIO>(mem : &mut M, _regs : &mut Regs, ins : &mut InstructionDecoder) -> u16 {
         ins.fetch_word(mem)
     }
 
-    fn store_byte<M: MemoryIO>(mem : &mut M, regs : &mut Regs, ins : &mut InstructionDecoder, val : u8 ) -> u16{
+    fn store_byte<M: MemoryIO>(_mem : &mut M, _regs : &mut Regs, _ins : &mut InstructionDecoder, _val : u8 ) -> u16{
         panic!("tbd")
     }
 
-    fn store_word<M: MemoryIO>(mem : &mut M, regs : &mut Regs, ins : &mut InstructionDecoder, val : u16 ) -> u16 {
+    fn store_word<M: MemoryIO>(_mem : &mut M, _regs : &mut Regs, _ins : &mut InstructionDecoder, _val : u16 ) -> u16 {
         panic!("tbd")
     }
 }

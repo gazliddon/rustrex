@@ -60,7 +60,7 @@ impl MemoryIO for MemBlock {
         digest.update(&self.data);
     }
 
-    fn upload(&mut self, addr : u16, data : &[u8]) {
+    fn upload(&mut self, _addr : u16, _data : &[u8]) {
         panic!("not done")
     }
 

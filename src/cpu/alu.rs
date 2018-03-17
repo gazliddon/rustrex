@@ -27,7 +27,7 @@ pub fn test_overflow<T : GazAlu>(a : u32, b : u32, r : u32) -> bool {
     ( ( a ^ b ^ r ^ (r >> 1) ) & T::hi_bit_mask() ) != 0
 }
 
-pub fn test_carry<T : GazAlu>(a : u32, b : u32, r : u32) -> bool {
+pub fn test_carry<T : GazAlu>(_a : u32, _b : u32, r : u32) -> bool {
     (r & (T::hi_bit_mask()<<1)) != 0
 }
 
@@ -196,12 +196,6 @@ pub trait GazAlu : num::PrimInt + num::traits::WrappingAdd + num::traits::Wrappi
         f.set_w_mask(write_mask, 0);
         nz::<Self>(f, write_mask,r)
     }
-
-    fn test( f : &mut Flags, a : Self ) {
-        panic!("lkjsalkjsa");
-    }
-
-
 
     fn asr(f : &mut Flags, write_mask : u8, a : u32) -> Self {
 

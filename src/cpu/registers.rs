@@ -93,23 +93,6 @@ impl Regs {
         }
     }
 
-    pub fn load_d(&mut self, val : u16) {
-        self.flags.test_16(val);
-        self.set_d(val)
-    }
 
-
-
-    pub fn clear_c(&mut self) {
-        self.flags.set(Flags::C, false);
-    }
-
-    pub fn get_c(&self) -> u8 {
-        if self.flags.contains(Flags::C) {
-            1
-        } else {
-            0
-        }
-    }
 }
 

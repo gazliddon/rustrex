@@ -33,11 +33,11 @@ impl Disassembler {
         }
     }
 
-    fn add_op<M: MemoryIO>(&mut self, m : &M, diss: &mut InstructionDecoder, txt : &'static str) {
+    fn add_op<M: MemoryIO>(&mut self, _m : &M, _diss: &mut InstructionDecoder, txt : &'static str) {
         self.text = format!("{:width$} {}", txt, self.text, width = 5);
     }
 
-    fn expand<M : MemoryIO>(&mut self, v : u16, def_str : &str, text : &'static str, m: &M, diss : &mut InstructionDecoder) {
+    fn expand<M : MemoryIO>(&mut self, _v : u16, def_str : &str, text : &'static str, _m: &M, _diss : &mut InstructionDecoder) {
         let op_str = String::from(text);
 
         // let def_str = match syms {
@@ -130,7 +130,7 @@ impl Disassembler {
 
     fn immediate16<M : MemoryIO>(&mut self, mem : &mut M, diss : &mut InstructionDecoder) { self.text_from_word_op("#OP", mem, diss) }
 
-    fn inherent<M : MemoryIO>(&mut self, mem : &mut M, diss : &mut InstructionDecoder) { }
+    fn inherent<M : MemoryIO>(&mut self, _mem : &mut M, _diss : &mut InstructionDecoder) { }
 
     fn inherent_reg_stack<M : MemoryIO>(&mut self, mem : &mut M, diss : &mut InstructionDecoder) { 
         let byte = diss.fetch_byte(mem);
@@ -384,11 +384,11 @@ impl Disassembler {
     op!(lds);
     op!(sts);
 
-    fn unimplemented(&mut self, diss : &mut InstructionDecoder) {
+    fn unimplemented(&mut self, _diss : &mut InstructionDecoder) {
 
     }
 
-    pub fn diss<M: MemoryIO>(&mut self, mem : &mut M, addr : u16, syms : Option<&SymTab> ) -> (InstructionDecoder, String) {
+    pub fn diss<M: MemoryIO>(&mut self, mem : &mut M, addr : u16, _syms : Option<&SymTab> ) -> (InstructionDecoder, String) {
         self.text = "".to_string();
 
         let mut diss = InstructionDecoder::new(addr);

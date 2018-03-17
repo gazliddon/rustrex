@@ -69,7 +69,6 @@ impl fmt::Display for LogEntry {
             ("R", "<-")
         };
 
-        let pre_str = format!("{}{} ", op_str, width_str);
 
         let val_str = if self.word {
             format!("{:04x}", self.val)

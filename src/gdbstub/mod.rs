@@ -8,7 +8,8 @@ use std::io::{Read, Write};
 
 use self::reply::{Reply, Endian};
 
-mod reply;
+pub mod reply;
+
 
 pub type GdbResult = Result<(), ()>;
 
@@ -21,17 +22,21 @@ pub struct Debugger { }
 
 impl Debugger {
 
+    pub fn new() -> Self {
+        Self {}
+    }
+
     pub fn resume(&self) {}
     pub fn set_step(&self) {}
-    pub fn add_breakpoint(&self, addr : u32) { }
-    pub fn add_write_watchpoint (&self, addr : u32){ }
-    pub fn add_read_watchpoint(&self, addr : u32){ }
-    pub fn del_breakpoint(&self, addr : u32) { }
-    pub fn del_write_watchpoint(&self, addr : u32) { }
-    pub fn del_read_watchpoint(&self, addr : u32) { }
+    pub fn add_breakpoint(&self, _addr : u32) { }
+    pub fn add_write_watchpoint (&self, _addr : u32){ }
+    pub fn add_read_watchpoint(&self, _addr : u32){ }
+    pub fn del_breakpoint(&self, _addr : u32) { }
+    pub fn del_write_watchpoint(&self, _addr : u32) { }
+    pub fn del_read_watchpoint(&self, _addr : u32) { }
 
     // pub fn add_breakpoint(&self, addr : u32) {}
-    fn examine(&self, addr : u16) -> u8 { 
+    fn examine(&self, _addr : u16) -> u8 { 
         0x12
     }
 }
@@ -39,15 +44,23 @@ impl Debugger {
 
 pub trait DebuggerHost {
 
-    fn resume(&self) ;
-    fn set_step(&self) ;
-    fn add_breakpoint(&self, addr : u16) ;
-    fn add_write_watchpoint (&self, addr : u16);
-    fn add_read_watchpoint(&self, addr : u16);
-    fn del_breakpoint(&self, addr : u16) ;
-    fn del_write_watchpoint(&self, addr : u16) ;
-    fn del_read_watchpoint(&self, addr : u16) ;
-    fn examine(&self, addr : u16) -> u8 ;
+    fn read_registers(&self, _reply : &mut Reply) {
+        unimplemented!();
+    }
+
+    fn force_pc(&mut self, _pc : u16) {
+        unimplemented!();
+    }
+
+    fn resume(&mut self) ;
+    fn set_step(&mut self) ;
+    fn add_breakpoint(&mut self, _addr : u16) ;
+    fn add_write_watchpoint (&mut self, _addr : u16);
+    fn add_read_watchpoint(&mut self, _addr : u16);
+    fn del_breakpoint(&mut self, _addr : u16) ;
+    fn del_write_watchpoint(&mut self, _addr : u16) ;
+    fn del_read_watchpoint(&mut self, _addr : u16) ;
+    fn examine(&self, _addr : u16) -> u8 ;
 }
 
 pub struct Cpu {
@@ -55,6 +68,12 @@ pub struct Cpu {
 }
 
 impl Cpu {
+    pub fn new() -> Self {
+        Self {
+            regs : [0; 32]
+        }
+    }
+
     pub fn regs(&self) -> &[u32] {
         &self.regs
     }
@@ -65,7 +84,7 @@ impl Cpu {
     pub fn pc(&self) -> u32 {0}
     pub fn bad(&self) -> u32 {0}
 
-    pub fn cause(&self, is : &InterruptState) -> u32 {
+    pub fn cause(&self, _is : &InterruptState) -> u32 {
         0
     }
 
@@ -89,7 +108,7 @@ struct Word {}
 impl Cpu {
 
 
-    pub fn force_pc(&self, a : u32 ) {
+    pub fn force_pc(&self, _a : u32 ) {
 
     }
 
@@ -312,7 +331,7 @@ impl GdbRemote {
         self.send_string(b"OK")
     }
 
-    fn read_registers(&mut self, cpu: &mut Cpu) -> GdbResult {
+    fn read_registers(&mut self, _cpu: &mut Cpu) -> GdbResult {
 
         let mut reply = Reply::new(&self.endian);
 

@@ -75,14 +75,14 @@ impl MemMap {
         }
     }
 
-    pub fn load_roms<'a>(&mut self, roms : &[(&'a str, u16)]) -> &mut Self{
-        use utils::load_file;
-        for rom in roms.iter() {
-            let data = load_file(rom.0);
-            self.upload(rom.1, &data);
-        }
-        self
-    }
+    // pub fn load_roms<'a>(&mut self, roms : &[(&'a str, u16)]) -> &mut Self{
+    //     use utils::load_file;
+    //     for rom in roms.iter() {
+    //         let data = load_file(rom.0);
+    //         self.upload(rom.1, &data);
+    //     }
+    //     self
+    // }
 }
 
 impl MemMapIO for MemMap {

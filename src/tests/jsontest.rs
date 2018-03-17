@@ -16,7 +16,6 @@ use separator::Separatable;
 use serde_json;
 
 // use std::io::prelude::*;
-use std::io::BufReader;
 use std::fs::File;
 use std::io::prelude::*;
 
@@ -97,10 +96,10 @@ impl tester::Tester for JsonTest {
 
         let json_file = matches.value_of("JSON FILE").unwrap().to_string();
 
-        let buffer_loader = || -> RunLog {
-            let br = BufReader::new(File::open(&json_file).unwrap());
-            serde_json::from_reader(br).unwrap()
-        };
+        // let buffer_loader = || -> RunLog {
+        //     let br = BufReader::new(File::open(&json_file).unwrap());
+        //     serde_json::from_reader(br).unwrap()
+        // };
 
         let string_loader = || -> RunLog {
             let mut json_contents = String::new();
@@ -142,7 +141,6 @@ impl tester::Tester for JsonTest {
         // let base_mem = run_log.create_memmap();
         // let mut mem = LoggingMemMap::new(base_mem);
 
-        let mut cycles = 0;
 
         let mut diss = Disassembler::new();
 
@@ -160,7 +158,6 @@ impl tester::Tester for JsonTest {
 
 
             let log_regs_after = &log_after.regs;
-            let log_regs_before = &log_before.regs;
 
             let prev_sim = self.regs.clone();
 
@@ -204,7 +201,7 @@ impl tester::Tester for JsonTest {
                 // let writes_str = get_writes_as_str(&mem);
                 // println!("{:04x}   {:20}{:20} : {}", pc, txt, writes_str, sim);
 
-                let (ins, txt) =  diss.diss(&mut self.mem, self.regs.pc, None);
+                let (_, txt) =  diss.diss(&mut self.mem, self.regs.pc, None);
                 println!();
 
                 println!("Next op:");
@@ -232,8 +229,6 @@ impl tester::Tester for JsonTest {
 
             } 
 
-
-            cycles += ins.cycles;
         }
 
         let ins = self.steps.len();

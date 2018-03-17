@@ -34,12 +34,7 @@ bitflags! {
 
 // #[inline]
 // fn test_n_b(val : u8) -> bool { val & 0x80 == 0x80 }
-#[inline]
-fn test_z_b(val : u8) -> bool { val == 0 }
-#[inline]
-fn test_n_w(val : u16) -> bool { val & 0x8000 == 0x8000 }
-#[inline]
-fn test_z_w(val : u16) -> bool { val == 0 }
+
 
 impl Flags {
     pub fn new(val : u8) -> Flags {
@@ -58,11 +53,6 @@ impl Flags {
     }
 
 
-    #[inline]
-    pub fn test_16(&mut self, val : u16 ) {
-        self.set(Flags::N, test_n_w(val));
-        self.set(Flags::Z, test_z_w(val));
-    }
 
     pub fn le(&self) -> bool {
         let v = self.contains(Flags::V);

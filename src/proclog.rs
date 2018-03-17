@@ -62,11 +62,8 @@ impl Step {
         }
     }
 
-    fn grab_mem<M : MemoryIO>(&mut self, mem : &M, addr : u16) {
+    fn grab_mem<M : MemoryIO>(&mut self, _mem : &M, _addr : u16) {
         if self.mem.is_some() {
-            for i in 0..5 {
-                // self.mem[i] = mem.load_byte(addr.wrapping_add(i as u16));
-            }
         }
 
     }
@@ -74,7 +71,7 @@ impl Step {
     pub fn from_sim<M : MemoryIO>(mem : &mut M, regs : &Regs, cycles : usize) -> Step {
 
         let mut diss = Disassembler::new();
-        let (ins, txt) =  diss.diss(mem, regs.pc, None);
+        let (_, txt) =  diss.diss(mem, regs.pc, None);
 
         let mut step = Step {
             regs          : regs.clone(),

@@ -103,10 +103,10 @@ impl<'a, C : 'a + Clock, M : 'a + MemoryIO> Context<'a, C, M> {
         A::ea(self.mem, self.regs, &mut self.ins)
     }
 
-    fn op8_2<A : AddressLines>( &mut self, write_mask : u8, func : fn(&mut Flags,u8, u32, u32) -> u8, i0 : u8 ) -> u8{
-        let i1 = self.fetch_byte::<A>() as u32;
-        func(&mut self.regs.flags, write_mask, i0 as u32, i1)
-    }
+    // fn op8_2<A : AddressLines>( &mut self, write_mask : u8, func : fn(&mut Flags,u8, u32, u32) -> u8, i0 : u8 ) -> u8{
+    //     let i1 = self.fetch_byte::<A>() as u32;
+    //     func(&mut self.regs.flags, write_mask, i0 as u32, i1)
+    // }
 
     fn op16_2< A : AddressLines>( &mut self,  write_mask : u8, func : fn(&mut Flags,u8, u32, u32) -> u16, i0 : u16 ) -> u16 {
         let i1 = self.fetch_word::<A>() as u32;
@@ -635,7 +635,6 @@ impl<'a, C : 'a + Clock, M : 'a + MemoryIO> Context<'a, C, M> {
     fn exg<A : AddressLines>(&mut self)  {
         let operand = self.fetch_byte::<A>(); 
         let (a,b) = get_tfr_regs(operand as u8);
-        let temp = self.regs.get(&b);
         let av = self.regs.get(&a);
         let bv = self.regs.get(&b);
         self.regs.set(&b, av);
@@ -1213,19 +1212,6 @@ pub fn step<M: MemoryIO, C : Clock>(regs : &mut Regs, mem : &mut M, ref_clock : 
     ctx.ins.clone()
 }
 
-pub fn step_host<M: MemoryIO, C: Clock>(host : &mut Host<M,C>) -> InstructionDecoder {
-
-    //let mem = {host.mem() };
-
-    //let regs = host.regs();
-
-    //let clock = host.clock();
-
-    //let ctx = Context::new(mem, regs, clock);
-
-    ////
-    unimplemented!();
-}
 
 //
 // }}}

@@ -1,12 +1,13 @@
-#![feature(plugin)]
-#![plugin(clippy)]
+// #![feature(plugin)]
+// #![plugin(clippy)]
 
-#![allow(suspicious_arithmetic_impl)]
-#![allow(redundant_field_names)]
-#![allow(cast_lossless)]
+// #![allow(suspicious_arithmetic_impl)]
+// #![allow(redundant_field_names)]
+// #![allow(cast_lossless)]
+// #![allow(dead_code)]
+// #![allow(unused_variables)]
 
 #![allow(dead_code)]
-#![allow(unused_variables)]
 
 #[macro_use] extern crate lazy_static;
 #[macro_use] extern crate bitflags;
@@ -36,13 +37,12 @@ mod breakpoints;
 mod tests; 
 mod timer;
 mod gdbstub;
-
 mod m6522;
 mod vectrex;
+mod simple;
 
 use tests::{GregTest, JsonTest, Tester};
 use clap::{Arg, App, SubCommand, ArgMatches};
-
 
 fn do_test<T : Tester>(matches : &ArgMatches) -> T{
     let mut tester = T::from_matches(matches);
@@ -63,6 +63,16 @@ fn main() {
         .about("Rust Vectrex emulator")
 
         .subcommand(SubCommand::with_name("emu")
+                    .arg(Arg::with_name("enable-gdb")
+                         .short("g")
+                         .long("enable-gdb")
+                         .help("Enable GDB debugging"))
+                    .arg(Arg::with_name("ROM FILE")
+                         .required(true)
+                         .index(1)
+                         .help("Set the ROM file")))
+
+        .subcommand(SubCommand::with_name("simple")
                     .arg(Arg::with_name("enable-gdb")
                          .short("g")
                          .long("enable-gdb")
@@ -110,12 +120,23 @@ fn main() {
         .get_matches();
 
     if let Some(matches) = matches.subcommand_matches("emu") {
+
         info!("Running EMU");
+
         let mut emu = vectrex::Vectrex::from_matches(matches);
 
-        for i in 0..10_000_000 {
-            emu.step();
-        }
+        emu.run();
+
+        // for i in 0..10_000_000 {
+        //     emu.step();
+        // }
+    }
+
+    if let Some(matches) = matches.subcommand_matches("simple") {
+        info!("Running simple machine");
+
+        let mut simple = simple::Simple::from_matches(matches);
+        simple.run();
     }
 
 

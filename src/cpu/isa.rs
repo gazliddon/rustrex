@@ -291,28 +291,6 @@ macro_rules! op_table {
     }
 }
 
-pub fn test_it() {
-
-    macro_rules! handle_op {
-        ($addr:ident, $action:ident) => 
-        {0}
-    }
-
-    op_table!(0, 
-              {panic!("whoops")}
-              );
-}
-pub fn test_it2() {
-
-    macro_rules! handle_op {
-        ($addr:ident, $action:ident) => 
-        {10}
-    }
-
-    op_table!(0, 
-              {panic!("whoops")}
-              );
-}
 
 
 macro_rules! single_op {

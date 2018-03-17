@@ -122,7 +122,7 @@ pub struct Port {
 }
 
 impl Port {
-    pub fn new(bits : u8, ddr : u8) -> Port {
+    pub fn new(bits : u8, _ddr : u8) -> Port {
         Port { bits, ddr : 0, latch_enabled : false }
     }
 
@@ -364,11 +364,11 @@ impl <C : Clock> M6522 <C> {
     fn write_cntl(&mut self, data : u8) {
         self.cntl = data;
 
-        let ca1_irq_on_high = data.get_bit(0);
-        let ca1_cntl = (data >> 1) & 7;
+        // let ca1_irq_on_high = data.get_bit(0);
+        // let ca1_cntl = (data >> 1) & 7;
 
-        let ca2_irq_on_high = data.get_bit(4);
-        let ca2_cntl = (data >> 5) & 3;
+        // let ca2_irq_on_high = data.get_bit(4);
+        // let ca2_cntl = (data >> 5) & 3;
     }
 
     fn get_ca1_irq_on_high(&self) -> bool {
@@ -443,11 +443,11 @@ impl<C : Clock> MemoryIO for M6522<C> {
         (self.start, self.last_byte)
     }
 
-    fn update_sha1(&self, digest : &mut Sha1) {
+    fn update_sha1(&self, _digest : &mut Sha1) {
         panic!();
     }
 
-    fn upload(&mut self, addr : u16, data : &[u8]) {
+    fn upload(&mut self, _addr : u16, _data : &[u8]) {
         panic!("tbd")
     }
 
@@ -460,7 +460,7 @@ impl<C : Clock> MemoryIO for M6522<C> {
 
     fn load_byte(&mut self, addr:u16) -> u8 {
         self.set_dirty();
-        let (reg, i) = self.get_reg(addr);
+        let (reg, _) = self.get_reg(addr);
         println!("R  0x{:04X} {:?}",addr, reg);
 
         use self::Reg::*;
@@ -496,7 +496,7 @@ impl<C : Clock> MemoryIO for M6522<C> {
 
     fn store_byte(&mut self, addr:u16, val:u8) {
         self.set_dirty();
-        let (reg, i) = self.get_reg(addr);
+        let (reg, _) = self.get_reg(addr);
 
         let reg_str = format!("{:?}", reg);
         println!("W  0x{:04X} {:10} : 0x{:02x} 0b{:08b}",addr, reg_str, val, val);

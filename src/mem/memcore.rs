@@ -3,6 +3,20 @@ use std::vec::Vec;
 use std::ops::Range;
 pub use sha1::Sha1;
 
+pub fn build_addr_to_region<E : Copy>(illegal : E, mem_tab :  &[(E, &MemoryIO )]) -> [E; 0x1_0000] {
+
+    let mut ret = [illegal; 0x1_0000];
+
+    for (i, id) in ret.iter_mut().enumerate() {
+        for &(this_id, mem) in mem_tab {
+            if mem.is_in_range(i as u16) {
+                *id = this_id;
+            }
+        }
+    }
+
+    ret
+}
 
 fn to_mem_range( address : u16, size :u16 ) -> Range<u32> {
     use std::cmp::min;
@@ -21,25 +35,31 @@ pub fn as_bytes(val : u16) -> (u8,u8) {
 
 pub trait MemoryIO {
 
-    fn inspect_byte(&self, addr:u16) -> u8 {
-        panic!("TBD")
-    }
 
-    fn inspect_word(&self, addr:u16) -> u16 {
-        let lo = self.inspect_byte(addr.wrapping_add(1));
-        let hi = self.inspect_byte(addr);
+    fn inspect_word(&self, _addr:u16) -> u16 {
+        let lo = self.inspect_byte(_addr.wrapping_add(1));
+        let hi = self.inspect_byte(_addr);
         as_word(lo, hi)
     }
 
-    fn upload(&mut self, addr : u16, data : &[u8]);
+    // Min implementation
+    
+    fn inspect_byte(&self, _addr:u16) -> u8 {
+        panic!("TBD")
+    }
+
+    fn upload(&mut self, _addr : u16, _data : &[u8]);
 
     fn get_range(&self) -> (u16, u16);
 
-    fn update_sha1(&self, digest : &mut Sha1);
+    fn update_sha1(&self, _digest : &mut Sha1);
 
-    fn load_byte(&mut self, addr:u16) -> u8;
+    fn load_byte(&mut self, _addr:u16) -> u8;
         
-    fn store_byte(&mut self, addr:u16, val:u8);
+    fn store_byte(&mut self, _addr:u16, _val:u8);
+
+    // Min implementation end
+
 
     fn get_name(&self) -> String {
         "default".to_string()
@@ -52,9 +72,9 @@ pub trait MemoryIO {
     }
 
 
-    fn is_in_range(&self, val : u16) -> bool {
+    fn is_in_range(&self, _val : u16) -> bool {
         let (base, last) = self.get_range();
-        (val >= base) && (val <= last)
+        (_val >= base) && (_val <= last)
     }
 
 
@@ -71,9 +91,6 @@ pub trait MemoryIO {
     }
 
     fn get_mem_as_str(&self, addr:u16, size:u16 ) -> String {
-
-        let a32 = addr as u32;
-
 
         let r = to_mem_range( addr, size);
 
