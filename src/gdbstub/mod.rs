@@ -48,6 +48,8 @@ pub trait DebuggerHost {
         unimplemented!();
     }
 
+    fn write_registers(&mut self, _data : &[u8]) ;
+
     fn force_pc(&mut self, _pc : u16) {
         unimplemented!();
     }
@@ -61,33 +63,8 @@ pub trait DebuggerHost {
     fn del_write_watchpoint(&mut self, _addr : u16) ;
     fn del_read_watchpoint(&mut self, _addr : u16) ;
     fn examine(&self, _addr : u16) -> u8 ;
-}
 
-pub struct Cpu {
-    pub regs : [u32; 32],
-}
-
-impl Cpu {
-    pub fn new() -> Self {
-        Self {
-            regs : [0; 32]
-        }
-    }
-
-    pub fn regs(&self) -> &[u32] {
-        &self.regs
-    }
-
-    pub fn sr(&self) -> u32 {0}
-    pub fn lo(&self) -> u32 {0}
-    pub fn hi(&self) -> u32 {0}
-    pub fn pc(&self) -> u32 {0}
-    pub fn bad(&self) -> u32 {0}
-
-    pub fn cause(&self, _is : &InterruptState) -> u32 {
-        0
-    }
-
+    fn write(&mut self, _addr : u16, val : u8);
 }
 
 pub struct InterruptState {
@@ -104,15 +81,6 @@ impl InterruptState {
 struct Byte { }
 struct HalfWord { }
 struct Word {}
-
-impl Cpu {
-
-
-    pub fn force_pc(&self, _a : u32 ) {
-
-    }
-
-}
 
 impl GdbRemote {
 
@@ -136,13 +104,12 @@ impl GdbRemote {
 
     // Serve a single remote request
     pub fn serve(&mut self,
-                 debugger: &mut Debugger,
-                 cpu: &mut Cpu) -> GdbResult {
+                 host: &mut DebuggerHost) -> GdbResult {
 
         match self.next_packet() {
             PacketResult::Ok(packet) => {
                 try!(self.ack());
-                self.handle_packet(debugger, cpu, &packet)
+                self.handle_packet(host,  &packet)
             }
             PacketResult::BadChecksum(_) => {
                 // Request retransmission
@@ -262,8 +229,7 @@ impl GdbRemote {
     }
 
     fn handle_packet(&mut self,
-                     debugger: &mut Debugger,
-                     cpu: &mut Cpu,
+                     host: &mut DebuggerHost,
                      packet: &[u8]) -> GdbResult {
 
         let command = packet[0];
@@ -274,14 +240,19 @@ impl GdbRemote {
         let res =
             match command {
                 b'?' => self.send_status(),
-                b'm' => self.read_memory(debugger, args),
-                b'g' => self.read_registers(cpu),
-                b'c' => self.resume(debugger, cpu, args),
-                b's' => self.step(debugger, cpu, args),
-                b'Z' => self.add_breakpoint(debugger, args),
-                b'z' => self.del_breakpoint(debugger, args),
+                b'M' => self.write_memory(host, args),
+                b'm' => self.read_memory(host, args),
+                b'g' => self.read_registers(host),
+                b'G' => self.write_registers(host, args),
+                b'c' => self.resume(host, args),
+                b's' => self.step(host, args),
+                b'Z' => self.add_breakpoint(host, args),
+                b'z' => self.del_breakpoint(host, args),
                 // Send empty response for unsupported packets
-                _ => self.send_empty_reply(),
+                _ => {
+                    info!("unhandled command {}", command as char);
+                    self.send_empty_reply()
+                },
             };
 
         // Check for errors
@@ -331,68 +302,28 @@ impl GdbRemote {
         self.send_string(b"OK")
     }
 
-    fn read_registers(&mut self, _cpu: &mut Cpu) -> GdbResult {
+    fn write_memory(&mut self, _host : &mut DebuggerHost, args: &[u8]) -> GdbResult {
+        info!("Starting write mem!");
 
-        let mut reply = Reply::new(&self.endian);
+        let (addr, data) = try!(parse_write_mem(args));
 
-        //// Send general purpose registers
-        //for &r in cpu.regs() {
-        //    reply.push_u32(r);
-        //}
+        let addr = addr as u16;
 
-        //// Send control registers
-        //for &r in &[ cpu.sr(),
-        //             cpu.lo(),
-        //             cpu.hi(),
-        //             cpu.bad(),
-        //             // XXX We should figure out a way to get the real
-        //             // irq_state over here...
-        //             cpu.cause(&InterruptState::new()),
-        //             cpu.pc() ] {
-        //    reply.push_u32(r);
-        //}
+        for (i, v) in data.iter().enumerate() {
+            let a = addr.wrapping_add(i as u16);
+            _host.write(a, *v)
+        }
 
-        //// GDB expects 73 registers for the MIPS architecture: the 38
-        //// above plus all the floating point registers. Since the
-        //// playstation doesn't support those we just return `x`s to
-        //// notify GDB that those registers are unavailable.
-        ////
-        //// The doc says that it's normally used for core dumps however
-        //// (when the value of a register can't be found in a trace) so
-        //// I'm not sure it's the right thing to do. If it causes
-        //// problems we might just return 0 (or some sane default
-        //// value) instead.
-        //for _ in 38..73 {
-        //    reply.push(b"xxxxxxxx");
-        //}
-        //
-
-        // TBD these need endian swap 
-
-        reply.push_u8(0x11); // cc
-        reply.push_u8(0x22); // A 
-        reply.push_u8(0x33); // a
-        reply.push_u8(0x44); // dp
-
-        reply.push_u16(0x55); // x
-        reply.push_u16(0x66); // y 
-        reply.push_u16(0x77); // u
-        reply.push_u16(0x88); // s
-        reply.push_u16(0x99); //  PC
-
-
-
-        self.send_reply(reply)
+        self.send_ok()
     }
 
     /// Read a region of memory. The packet format should be
     /// `ADDR,LEN`, both in hexadecimal
-    fn read_memory(&mut self, debugger : &mut Debugger, args: &[u8]) -> GdbResult {
+    fn read_memory(&mut self, host : &mut DebuggerHost, args: &[u8]) -> GdbResult {
 
         let mut reply = Reply::new(&self.endian);
 
         let (addr, len) = try!(parse_addr_len(args));
-
 
         if len == 0 {
             // Should we reply with an empty string here? Probably
@@ -404,108 +335,60 @@ impl GdbRemote {
 
         for i in 0..len {
             let a = (addr as u16).wrapping_add(i as u16);
-            let b = debugger.examine(a);
+            let b = host.examine(a);
             reply.push_u8(b);
         }
-        // // We can now fetch the data. First we handle the case where
-        // // addr is not aligned using an ad-hoc heuristic. A better way
-        // // to do this might be to figure out which peripheral we're
-        // // accessing and select the most meaningful access width.
-        // let align = addr % 4;
-
-        // let sent =
-        //     match align {
-        //         1|3 => {
-        //             // If we fall on the first or third byte of a word
-        //             // we use byte accesses until we reach the next
-        //             // word or the end of the requested length
-        //             let count = ::std::cmp::min(len, 4 - align);
-
-        //             for i in 0..count {
-        //                 reply.push_u8(cpu.examine::<Byte>(addr + i) as u8);
-        //             }
-        //             count
-        //         }
-        //         2 => {
-        //             if len == 1 {
-        //                 // Only one byte to read
-        //                 reply.push_u8(cpu.examine::<Byte>(addr) as u8);
-        //                 1
-        //             } else {
-        //                 reply.push_u16(cpu.examine::<HalfWord>(addr) as u16);
-        //                 2
-        //             }
-        //         }
-        //         _ => 0,
-        //     };
-
-        // let addr = addr + sent;
-        // let len = len + sent;
-
-        // We can now deal with the word-aligned portion of the
-        // transfer (if any). It's possible that addr is not word
-        // aligned here if we entered the case "align == 2, len == 1"
-        // above but it doesn't matter because in this case "nwords"
-        // will be 0 so nothing will be fetched.
-        // let nwords = len / 4;
-
-        // for i in 0..nwords {
-        //     reply.push_u32(cpu.examine::<Word>(addr + i * 4));
-        // }
-
-        // // See if we have anything remaining
-        // let addr = addr + nwords * 4;
-        // let rem = len - nwords * 4;
-
-        // match rem {
-        //     1|3 => {
-        //         for i in 0..rem {
-        //             reply.push_u8(cpu.examine::<Byte>(addr + i) as u8);
-        //         }
-        //     }
-        //     2 => {
-        //         reply.push_u16(cpu.examine::<HalfWord>(addr) as u16);
-        //     }
-        //     _ => ()
-        // }
 
         self.send_reply(reply)
     }
 
     /// Continue execution
     fn resume(&mut self,
-              debugger: &mut Debugger,
-              cpu: &mut Cpu,
+              host: &mut DebuggerHost,
               args: &[u8]) -> GdbResult {
 
         if !args.is_empty() {
             // If an address is provided we restart from there
             let addr = try!(parse_hex(args));
 
-            cpu.force_pc(addr);
+            host.force_pc(addr as u16);
         }
 
         // Tell the debugger we want to resume execution.
-        debugger.resume();
+        host.resume();
 
         Ok(())
+    }
+
+    fn read_registers(&mut self, host : & mut DebuggerHost) -> GdbResult {
+        let mut reply = Reply::new(&self.endian);
+        host.read_registers(&mut reply);
+        self.send_reply(reply)
+    }
+
+    fn write_registers(&mut self, host : &mut DebuggerHost, args: &[u8]) -> GdbResult {
+
+        let data = try!(parse_data(args));
+
+        host.write_registers(&data);
+
+        self.send_ok()
     }
 
     // Step works exactly like continue except that we're only
     // supposed to execute a single instruction.
     fn step(&mut self,
-            debugger: &mut Debugger,
-            cpu: &mut Cpu,
+            host: &mut DebuggerHost,
             args: &[u8]) -> GdbResult {
 
-        debugger.set_step();
+        host.set_step();
 
-        self.resume(debugger, cpu, args)
+        self.resume(host, args)
     }
 
     // Add a breakpoint or watchpoint
     fn add_breakpoint(&mut self,
-                      debugger: &mut Debugger,
+                      host: &mut DebuggerHost,
                       args: &[u8]) -> GdbResult {
 
         // Check if the request contains a command list
@@ -529,9 +412,9 @@ impl GdbRemote {
         }
 
         match btype {
-            b'0' => debugger.add_breakpoint(addr),
-            b'2' => debugger.add_write_watchpoint(addr),
-            b'3' => debugger.add_read_watchpoint(addr),
+            b'0' => host.add_breakpoint(addr as u16),
+            b'2' => host.add_write_watchpoint(addr as u16),
+            b'3' => host.add_read_watchpoint(addr as u16),
             // Unsupported breakpoint type
             _ => return self.send_empty_reply(),
         }
@@ -541,10 +424,12 @@ impl GdbRemote {
 
     // Delete a breakpoint or watchpoint
     fn del_breakpoint(&mut self,
-                      debugger: &mut Debugger,
+                      host: &mut DebuggerHost,
                       args: &[u8]) -> GdbResult {
 
-        let (btype, addr, kind) = try!(parse_breakpoint(args));
+        let (btype, addr_big, kind) = try!(parse_breakpoint(args));
+
+        let addr = addr_big as u16;
 
         // Only 32bits standard MIPS mode breakpoint supported
         if kind != b'4' {
@@ -552,9 +437,9 @@ impl GdbRemote {
         }
 
         match btype {
-            b'0' => debugger.del_breakpoint(addr),
-            b'2' => debugger.del_write_watchpoint(addr),
-            b'3' => debugger.del_read_watchpoint(addr),
+            b'0' => host.del_breakpoint(addr),
+            b'2' => host.del_write_watchpoint(addr),
+            b'3' => host.del_read_watchpoint(addr),
             // Unsupported breakpoint type
             _ => return self.send_empty_reply(),
         }
@@ -584,6 +469,17 @@ fn ascii_hex(b: u8) -> Option<u8> {
     }
 }
 
+fn ascii_hex_err(b: u8) -> Result<u8, ()> {
+    if b >= b'0' && b <= b'9' {
+        Ok(b - b'0')
+    } else if b >= b'a' && b <= b'f' {
+        Ok(10 + (b - b'a'))
+    } else {
+        // Invalid
+        Err(())
+    }
+}
+
 /// Parse an hexadecimal string and return the value as an
 /// integer. Return `None` if the string is invalid.
 fn parse_hex(hex: &[u8]) -> Result<u32, ()> {
@@ -602,6 +498,26 @@ fn parse_hex(hex: &[u8]) -> Result<u32, ()> {
 
     Ok(v)
 }
+
+use itertools::Itertools;
+
+/// Parse an hexadecimal string and return the value as an
+/// integer. Return `None` if the string is invalid.
+fn parse_data(_hex: &[u8]) -> Result<Vec<u8>, ()> {
+
+    let mut res = vec!();
+
+    for (l, h) in _hex.iter().tuples() {
+
+        let ln = try!(ascii_hex_err(*l));
+        let hn = try!(ascii_hex_err(*h));
+        res.push(hn | ln << 4);
+
+    }
+
+    Ok(res)
+}
+
 
 /// Parse a string in the format `addr,len` (both as hexadecimal
 /// strings) and return the values as a tuple. Returns `None` if
@@ -629,6 +545,32 @@ fn parse_addr_len(args: &[u8]) -> Result<(u32, u32), ()> {
     let len = try!(parse_hex(len));
 
     Ok((addr, len))
+}
+
+fn parse_write_registers(_args: &[u8]) -> Result<(Vec<u8>), ()> {
+    return Err(())
+}
+
+fn parse_write_mem(args: &[u8]) -> Result<(u32, Vec<u8>), ()> {
+
+    let args: Vec<_> = args.split(|&b| b == b',').collect();
+    let command: Vec<_> = args[1].split(|&b| b== b':').collect();
+
+    // let addr = args[0];
+    // let len = command[0];
+    // let bytes = command[1];
+
+    let addr = try!(parse_hex(args[0]));
+    let len = try!(parse_hex(command[0]));
+    let bytes = try!(parse_data(command[1]));
+
+    if len as usize != bytes.len() {
+        Err(())
+    } else {
+        println!("{:04x} len {:04x} {:?}", addr, len, bytes);
+        Ok((addr, bytes))
+    }
+
 }
 
 /// Parse breakpoint arguments: the format is

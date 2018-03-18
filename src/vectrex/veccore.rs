@@ -219,6 +219,31 @@ impl gdbstub::DebuggerHost for Vectrex {
     fn examine(&self, addr : u16) -> u8  {
         self.vec_mem.inspect_byte(addr)
     }
+
+    fn write (&mut self, addr : u16, val : u8) {
+        self.vec_mem.store_byte(addr, val)
+    }
+
+    fn read_registers(&self, reply : &mut gdbstub::reply::Reply) {
+
+        let regs = &self.regs;
+
+        let cc = regs.flags.bits();
+
+        reply.push_u8(cc);
+        reply.push_u8(regs.a);
+        reply.push_u8(regs.b);
+        reply.push_u8(regs.dp);
+
+        reply.push_u16(regs.x);
+        reply.push_u16(regs.y);
+        reply.push_u16(regs.u);
+        reply.push_u16(regs.s);
+        reply.push_u16(regs.pc);
+    }
+
+    fn write_registers(&mut self, _data : &[u8]) {
+    }
 }
 
 impl Vectrex {

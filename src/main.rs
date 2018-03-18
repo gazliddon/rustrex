@@ -17,6 +17,7 @@ extern crate serde_yaml;
 extern crate serde_json;
 extern crate sha1;
 extern crate separator;
+extern crate itertools;
 
 
 extern crate regex;

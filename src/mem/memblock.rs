@@ -56,6 +56,12 @@ impl MemMap {
 }
 
 impl MemoryIO for MemBlock {
+
+    fn inspect_byte(&self, addr:u16) -> u8 {
+        assert!(addr >= self.base && addr <= self.last_mem);
+        self.data[(addr - self.base) as usize]
+    }
+
     fn update_sha1(&self, digest : &mut Sha1) {
         digest.update(&self.data);
     }

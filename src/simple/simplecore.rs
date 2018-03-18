@@ -145,84 +145,9 @@ use gdbstub;
 use std::thread;
 use std::net::{TcpListener};
 
-impl Simple {
-    pub fn reset(&mut self) {
-        cpu::reset(&mut self.regs, &mut self.mem);
-    }
-
-    pub fn new() -> Self {
-
-        let rc_clock = Rc::new(RefCell::new(StandardClock::new(2_000_000)));
-
-        let mem = SimpleMem::new();
-        let regs = Regs::new();
-        let gdb_enabled = false;
-
-        let mut ret = Simple {
-            mem, regs, gdb_enabled, rc_clock
-        };
-
-        ret.reset();
-
-        ret
-    }
-
-    pub fn from_matches(_matches : &ArgMatches) -> Self {
-
-        let ret = Self::new();
-
-
-        ret
-    }
-
-    pub fn run(&mut self) {
-        let mut cpu = gdbstub::Cpu::new();
-        let mut debugger = gdbstub::Debugger::new();
-
-        let (tx, rx) = mpsc::channel();
-
-        let listener = TcpListener::bind("127.0.0.1:6809").unwrap();
-
-        thread::spawn(move || {
-            let rem = gdbstub::GdbRemote::new(&listener);
-            tx.send(rem).unwrap()
-        });
-
-        let mut gdb : Option<gdbstub::GdbRemote> = None;
-
-        loop {
-            if gdb.is_none() {
-                let is_gdb = rx.try_recv();
-                if !is_gdb.is_err() {
-                    gdb = Some(is_gdb.unwrap());
-                }
-            }
-
-            if gdb.is_none() {
-                cpu::step(&mut self.regs, &mut self.mem, &self.rc_clock);
-
-                if self.mem.io.get_halt() {
-                    self.mem.io.clear_halt();
-                }
-            }
-
-            if gdb.is_some() {
-
-                if let Some(ref mut remote) = gdb {
-
-                    let ret = remote.serve(&mut debugger, &mut cpu);
-
-                    match ret {
-                        Err(_) => (),
-                        _ => (),
-                    }
-                }
-            }
-        }
-    }
-}
 
 impl gdbstub::DebuggerHost for Simple {
+
 
     fn force_pc(&mut self, pc : u16) {
         self.regs.pc = pc;
@@ -273,4 +198,116 @@ impl gdbstub::DebuggerHost for Simple {
     fn examine(&self, _addr : u16) -> u8 {
         self.mem.inspect_byte(_addr)
     }
+
+    fn write (&mut self, addr : u16, val : u8) {
+        self.mem.store_byte(addr, val)
+    }
+
+    fn write_registers(&mut self, _data : &[u8]) {
+        let it = &mut _data.iter();
+
+        let cc = pop_u8(it);
+        self.regs.flags.set_flags(cc);
+
+        self.regs.a  = pop_u8(it);
+        self.regs.b  = pop_u8(it);
+        self.regs.dp = pop_u8(it);
+
+        self.regs.x  = pop_u16(it);
+        self.regs.y  = pop_u16(it);
+        self.regs.u  = pop_u16(it);
+        self.regs.s  = pop_u16(it);
+        self.regs.pc = pop_u16(it);
+    }
 }
+fn pop_u8<'a, I>(vals: &mut I) -> u8
+where
+    I: Iterator<Item = &'a u8>,
+{
+    *vals.next().unwrap()
+}
+fn pop_u16<'a, I>(vals: &mut I) -> u16
+where
+    I: Iterator<Item = &'a u8>,
+{
+    let h = *vals.next().unwrap() as u16;
+    let l = *vals.next().unwrap() as u16;
+
+    l | (h << 8)
+}
+
+
+impl Simple {
+    pub fn reset(&mut self) {
+        cpu::reset(&mut self.regs, &mut self.mem);
+    }
+
+    pub fn new() -> Self {
+
+        let rc_clock = Rc::new(RefCell::new(StandardClock::new(2_000_000)));
+
+        let mem = SimpleMem::new();
+        let regs = Regs::new();
+        let gdb_enabled = false;
+
+        let mut ret = Simple {
+            mem, regs, gdb_enabled, rc_clock
+        };
+
+        ret.reset();
+
+        ret
+    }
+
+    pub fn from_matches(_matches : &ArgMatches) -> Self {
+
+        let ret = Self::new();
+
+
+        ret
+    }
+
+    pub fn run(&mut self) {
+        let (tx, rx) = mpsc::channel();
+
+        let listener = TcpListener::bind("127.0.0.1:6809").unwrap();
+
+        thread::spawn(move || {
+            let rem = gdbstub::GdbRemote::new(&listener);
+            tx.send(rem).unwrap()
+        });
+
+        let mut gdb : Option<gdbstub::GdbRemote> = None;
+
+        loop {
+            if gdb.is_none() {
+                let is_gdb = rx.try_recv();
+                if !is_gdb.is_err() {
+                    gdb = Some(is_gdb.unwrap());
+                }
+            }
+
+            if gdb.is_none() {
+                cpu::step(&mut self.regs, &mut self.mem, &self.rc_clock);
+
+                if self.mem.io.get_halt() {
+                    self.mem.io.clear_halt();
+                }
+            }
+
+            if gdb.is_some() {
+
+                if let Some(ref mut remote) = gdb {
+
+                    let ret = remote.serve(self);
+
+                    match ret {
+                        Err(_) => (),
+                        _ => (),
+                    }
+                }
+            }
+        }
+    }
+}
+
