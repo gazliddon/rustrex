@@ -227,7 +227,7 @@ impl gdbstub::DebuggerHost for Vectrex {
         self.vec_mem.store_byte(addr, val)
     }
 
-    fn read_registers(&self, reply : &mut gdbstub::reply::Reply) {
+    fn read_registers(&self, reply : &mut gdbstub::Reply) {
 
         let regs = &self.regs;
 

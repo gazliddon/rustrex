@@ -152,7 +152,7 @@ impl gdbstub::DebuggerHost for Simple {
         self.regs.pc = pc;
     }
 
-    fn read_registers(&self, reply : &mut gdbstub::reply::Reply) {
+    fn read_registers(&self, reply : &mut gdbstub::Reply) {
 
         let regs = &self.regs;
 
