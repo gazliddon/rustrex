@@ -18,10 +18,19 @@ IO
     9831  switches 2
 
 */
+use cpu;
+use gdbstub;
+
+use clap::{ArgMatches};
+use cpu::{Regs, StandardClock};
+
+use mem::*;
 
 use simple::Io;
-use clap::{ArgMatches};
-use mem::*;
+use simple::GdbConnection;
+
+use std::rc::Rc;
+use std::cell::RefCell;
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 enum MemRegion {
@@ -30,7 +39,6 @@ enum MemRegion {
     IO,
     Screen,
 }
-
 
 struct SimpleMem {
     ram                : MemBlock,
@@ -126,27 +134,13 @@ impl MemoryIO for SimpleMem {
 }
 
 
-// use cpu::{Regs, StandardClock, Clock, InstructionDecoder};
-
-use cpu::{Regs, StandardClock};
-use cpu;
-use std::cell::RefCell;
-use std::rc::Rc;
-
 pub struct Simple {
     regs        : Regs,
     mem         : SimpleMem,
     rc_clock    : Rc<RefCell<StandardClock>>,
 }
 
-use std::sync::mpsc;
-use gdbstub;
-use std::thread;
-use std::net::{TcpListener};
-
-
 impl gdbstub::DebuggerHost for Simple {
-
 
     fn force_pc(&mut self, pc : u16) {
         self.regs.pc = pc;
@@ -283,80 +277,4 @@ impl Simple {
     }
 }
 
-enum ConnState {
-    Start,
-    Waiting,
-    Connected,
-}
-
-struct GdbConnection {
-    state : ConnState,
-    gdb : Option<gdbstub::GdbRemote>,
-    tx : mpsc::Sender<gdbstub::GdbRemote>,
-    rx : mpsc::Receiver<gdbstub::GdbRemote>,
-}
-
-impl GdbConnection {
-
-    pub fn new() -> Self {
-        use self::ConnState::*;
-
-        let state = Start;
-        let gdb = None;
-        let (tx, rx) = mpsc::channel();
-
-        Self {
-            state, gdb, tx, rx
-        }
-    }
-
-    pub fn update(&mut self, host : &mut gdbstub::DebuggerHost) {
-
-        use self::ConnState::*;
-
-        match self.state {
-
-            Start => {
-                self.state = Waiting;
-
-                let tx = self.tx.clone();
-
-                thread::spawn(move || {
-                    let listener = TcpListener::bind("127.0.0.1:6809").unwrap();
-                    let rem = gdbstub::GdbRemote::new(&listener);
-                    tx.send(rem).unwrap();
-                });
-
-                info!("Waiting for gdb connection")
-            },
-
-            Waiting => {
-                let is_gdb = self.rx.try_recv();
-
-                if !is_gdb.is_err() {
-                    self.state = Connected;
-                    self.gdb = Some(is_gdb.unwrap());
-                    info!("gdb connected")
-                }
-            },
-
-            Connected => {
-                let mut ret = Err(());
-
-                if let Some(ref mut remote) = self.gdb {
-                    ret = remote.serve(host);
-                }
-
-                match ret {
-                    Err(_) => { 
-                        info!("gdb disconnected");
-                        self.state = Start;
-                    },
-                    _ => (),
-                }
-            }
-
-        }
-    }
-}
 
