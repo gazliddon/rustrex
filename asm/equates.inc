@@ -1,5 +1,7 @@
 
 
+;; Screen Data
+MEM_START              equ 0x9900
 
 ;; Screen Data
 

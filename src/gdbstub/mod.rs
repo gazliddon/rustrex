@@ -1,59 +1,23 @@
-use std::net::{TcpListener, TcpStream};
-use std::io::{Read, Write};
-
-// use debugger::Debugger;
-// use cpu::Cpu;
-// use memory::{Byte, HalfWord, Word};
-// use interrupt::InterruptState;
-
-use self::reply::{Reply, Endian};
-
 pub mod reply;
+mod sigs;
 
-
+use std::net::{TcpListener, TcpStream, Shutdown};
+use std::io::{Read, Write};
+use self::reply::{Reply, Endian};
 pub type GdbResult = Result<(), ()>;
 
+use self::sigs::Sigs;
+
 pub struct GdbRemote {
+
     remote: TcpStream,
     endian : Endian,
 }
 
-pub struct Debugger { }
-
-impl Debugger {
-
-    pub fn new() -> Self {
-        Self {}
-    }
-
-    pub fn resume(&self) {}
-    pub fn set_step(&self) {}
-    pub fn add_breakpoint(&self, _addr : u32) { }
-    pub fn add_write_watchpoint (&self, _addr : u32){ }
-    pub fn add_read_watchpoint(&self, _addr : u32){ }
-    pub fn del_breakpoint(&self, _addr : u32) { }
-    pub fn del_write_watchpoint(&self, _addr : u32) { }
-    pub fn del_read_watchpoint(&self, _addr : u32) { }
-
-    // pub fn add_breakpoint(&self, addr : u32) {}
-    fn examine(&self, _addr : u16) -> u8 { 
-        0x12
-    }
-}
-
-
 pub trait DebuggerHost {
-
-    fn read_registers(&self, _reply : &mut Reply) {
-        unimplemented!();
-    }
-
+    fn read_registers(&self, _reply : &mut Reply) ;
     fn write_registers(&mut self, _data : &[u8]) ;
-
-    fn force_pc(&mut self, _pc : u16) {
-        unimplemented!();
-    }
-
+    fn force_pc(&mut self, _pc : u16) ;
     fn resume(&mut self) ;
     fn set_step(&mut self) ;
     fn add_breakpoint(&mut self, _addr : u16) ;
@@ -63,24 +27,16 @@ pub trait DebuggerHost {
     fn del_write_watchpoint(&mut self, _addr : u16) ;
     fn del_read_watchpoint(&mut self, _addr : u16) ;
     fn examine(&self, _addr : u16) -> u8 ;
-
     fn write(&mut self, _addr : u16, val : u8);
-}
-
-pub struct InterruptState {
-}
-
-impl InterruptState {
-
-    pub fn new() -> InterruptState {
-        InterruptState{}
-
-    }
 }
 
 struct Byte { }
 struct HalfWord { }
 struct Word {}
+
+fn args_as_string(data : &[u8]) -> String {
+    String::from_utf8(data.to_vec()).unwrap()
+}
 
 impl GdbRemote {
 
@@ -228,6 +184,29 @@ impl GdbRemote {
         }
     }
 
+    fn disconnect(&mut self) -> GdbResult {
+        try!(self.send_ok());
+        self.remote.shutdown(Shutdown::Both).unwrap();
+        Ok(())
+    }
+
+    fn handle_query(&mut self, args : &[u8]) -> GdbResult {
+        use std::str;
+
+        let text = str::from_utf8(args).unwrap();
+
+        match text {
+            "Attached" => self.send_string(b"1"),
+            "TStatus" => self.send_string(b"T0"),
+            "C" => self.send_empty_reply(),
+            _ => {
+
+                info!("unhandled q {}", text);
+                self.send_empty_reply()
+            }
+        }
+    }
+
     fn handle_packet(&mut self,
                      host: &mut DebuggerHost,
                      packet: &[u8]) -> GdbResult {
@@ -235,22 +214,30 @@ impl GdbRemote {
         let command = packet[0];
         let args = &packet[1..];
 
-        info!("received command {}", command as char);
+        let to_check = "zZ";
+
+        if to_check.find(command as char).is_some() {
+            info!("raw cmd {}", args_as_string(packet));
+        }
 
         let res =
             match command {
+                b'q' => self.handle_query(args),
                 b'?' => self.send_status(),
+                b'D' => self.disconnect(),
                 b'M' => self.write_memory(host, args),
                 b'm' => self.read_memory(host, args),
                 b'g' => self.read_registers(host),
                 b'G' => self.write_registers(host, args),
                 b'c' => self.resume(host, args),
                 b's' => self.step(host, args),
+
                 b'Z' => self.add_breakpoint(host, args),
                 b'z' => self.del_breakpoint(host, args),
+
                 // Send empty response for unsupported packets
                 _ => {
-                    info!("unhandled command {}", command as char);
+                    info!("unhandled command {} {:?}", command as char, args_as_string(args));
                     self.send_empty_reply()
                 },
             };
@@ -280,9 +267,7 @@ impl GdbRemote {
 
     fn send_string(&mut self, string: &[u8]) -> GdbResult {
         let mut reply = Reply::new(&self.endian);
-
         reply.push(string);
-
         self.send_reply(reply)
     }
 
@@ -303,8 +288,6 @@ impl GdbRemote {
     }
 
     fn write_memory(&mut self, _host : &mut DebuggerHost, args: &[u8]) -> GdbResult {
-        info!("Starting write mem!");
-
         let (addr, data) = try!(parse_write_mem(args));
 
         let addr = addr as u16;
@@ -331,8 +314,6 @@ impl GdbRemote {
             return self.send_error();
         }
 
-        info!("reading {:02x} bytes from {:04x}", len, addr);
-
         for i in 0..len {
             let a = (addr as u16).wrapping_add(i as u16);
             let b = host.examine(a);
@@ -350,13 +331,11 @@ impl GdbRemote {
         if !args.is_empty() {
             // If an address is provided we restart from there
             let addr = try!(parse_hex(args));
-
             host.force_pc(addr as u16);
         }
 
         // Tell the debugger we want to resume execution.
         host.resume();
-
         Ok(())
     }
 
@@ -379,17 +358,31 @@ impl GdbRemote {
     // supposed to execute a single instruction.
     fn step(&mut self,
             host: &mut DebuggerHost,
-            args: &[u8]) -> GdbResult {
+            _args: &[u8]) -> GdbResult {
 
         host.set_step();
 
-        self.resume(host, args)
+        self.send_trap()
+
+            // self.resume(host, args)
     }
+
+
+    fn send_sig(&mut self, v : sigs::Sigs) -> GdbResult {
+        let v = format!("S{:02X}", v as u8);
+        let bytes = v.into_bytes();
+        self.send_string(&bytes)
+    }
+
+    fn send_trap(&mut self) -> GdbResult { self.send_sig(Sigs::SIGTRAP) }
+
 
     // Add a breakpoint or watchpoint
     fn add_breakpoint(&mut self,
                       host: &mut DebuggerHost,
                       args: &[u8]) -> GdbResult {
+
+        info!("add_breakpoint {}", args_as_string(args));
 
         // Check if the request contains a command list
         if args.iter().any(|&b| b == b';') {
@@ -428,6 +421,8 @@ impl GdbRemote {
                       args: &[u8]) -> GdbResult {
 
         let (btype, addr_big, kind) = try!(parse_breakpoint(args));
+
+        info!("del_breakpoint {}", args_as_string(args));
 
         let addr = addr_big as u16;
 
@@ -480,6 +475,7 @@ fn ascii_hex_err(b: u8) -> Result<u8, ()> {
     }
 }
 
+
 /// Parse an hexadecimal string and return the value as an
 /// integer. Return `None` if the string is invalid.
 fn parse_hex(hex: &[u8]) -> Result<u32, ()> {
@@ -503,16 +499,16 @@ use itertools::Itertools;
 
 /// Parse an hexadecimal string and return the value as an
 /// integer. Return `None` if the string is invalid.
+
 fn parse_data(_hex: &[u8]) -> Result<Vec<u8>, ()> {
 
     let mut res = vec!();
 
     for (l, h) in _hex.iter().tuples() {
 
-        let ln = try!(ascii_hex_err(*l));
-        let hn = try!(ascii_hex_err(*h));
-        res.push(hn | ln << 4);
-
+        let hn = try!(ascii_hex_err(*l));
+        let ln = try!(ascii_hex_err(*h));
+        res.push(ln | hn << 4);
     }
 
     Ok(res)
@@ -547,18 +543,15 @@ fn parse_addr_len(args: &[u8]) -> Result<(u32, u32), ()> {
     Ok((addr, len))
 }
 
-fn parse_write_registers(_args: &[u8]) -> Result<(Vec<u8>), ()> {
-    return Err(())
-}
-
 fn parse_write_mem(args: &[u8]) -> Result<(u32, Vec<u8>), ()> {
 
     let args: Vec<_> = args.split(|&b| b == b',').collect();
+
+    if args.len() != 2 { return Err(()) }
+
     let command: Vec<_> = args[1].split(|&b| b== b':').collect();
 
-    // let addr = args[0];
-    // let len = command[0];
-    // let bytes = command[1];
+    if command.len() != 2 { return Err(()) }
 
     let addr = try!(parse_hex(args[0]));
     let len = try!(parse_hex(command[0]));
@@ -567,16 +560,13 @@ fn parse_write_mem(args: &[u8]) -> Result<(u32, Vec<u8>), ()> {
     if len as usize != bytes.len() {
         Err(())
     } else {
-        println!("{:04x} len {:04x} {:?}", addr, len, bytes);
         Ok((addr, bytes))
     }
-
 }
 
 /// Parse breakpoint arguments: the format is
 /// `type,addr,kind`. Returns the three parameters in a tuple or an
 /// error if a format error has been encountered.
-
 fn parse_breakpoint(args: &[u8]) -> Result<(u8, u32, u8), ()> {
     // split around the comma
     let args: Vec<_> = args.split(|&b| b == b',').collect();

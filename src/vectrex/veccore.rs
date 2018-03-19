@@ -191,6 +191,10 @@ fn mk_data_mem(addr : u16 ,name : &str, data : &[u8], writeable : bool ) -> Box<
 }
 
 impl gdbstub::DebuggerHost for Vectrex {
+
+    fn force_pc(&mut self, _pc : u16)  {
+    }
+
     fn resume(&mut self)  {
 
     }
@@ -207,13 +211,12 @@ impl gdbstub::DebuggerHost for Vectrex {
 
     }
     fn del_breakpoint(&mut self, _addr : u16)  {
-
     }
+
     fn del_write_watchpoint(&mut self, _addr : u16)  {
-
     }
+
     fn del_read_watchpoint(&mut self, _addr : u16)  {
-        
     }
 
     fn examine(&self, addr : u16) -> u8  {
