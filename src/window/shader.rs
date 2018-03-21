@@ -1,4 +1,3 @@
-
 const VS_SRC: &'static [u8] = b"
 #version 100
 precision mediump float;
@@ -25,7 +24,7 @@ void main() {
 }
 \0";
 
-struct Shader {
+pub struct Shader {
     program : u32,
     fs_id : u32,
     vs_id : u32,
@@ -33,17 +32,15 @@ struct Shader {
 
 impl Shader {
     pub fn new(vs_src : &[u8], fs_src : &[u8]) -> Self {
-
         use std::ptr;
         use gl::*;
 
-        let (program, fs_id, vs_id) = unsafe {( 
+        let (program, fs_id, vs_id) = unsafe {(
                 CreateProgram(),
                 CreateShader(VERTEX_SHADER),
                 CreateShader(FRAGMENT_SHADER))};
 
         unsafe {
-
             ShaderSource(vs_id, 1, [vs_src.as_ptr() as *const _].as_ptr(), ptr::null());
             CompileShader(vs_id);
 
@@ -59,6 +56,12 @@ impl Shader {
         Self {
             program, fs_id, vs_id
         }
+    }
+    pub fn use_program(&self) {
+        use gl::*;
 
+        unsafe {
+            UseProgram(self.program);
+        }
     }
 }

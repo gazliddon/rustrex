@@ -2,12 +2,10 @@ use glutin::{ GlContext, EventsLoop, GlWindow};
 // use glutin;
 use gl;
 
-
 pub struct Window {
     events    : EventsLoop,
     gl_window : GlWindow,
 }
-
 
 impl Window {
 
