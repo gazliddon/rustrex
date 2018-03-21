@@ -18,6 +18,8 @@ extern crate serde_json;
 extern crate sha1;
 extern crate separator;
 extern crate itertools;
+extern crate gl;
+extern crate glutin;
 
 
 extern crate regex;
@@ -29,6 +31,7 @@ extern crate env_logger;
 
 #[macro_use] mod cpu;
 
+mod window;
 mod mem;
 mod symtab;
 mod utils;

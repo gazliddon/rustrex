@@ -1,8 +1,6 @@
 // #![allow(single_match)]
 
-extern crate gl;
-extern crate glutin;
-// use self::glutin::{GlContext};
+use glutin;
 
 pub struct Window {
     events_loop : glutin::EventsLoop,
@@ -21,6 +19,8 @@ impl Window {
 
         let context = glutin::ContextBuilder::new();
         let gl_window = glutin::GlWindow::new(window, context, &events_loop).unwrap();
+
+
 
         Window {
             events_loop,
@@ -65,5 +65,4 @@ impl Window {
 
 
 }
-
 
