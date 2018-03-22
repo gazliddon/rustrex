@@ -13,13 +13,15 @@
 #[macro_use] extern crate bitflags;
 #[macro_use] extern crate serde_derive;
 
+#[macro_use] extern crate glium;
+
+extern crate image;
+
 extern crate serde_yaml;
 extern crate serde_json;
 extern crate sha1;
 extern crate separator;
 extern crate itertools;
-extern crate gl;
-extern crate glutin;
 
 
 extern crate regex;
