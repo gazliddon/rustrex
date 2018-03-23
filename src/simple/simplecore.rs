@@ -29,6 +29,8 @@ use mem::*;
 use simple::Io;
 use simple::GdbConnection;
 
+use window;
+
 use std::rc::Rc;
 use std::cell::RefCell;
 
@@ -268,12 +270,14 @@ impl Simple {
     }
 
     pub fn run(&mut self) {
+        let w = &mut window::Window::new("my lovely window");
 
         let mut conn = GdbConnection::new();
 
-        loop {
-            conn.update(self)
-        }
+        window::run_loop(|| {
+            conn.update(self);
+            w.update()
+        });
     }
 }
 

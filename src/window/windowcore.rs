@@ -2,6 +2,9 @@ use glium;
 
 use std::io::Cursor;
 use glium::index::PrimitiveType;
+use glium:: {Display , VertexBuffer, IndexBuffer, Program};
+use glium::glutin;
+
 use std::thread;
 use std::time::{Duration, Instant};
 
@@ -10,7 +13,8 @@ pub enum Action {
     Continue,
 }
 
-pub fn start_loop<F>(mut callback: F) where F: FnMut() -> Action {
+pub fn run_loop<F>(mut callback: F) where F: FnMut() -> Action {
+
     let mut accumulator = Duration::new(0, 0);
     let mut previous_clock = Instant::now();
 
@@ -21,141 +25,180 @@ pub fn start_loop<F>(mut callback: F) where F: FnMut() -> Action {
         };
 
         let now = Instant::now();
+
         accumulator += now - previous_clock;
         previous_clock = now;
 
         let fixed_time_stamp = Duration::new(0, 16666667);
+
         while accumulator >= fixed_time_stamp {
             accumulator -= fixed_time_stamp;
-
-            // if you have a game, update the state here
         }
 
         thread::sleep(fixed_time_stamp - accumulator);
     }
 }
 
+trait GazMath {
 
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+struct Vertex {
+    position: [f32; 2],
+    tex_coords: [f32; 2],
+}
+
+struct Model {
+    vertex_buffer  : VertexBuffer<Vertex>,
+    index_buffer   : IndexBuffer<u16>,
+}
 
 pub struct Window {
+    display        : Display,
+    vertex_buffer  : VertexBuffer<Vertex>,
+    index_buffer   : IndexBuffer<u16>,
+    program        : Program,
+    events_loop    : glutin::EventsLoop,
+    opengl_texture : glium ::texture::Texture2d,
+    count          : f32 ,
 }
+
 
 impl Window {
 
+    pub fn update_texture(&mut self) {
+
+        use glium::texture::{RawImage2d};
+        use glium::Rect;
+
+        const W : u32 = 600;
+        const H : u32 = 297;
+        const SIZE : usize = ( W * H  * 3 ) as usize;
+
+        let mut new_data : Vec<u8> = vec![0; SIZE];
+
+        for i in new_data.iter_mut() {
+            *i = (self.count * 256.0f32)  as u8;
+        }
+
+        let ri = RawImage2d::from_raw_rgb(new_data, (W , H ));
+
+        let rect = Rect {
+            left : 0,
+            bottom: 0,
+            width : W,
+            height: H,
+        };
+
+        self.opengl_texture.write(rect, ri);
+    }
+
     pub fn new(_name : &str) -> Self {
 
+        use self::glutin::{EventsLoop, WindowBuilder, ContextBuilder};
+        use glium::texture::{RawImage2d, Texture2d};
+
+        use image;
+
+        // building the display, ie. the main object
+        let events_loop = EventsLoop::new();
+        let window = WindowBuilder::new();
+
+        let context = ContextBuilder::new();
+        let display = Display::new(window, context, &events_loop).unwrap();
+
+        // building a texture with "OpenGL" drawn on it
+        let image = image::load(Cursor::new(&include_bytes!("resources/opengl.png")[..]),
+        image::PNG).unwrap().to_rgba();
+
+        let image_dimensions = image.dimensions();
+        info!("dims {:?}", image_dimensions);
+        let image = RawImage2d::from_raw_rgba_reversed(&image.into_raw(), image_dimensions);
+        // let opengl_texture = CompressedTexture2d::new(&display, image).unwrap();
+
+        let opengl_texture = Texture2d::new(&display, image).unwrap();
+
+        // building the vertex buffer, which contains all the vertices that we will draw
+        let vertex_buffer = {
+            implement_vertex!(Vertex, position, tex_coords);
+
+            VertexBuffer::new(&display, 
+                              &[
+                              Vertex { position: [-1.0, -1.0], tex_coords: [0.0, 0.0] },
+                              Vertex { position: [-1.0,  1.0], tex_coords: [0.0, 1.0] },
+                              Vertex { position: [ 1.0,  1.0], tex_coords: [1.0, 1.0] },
+                              Vertex { position: [ 1.0, -1.0], tex_coords: [1.0, 0.0] }
+                              ]
+                             ).unwrap()
+        };
+
+        // building the index buffer
+        let index_buffer = IndexBuffer::new(&display, PrimitiveType::TriangleStrip,
+                                                   &[1 as u16, 2, 0, 3]).unwrap();
+
+        let vs = &include_str!("resources/standard.vs");
+        let fs = &include_str!("resources/standard.fs");
+
+        let program = glium::Program::from_source(&display, vs,fs, None).unwrap();
+
         Self {
-
+            display, vertex_buffer, program,
+            index_buffer, opengl_texture, events_loop, 
+            count : 0.0f32,
         }
-
     }
 
+    pub fn update(&mut self) -> Action {
+        use glium::{Surface};
 
-    pub fn update(&mut self) {
+        let mut target = self.display.draw();
 
-    }
-}
+        self.count += 1.0f32 / 60.0f32;
 
-pub fn test() {
-    use image;
-    use glium::{Surface, glutin};
+        let c = self.count;
 
- // building the display, ie. the main object
-    let mut events_loop = glutin::EventsLoop::new();
-    let window = glutin::WindowBuilder::new();
-    let context = glutin::ContextBuilder::new();
-    let display = glium::Display::new(window, context, &events_loop).unwrap();
+        target.clear_color(0.0, 1.0, (c * 3.0f32).cos() / 2.0f32 + 0.5f32, 1.0);
 
-    // building a texture with "OpenGL" drawn on it
-    let image = image::load(Cursor::new(&include_bytes!("resources/opengl.png")[..]),
-                            image::PNG).unwrap().to_rgba();
-    let image_dimensions = image.dimensions();
-    let image = glium::texture::RawImage2d::from_raw_rgba_reversed(&image.into_raw(), image_dimensions);
-    let opengl_texture = glium::texture::CompressedTexture2d::new(&display, image).unwrap();
+        target.draw(&self.vertex_buffer, &self.index_buffer, &self.program, &uniform! { 
+            matrix: [
+                [1.0, 0.0, 0.0, 0.0],
+                [0.0, 1.0, 0.0, 0.0],
+                [0.0, 0.0, 1.0, 0.0],
+                [0.0, 0.0, 0.0, 1.0f32]
+            ],
+            tex: &self.opengl_texture
 
-    // building the vertex buffer, which contains all the vertices that we will draw
-    let vertex_buffer = {
-        #[derive(Copy, Clone)]
-        struct Vertex {
-            position: [f32; 2],
-            tex_coords: [f32; 2],
-        }
+        }, &Default::default()).unwrap();
 
-        implement_vertex!(Vertex, position, tex_coords);
-
-        glium::VertexBuffer::new(&display, 
-            &[
-                Vertex { position: [-1.0, -1.0], tex_coords: [0.0, 0.0] },
-                Vertex { position: [-1.0,  1.0], tex_coords: [0.0, 1.0] },
-                Vertex { position: [ 1.0,  1.0], tex_coords: [1.0, 1.0] },
-                Vertex { position: [ 1.0, -1.0], tex_coords: [1.0, 0.0] }
-            ]
-        ).unwrap()
-    };
-
-    // building the index buffer
-    let index_buffer = glium::IndexBuffer::new(&display, PrimitiveType::TriangleStrip,
-                                               &[1 as u16, 2, 0, 3]).unwrap();
-
-    // compiling shaders and linking them together
-    let program = glium::Program::from_source(&display, r"
-        #version 140
-        uniform mat4 matrix;
-        in vec2 position;
-        in vec2 tex_coords;
-        out vec2 v_tex_coords;
-        void main() {
-            gl_Position = matrix * vec4(position, 0.0, 1.0);
-            v_tex_coords = tex_coords;
-        }
-    ", r"
-        #version 140
-        uniform sampler2D tex;
-        in vec2 v_tex_coords;
-        out vec4 color;
-        void main() {
-            color = texture(tex, v_tex_coords);
-        }
-    ", None).unwrap();
-
-
-    let mut fullscreen = false;
-
-    println!("Press Enter to switch fullscreen mode");
-
-    start_loop(|| {
-        // drawing a frame
-        
-        let mut target = display.draw();
-
-        target.clear_color(0.0, 1.0, 0.0, 1.0);
-        target.draw(&vertex_buffer, &index_buffer, &program, &uniform! { 
-                matrix: [
-                    [0.5, 0.0, 0.0, 0.0],
-                    [0.0, 0.5, 0.0, 0.0],
-                    [0.0, 0.0, 0.5, 0.0],
-                    [0.0, 0.0, 0.0, 1.0f32]
-                ],
-                tex: &opengl_texture
-            }, &Default::default()).unwrap();
         target.finish().unwrap();
 
         let mut action = Action::Continue;
 
-        use glium::glutin::{Event,ElementState, WindowEvent, VirtualKeyCode};
+        use glium::glutin::{Event,ElementState, WindowEvent};
 
         // polling and handling the events received by the window
-        let mut enter_pressed = false;
+
+        self.update_texture();
+
+        let events_loop = &mut self.events_loop;
+        let display = &mut self.display;
+
         events_loop.poll_events(|event| match event {
             Event::WindowEvent { event, window_id } =>
                 if window_id == display.gl_window().id() {
                     match event {
                         WindowEvent::Closed => action = Action::Stop,
+
                         WindowEvent::KeyboardInput { input, .. } => {
                             if let ElementState::Pressed = input.state {
-                                if let Some(VirtualKeyCode::Return) = input.virtual_keycode {
-                                    enter_pressed = true;
-                                }
+                                use glium::glutin::VirtualKeyCode::*;
+
+                                match input.virtual_keycode {
+                                    Some(Escape) | Some(Q) => action = Action::Stop,
+                                    _=> ()
+
+                                };
                             }
                         },
                         _ => ()
@@ -164,23 +207,10 @@ pub fn test() {
             _ => (),
         });
 
-        // If enter was pressed toggle fullscreen.
-        if enter_pressed {
-            if fullscreen {
-                let window = glutin::WindowBuilder::new();
-                let context = glutin::ContextBuilder::new();
-                display.rebuild(window, context, &events_loop).unwrap();
-                fullscreen = false;
-            } else {
-                let window = glutin::WindowBuilder::new()
-                    .with_fullscreen(Some(events_loop.get_primary_monitor()));
-                let context = glutin::ContextBuilder::new();
-                display.rebuild(window, context, &events_loop).unwrap();
-                fullscreen = true;
-            }
-        }
-
-        action
-    });
+        action 
+    }
 }
+
+
+
 
