@@ -5,7 +5,8 @@ use std::net::{TcpListener};
 
 use gdbstub;
 
-enum ConnState {
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum ConnState {
     Start,
     Waiting,
     Connected,
@@ -32,11 +33,13 @@ impl GdbConnection {
         }
     }
 
-    pub fn update(&mut self, host : &mut gdbstub::DebuggerHost) {
+    pub fn update(&mut self, host : &mut gdbstub::DebuggerHost) -> ConnState {
 
         use self::ConnState::*;
 
-        match self.state {
+        let state = self.state.clone();
+
+        match state {
 
             Start => {
                 self.state = Waiting;
@@ -79,6 +82,8 @@ impl GdbConnection {
             }
 
         }
+
+        state
     }
 }
 

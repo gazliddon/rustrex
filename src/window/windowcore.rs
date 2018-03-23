@@ -1,6 +1,5 @@
 use glium;
 
-use std::io::Cursor;
 use glium::index::PrimitiveType;
 use glium:: {Display , VertexBuffer, IndexBuffer, Program};
 use glium::glutin;
@@ -8,9 +7,11 @@ use glium::glutin;
 use std::thread;
 use std::time::{Duration, Instant};
 
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Action {
     Stop,
     Continue,
+    Reset, 
 }
 
 pub fn run_loop<F>(mut callback: F) where F: FnMut() -> Action {
@@ -21,6 +22,7 @@ pub fn run_loop<F>(mut callback: F) where F: FnMut() -> Action {
     loop {
         match callback() {
             Action::Stop => break,
+            Action::Reset => (),
             Action::Continue => ()
         };
 
@@ -40,7 +42,6 @@ pub fn run_loop<F>(mut callback: F) where F: FnMut() -> Action {
 }
 
 trait GazMath {
-
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -64,10 +65,9 @@ pub struct Window {
     count          : f32 ,
 }
 
-
 impl Window {
 
-    pub fn update_texture(&mut self) {
+    pub fn update_texture(&mut self, new_data : &[u8]) {
 
         use glium::texture::{RawImage2d};
         use glium::Rect;
@@ -76,13 +76,7 @@ impl Window {
         const H : u32 = 256;
         const SIZE : usize = ( W * H  * 3 ) as usize;
 
-        let mut new_data : Vec<u8> = vec![0; SIZE];
-
-        for i in new_data.iter_mut() {
-            *i = (self.count * 256.0f32)  as u8;
-        }
-
-        let ri = RawImage2d::from_raw_rgb(new_data, (W , H ));
+        let ri = RawImage2d::from_raw_rgb(new_data.to_vec(), (W , H ));
 
         let rect = Rect {
             left : 0,
@@ -97,9 +91,8 @@ impl Window {
     pub fn new(_name : &str) -> Self {
 
         use self::glutin::{EventsLoop, WindowBuilder, ContextBuilder};
-        use glium::texture::{RawImage2d, Texture2d};
+        use glium::texture::{Texture2d};
 
-        use image;
 
         // building the display, ie. the main object
         let events_loop = EventsLoop::new();
@@ -175,7 +168,6 @@ impl Window {
 
         // polling and handling the events received by the window
 
-        self.update_texture();
 
         let events_loop = &mut self.events_loop;
         let display = &mut self.display;
@@ -190,9 +182,10 @@ impl Window {
                             if let ElementState::Pressed = input.state {
                                 use glium::glutin::VirtualKeyCode::*;
 
-                                match input.virtual_keycode {
-                                    Some(Escape) | Some(Q) => action = Action::Stop,
-                                    _=> ()
+                                action = match input.virtual_keycode {
+                                    Some(Escape) | Some(Q) => Action::Stop,
+                                    Some(R) => Action::Reset,
+                                    _=> Action::Continue,
 
                                 };
                             }

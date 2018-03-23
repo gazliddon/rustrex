@@ -34,6 +34,8 @@ use window;
 use std::rc::Rc;
 use std::cell::RefCell;
 
+use utils;
+
 #[derive(Debug, Clone, Copy, PartialEq)]
 enum MemRegion {
     Illegal,
@@ -67,7 +69,7 @@ fn to_rgb(mem : &[u8], palette : &[u8]) -> [u8; 304 * 256 * 3]{
         let d = x + y * 304 * 3;
         let dest = &mut ret[d..];
 
-        pix_to_rgb(b&0xff, palette, &mut dest[..3]);
+        pix_to_rgb(b&0xf, palette, &mut dest[..3]);
         pix_to_rgb(b>>4, palette, &mut dest[..3]);
     };
 
@@ -127,8 +129,14 @@ impl SimpleMem {
 }
 
 impl MemoryIO for SimpleMem {
-    fn upload(&mut self, _addr : u16, _data : &[u8]) {
-        unimplemented!("TBD")
+
+    fn upload(&mut self, addr : u16, _data : &[u8]) {
+        let mut addr = addr;
+
+        for i in _data {
+            self.store_byte(addr, *i);
+            addr = addr.wrapping_add(1);
+        }
     }
 
     fn get_range(&self) -> (u16, u16) {
@@ -164,6 +172,23 @@ pub struct Simple {
     regs        : Regs,
     mem         : SimpleMem,
     rc_clock    : Rc<RefCell<StandardClock>>,
+    sync : bool,
+}
+
+fn pop_u8<'a, I>(vals: &mut I) -> u8
+where
+    I: Iterator<Item = &'a u8>,
+{
+    *vals.next().unwrap()
+}
+
+fn pop_u16<'a, I>(vals: &mut I) -> u16
+where
+    I: Iterator<Item = &'a u8>,
+{
+    let h = *vals.next().unwrap() as u16;
+    let l = *vals.next().unwrap() as u16;
+    l | (h << 8)
 }
 
 impl gdbstub::DebuggerHost for Simple {
@@ -173,9 +198,7 @@ impl gdbstub::DebuggerHost for Simple {
     }
 
     fn read_registers(&self, reply : &mut gdbstub::Reply) {
-
         let regs = &self.regs;
-
         let cc = regs.flags.bits();
 
         reply.push_u8(cc);
@@ -194,8 +217,8 @@ impl gdbstub::DebuggerHost for Simple {
         warn!("unimplemented resume")
     }
 
-    fn set_step(&mut self)  {
-        cpu::step(&mut self.regs, &mut self.mem, &self.rc_clock);
+    fn set_step(&mut self) {
+        self.step();
     }
 
     fn add_breakpoint(&mut self, _addr : u16) {
@@ -248,43 +271,36 @@ impl gdbstub::DebuggerHost for Simple {
     }
 }
 
-fn pop_u8<'a, I>(vals: &mut I) -> u8
-where
-    I: Iterator<Item = &'a u8>,
-{
-    *vals.next().unwrap()
-}
-
-fn pop_u16<'a, I>(vals: &mut I) -> u16
-where
-    I: Iterator<Item = &'a u8>,
-{
-    let h = *vals.next().unwrap() as u16;
-    let l = *vals.next().unwrap() as u16;
-
-    l | (h << 8)
-}
-
-
 impl Simple {
+    pub fn step(&mut self) -> cpu::InstructionDecoder {
+        let i = cpu::step(&mut self.regs, &mut self.mem, &self.rc_clock);
 
+        if i.op_code == 0x13 {
+            self.sync = true;
+        }
+
+        i 
+    }
+    
     pub fn reset(&mut self) {
+        let v = utils::load_file("asm/out/all.bin");
+        self.mem.upload(0x9900, &v);
         cpu::reset(&mut self.regs, &mut self.mem);
+        info!("Reset! pc=${:03x}", self.regs.pc);
     }
 
     pub fn new() -> Self {
-
         let rc_clock = Rc::new(RefCell::new(StandardClock::new(2_000_000)));
 
         let mem = SimpleMem::new();
         let regs = Regs::new();
 
         let mut ret = Simple {
-            mem, regs, rc_clock
+            mem, regs, rc_clock,
+            sync : false,
         };
 
         ret.reset();
-
         ret
     }
 
@@ -293,20 +309,60 @@ impl Simple {
         ret
     }
 
+    fn run_to_halt(&mut self, max_instructions : usize ) {
+
+        for _ in 0..max_instructions {
+            self.step();
+
+            if self.sync {
+                break;
+            }
+        }
+
+        self.sync = true;
+    }
+
+
     pub fn run(&mut self) {
-        let buffer = {
-            let scr = &self.mem.screen.data;
-            let pal = &self.mem.io.palette;
-            to_rgb(scr, pal)
-        };
 
         let w = &mut window::Window::new("my lovely window");
 
         let mut conn = GdbConnection::new();
 
         window::run_loop(|| {
-            conn.update(self);
-            w.update()
+
+            while self.sync == false {
+                use simple::ConnState::*;
+
+                let state = conn.update(self);
+
+                match state {
+                    Start | Waiting => {
+                        self.run_to_halt(2_000_000);
+                    },
+
+                    Connected => (),
+                }
+            };
+
+            self.sync = false;
+
+            let buffer = {
+                let scr = &self.mem.screen.data;
+                let pal = &self.mem.io.palette;
+                to_rgb(scr, pal)
+            };
+
+            w.update_texture(&buffer);
+            let action = w.update();
+
+            if action == window::Action::Reset {
+                info!("Resetting");
+                self.reset();
+            }
+
+            return action;
+
         });
     }
 }

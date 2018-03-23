@@ -1170,7 +1170,6 @@ impl<'a, C : 'a + Clock, M : 'a + MemoryIO> Context<'a, C, M> {
     }
 
     fn sync< A : AddressLines>(&mut self)  {
-        panic!("sync NO!")
     }
 
     fn unimplemented(&mut self) {
