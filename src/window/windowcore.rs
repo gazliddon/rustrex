@@ -72,8 +72,8 @@ impl Window {
         use glium::texture::{RawImage2d};
         use glium::Rect;
 
-        const W : u32 = 600;
-        const H : u32 = 297;
+        const W : u32 = 304;
+        const H : u32 = 256;
         const SIZE : usize = ( W * H  * 3 ) as usize;
 
         let mut new_data : Vec<u8> = vec![0; SIZE];
@@ -108,18 +108,6 @@ impl Window {
         let context = ContextBuilder::new();
         let display = Display::new(window, context, &events_loop).unwrap();
 
-        // building a texture with "OpenGL" drawn on it
-        let image = image::load(Cursor::new(&include_bytes!("resources/opengl.png")[..]),
-        image::PNG).unwrap().to_rgba();
-
-        let image_dimensions = image.dimensions();
-        info!("dims {:?}", image_dimensions);
-        let image = RawImage2d::from_raw_rgba_reversed(&image.into_raw(), image_dimensions);
-        // let opengl_texture = CompressedTexture2d::new(&display, image).unwrap();
-
-        let opengl_texture = Texture2d::new(&display, image).unwrap();
-
-        // building the vertex buffer, which contains all the vertices that we will draw
         let vertex_buffer = {
             implement_vertex!(Vertex, position, tex_coords);
 
@@ -135,7 +123,15 @@ impl Window {
 
         // building the index buffer
         let index_buffer = IndexBuffer::new(&display, PrimitiveType::TriangleStrip,
-                                                   &[1 as u16, 2, 0, 3]).unwrap();
+                                            &[1 as u16, 2, 0, 3]).unwrap();
+
+        use glium::texture::{UncompressedFloatFormat, MipmapsOption};
+
+
+        let opengl_texture = Texture2d::empty_with_format(&display,
+                                               UncompressedFloatFormat::U8U8U8,
+                                               MipmapsOption::NoMipmap,
+                                               320,256).unwrap();
 
         let vs = &include_str!("resources/standard.vs");
         let fs = &include_str!("resources/standard.fs");

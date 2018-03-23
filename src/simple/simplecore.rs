@@ -50,6 +50,30 @@ struct SimpleMem {
     name               : String,
 }
 
+fn pix_to_rgb(p : u8, palette : &[u8], dest : &mut[u8])  {
+    let p = p as usize;
+    let palette = &palette[p * 3 ..];
+    dest.copy_from_slice(&palette[..3]);
+}
+
+fn to_rgb(mem : &[u8], palette : &[u8]) -> [u8; 304 * 256 * 3]{
+
+    let mut ret : [u8; 304 * 256 * 3] = [0; 304 * 256 * 3];
+
+    for (i, b) in mem.iter().enumerate() {
+
+        let x = (i / 256) * 2;
+        let y = i & 0xff;
+        let d = x + y * 304 * 3;
+        let dest = &mut ret[d..];
+
+        pix_to_rgb(b&0xff, palette, &mut dest[..3]);
+        pix_to_rgb(b>>4, palette, &mut dest[..3]);
+    };
+
+    ret
+}
+
 impl SimpleMem {
     pub fn new() -> Self {
 
@@ -270,6 +294,12 @@ impl Simple {
     }
 
     pub fn run(&mut self) {
+        let buffer = {
+            let scr = &self.mem.screen.data;
+            let pal = &self.mem.io.palette;
+            to_rgb(scr, pal)
+        };
+
         let w = &mut window::Window::new("my lovely window");
 
         let mut conn = GdbConnection::new();

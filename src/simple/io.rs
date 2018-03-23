@@ -30,7 +30,7 @@ struct Color {
 
 #[derive(Clone, Copy)]
 pub struct Io {
-    palette : [u8 ; 16 * 3],
+    pub palette : [u8 ; 16 * 3],
     halt : bool,
 }
 
