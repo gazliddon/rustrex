@@ -1,1 +1,1 @@
-RUST_LOG=src::main cargo run -- simple resources/ROCKS.BIN
+RUST_LOG=src::main cargo run -- simple -w asm/out/all.bin

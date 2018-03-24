@@ -36,6 +36,42 @@ use std::cell::RefCell;
 
 use utils;
 
+////////////////////////////////////////////////////////////////////////////////
+
+
+use notify::{RecommendedWatcher, Watcher, RecursiveMode, DebouncedEvent};
+use std::sync::mpsc::{ channel, Receiver };
+use std::time::Duration;
+
+struct FileWatcher {
+    file : String,
+    watcher : RecommendedWatcher,
+    rx : Receiver<DebouncedEvent>,
+}
+
+impl FileWatcher {
+    pub fn new(file : &str) -> Self {
+        let (tx, rx)  = channel();
+
+        let mut watcher: RecommendedWatcher = Watcher::new(tx, Duration::from_secs(2)).unwrap();
+        watcher.watch(file, RecursiveMode::Recursive).unwrap();
+
+        Self { file : file.to_string(), watcher, rx }
+
+    }
+    pub fn has_changed(&mut self) -> bool {
+        let msg = self.rx.try_recv();
+
+        if !msg.is_err() {
+            true
+        } else {
+            false
+        }
+    }
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
 #[derive(Debug, Clone, Copy, PartialEq)]
 enum MemRegion {
     Illegal,
@@ -45,7 +81,7 @@ enum MemRegion {
 }
 
 struct SimpleMem {
-    ram                : MemBlock,
+    pub ram            : MemBlock,
     pub screen         : MemBlock,
     pub io             : Io,
     addr_to_region     : [MemRegion; 0x1_0000],
@@ -167,24 +203,16 @@ impl MemoryIO for SimpleMem {
     }
 }
 
-
-pub struct Simple {
-    regs        : Regs,
-    mem         : SimpleMem,
-    rc_clock    : Rc<RefCell<StandardClock>>,
-    sync : bool,
-}
-
 fn pop_u8<'a, I>(vals: &mut I) -> u8
 where
-    I: Iterator<Item = &'a u8>,
+I: Iterator<Item = &'a u8>,
 {
     *vals.next().unwrap()
 }
 
 fn pop_u16<'a, I>(vals: &mut I) -> u16
 where
-    I: Iterator<Item = &'a u8>,
+I: Iterator<Item = &'a u8>,
 {
     let h = *vals.next().unwrap() as u16;
     let l = *vals.next().unwrap() as u16;
@@ -271,41 +299,85 @@ impl gdbstub::DebuggerHost for Simple {
     }
 }
 
+
+pub struct Simple {
+    regs       : Regs,
+    mem        : SimpleMem,
+    rc_clock   : Rc<RefCell<StandardClock>>,
+    sync       : bool,
+    file       : Option<String>,
+    watcher    : Option<FileWatcher>,
+}
+
 impl Simple {
-    pub fn step(&mut self) -> cpu::InstructionDecoder {
-        let i = cpu::step(&mut self.regs, &mut self.mem, &self.rc_clock);
-
-        if i.op_code == 0x13 {
-            self.sync = true;
-        }
-
-        i 
-    }
-    
-    pub fn reset(&mut self) {
-        let v = utils::load_file("asm/out/all.bin");
-        self.mem.upload(0x9900, &v);
-        cpu::reset(&mut self.regs, &mut self.mem);
-        info!("Reset! pc=${:03x}", self.regs.pc);
-    }
-
     pub fn new() -> Self {
         let rc_clock = Rc::new(RefCell::new(StandardClock::new(2_000_000)));
 
         let mem = SimpleMem::new();
         let regs = Regs::new();
 
-        let mut ret = Simple {
+        let ret = Simple {
             mem, regs, rc_clock,
-            sync : false,
+            sync    : false,
+            file    : None,
+            watcher : None,
         };
 
-        ret.reset();
         ret
     }
 
-    pub fn from_matches(_matches : &ArgMatches) -> Self {
-        let ret = Self::new();
+    pub fn step(&mut self) -> cpu::InstructionDecoder {
+        let i = cpu::step(&mut self.regs, &mut self.mem, &self.rc_clock);
+
+        if i.op_code == 0x13 {
+            self.sync = true;
+        }
+        i 
+    }
+
+    pub fn reset(&mut self) {
+        cpu::reset(&mut self.regs, &mut self.mem);
+        info!("Reset! pc=${:03x}", self.regs.pc);
+    }
+
+    fn has_changed(&mut self) -> bool {
+        if let Some(ref mut watcher) = self.watcher {
+            watcher.has_changed()
+        } else {
+            false
+        }
+    }
+
+    fn process_watches(&mut self) {
+        if self.has_changed() {
+            info!("File changed - reloading and resetting");
+            self.load_rom();
+            self.reset();
+        }
+    }
+
+    fn load_rom(&mut self) {
+        if let Some(ref file) = self.file {
+            let data = utils::load_file(&file);
+            self.mem.upload(0x9900, &data);
+            info!("Loaded ROM: {}", file);
+        }
+    }
+
+    pub fn from_matches(matches : &ArgMatches) -> Self {
+        let mut ret = Self::new();
+        let file = matches.value_of("ROM FILE").unwrap();
+        ret.file = Some(file.to_string());
+        ret.load_rom();
+        ret.reset();
+
+        if matches.is_present("watch-rom") {
+            info!("Adding watch for rom file");
+
+            let watcher = FileWatcher::new(file);
+            ret.watcher = Some(watcher);
+        }
+
         ret
     }
 
@@ -330,6 +402,8 @@ impl Simple {
         let mut conn = GdbConnection::new();
 
         window::run_loop(|| {
+
+            self.process_watches();
 
             while self.sync == false {
                 use simple::ConnState::*;

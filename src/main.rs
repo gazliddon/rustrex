@@ -15,6 +15,7 @@
 
 #[macro_use] extern crate glium;
 
+extern crate notify;
 extern crate image;
 
 extern crate serde_yaml;
@@ -46,6 +47,7 @@ mod gdbstub;
 mod m6522;
 mod vectrex;
 mod simple;
+mod watcher;
 
 use tests::{GregTest, JsonTest, Tester};
 use clap::{Arg, App, SubCommand, ArgMatches};
@@ -83,6 +85,12 @@ fn main() {
                          .short("g")
                          .long("enable-gdb")
                          .help("Enable GDB debugging"))
+
+                    .arg(Arg::with_name("watch-rom")
+                         .short("w")
+                         .long("watch-rom")
+                         .help("Watch ROM file, reload and reset if changed"))
+
                     .arg(Arg::with_name("ROM FILE")
                          .required(true)
                          .index(1)
