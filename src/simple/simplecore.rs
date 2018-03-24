@@ -43,6 +43,11 @@ use notify::{RecommendedWatcher, Watcher, RecursiveMode, DebouncedEvent};
 use std::sync::mpsc::{ channel, Receiver };
 use std::time::Duration;
 
+const W : usize = 304;
+const H : usize = 256;
+const DIMS : (u32, u32) = (W as u32, H as u32);
+const SCR_BYTES : usize = W * H * 3; 
+
 struct FileWatcher {
     file : String,
     watcher : RecommendedWatcher,
@@ -94,19 +99,19 @@ fn pix_to_rgb(p : u8, palette : &[u8], dest : &mut[u8])  {
     dest.copy_from_slice(&palette[..3]);
 }
 
-fn to_rgb(mem : &[u8], palette : &[u8]) -> [u8; 304 * 256 * 3]{
-
-    let mut ret : [u8; 304 * 256 * 3] = [0; 304 * 256 * 3];
+fn to_rgb(mem : &[u8], palette : &[u8]) -> [u8; SCR_BYTES]{
+    let mut ret : [u8; SCR_BYTES] = [0; SCR_BYTES];
 
     for (i, b) in mem.iter().enumerate() {
 
-        let x = (i / 256) * 2;
-        let y = i & 0xff;
-        let d = x + y * 304 * 3;
+        let x = (i / H) * 2;
+        let y = i % H;
+        let d = ( x + y * W )  * 3;
+
         let dest = &mut ret[d..];
 
         pix_to_rgb(b&0xf, palette, &mut dest[..3]);
-        pix_to_rgb(b>>4, palette, &mut dest[..3]);
+        pix_to_rgb(b>>4, palette, &mut dest[3..6]);
     };
 
     ret
@@ -397,7 +402,7 @@ impl Simple {
 
     pub fn run(&mut self) {
 
-        let w = &mut window::Window::new("my lovely window");
+        let w = &mut window::Window::new("my lovely window", DIMS);
 
         let mut conn = GdbConnection::new();
 

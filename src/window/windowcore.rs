@@ -63,10 +63,9 @@ pub struct Window {
     events_loop    : glutin::EventsLoop,
     opengl_texture : glium ::texture::Texture2d,
     count          : f32,
+    dims           : (u32, u32),
 }
 
-const W : u32 = 304;
-const H : u32 = 256;
 
 impl Window {
 
@@ -75,22 +74,22 @@ impl Window {
         use glium::texture::{RawImage2d};
         use glium::Rect;
 
+        let (w, h) = self.dims;
 
-        const SIZE : usize = ( W * H  * 3 ) as usize;
-
-        let ri = RawImage2d::from_raw_rgb(new_data.to_vec(), (W , H ));
+        let ri = RawImage2d::from_raw_rgb(new_data.to_vec(), self.dims);
 
         let rect = Rect {
             left : 0,
             bottom: 0,
-            width : W,
-            height: H,
+            width : w,
+            height: h,
         };
 
         self.opengl_texture.write(rect, ri);
     }
 
-    pub fn new(name : &str) -> Self {
+    pub fn new(name : &str, dims : (u32, u32)) -> Self {
+        let (w,h) = dims;
 
         use self::glutin::{EventsLoop, WindowBuilder, ContextBuilder};
         use glium::texture::{Texture2d, UncompressedFloatFormat, MipmapsOption };
@@ -118,11 +117,12 @@ impl Window {
         let index_buffer = IndexBuffer::new(&display, PrimitiveType::TriangleStrip,
                                             &[1 as u16, 2, 0, 3]).unwrap();
 
+
         let opengl_texture = 
             Texture2d::empty_with_format(&display,
                                          UncompressedFloatFormat::U8U8U8,
                                          MipmapsOption::NoMipmap,
-                                         W,H).unwrap();
+                                         w,h).unwrap();
 
         let program = Program::from_source(&display, 
                                            &include_str!("resources/standard.vs"),
@@ -133,11 +133,12 @@ impl Window {
             display, vertex_buffer, program,
             index_buffer, opengl_texture, events_loop, 
             count : 0.0f32,
+            dims  : dims,
         }
     }
 
     pub fn update(&mut self) -> Action {
-
+        // drae the screen
         use glium::{Surface, uniforms};
         use glium::glutin::{Event,ElementState, WindowEvent};
 
@@ -170,7 +171,6 @@ impl Window {
         target.finish().unwrap();
 
         let mut action = Action::Continue;
-
         let events_loop = &mut self.events_loop;
         let display = &mut self.display;
 
