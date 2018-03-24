@@ -62,7 +62,7 @@ pub struct Window {
     program        : Program,
     events_loop    : glutin::EventsLoop,
     opengl_texture : glium ::texture::Texture2d,
-    count          : f32 ,
+    count          : f32,
 }
 
 const W : u32 = 304;
@@ -138,13 +138,12 @@ impl Window {
 
     pub fn update(&mut self) -> Action {
 
-        use glium::{Surface};
+        use glium::{Surface, uniforms};
         use glium::glutin::{Event,ElementState, WindowEvent};
 
         self.count += 1.0f32 / 60.0f32;
 
-        let c = self.count;
-
+        let c = self.count * 4.0 ;
         let r = (c * 3.0f32).cos() / 2.0f32 + 0.5f32;
         let g = (c * -1.1f32).cos() / 2.0f32 + 0.5f32;
         let b = (c * 1.0f32).cos() / 2.0f32 + 0.5f32;
@@ -153,6 +152,10 @@ impl Window {
 
         target.clear_color(r, g, b, 1.0);
 
+        let sampler = self.opengl_texture.sampled()
+            .magnify_filter(uniforms::MagnifySamplerFilter::Nearest)
+            .minify_filter(uniforms::MinifySamplerFilter::Nearest);
+
         target.draw(&self.vertex_buffer, &self.index_buffer, &self.program, &uniform! { 
             matrix: [
                 [1.0, 0.0, 0.0, 0.0],
@@ -160,7 +163,8 @@ impl Window {
                 [0.0, 0.0, 1.0, 0.0],
                 [0.0, 0.0, 0.0, 1.0f32]
             ],
-            tex: &self.opengl_texture
+            tex : sampler
+                // tex: &self.opengl_texture
         }, &Default::default()).unwrap();
 
         target.finish().unwrap();
