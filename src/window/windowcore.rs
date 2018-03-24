@@ -4,7 +4,6 @@ use glium::index::PrimitiveType;
 use glium:: {Display , VertexBuffer, IndexBuffer, Program};
 use glium::glutin;
 
-use std::thread;
 use std::time::{Duration, Instant};
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -37,6 +36,7 @@ pub fn run_loop<F>(mut callback: F) where F: FnMut() -> Action {
             accumulator -= fixed_time_stamp;
         }
 
+        use std::thread;
         thread::sleep(fixed_time_stamp - accumulator);
     }
 }
@@ -65,6 +65,9 @@ pub struct Window {
     count          : f32 ,
 }
 
+const W : u32 = 304;
+const H : u32 = 256;
+
 impl Window {
 
     pub fn update_texture(&mut self, new_data : &[u8]) {
@@ -72,8 +75,7 @@ impl Window {
         use glium::texture::{RawImage2d};
         use glium::Rect;
 
-        const W : u32 = 304;
-        const H : u32 = 256;
+
         const SIZE : usize = ( W * H  * 3 ) as usize;
 
         let ri = RawImage2d::from_raw_rgb(new_data.to_vec(), (W , H ));
@@ -88,17 +90,15 @@ impl Window {
         self.opengl_texture.write(rect, ri);
     }
 
-    pub fn new(_name : &str) -> Self {
+    pub fn new(name : &str) -> Self {
 
         use self::glutin::{EventsLoop, WindowBuilder, ContextBuilder};
-        use glium::texture::{Texture2d};
+        use glium::texture::{Texture2d, UncompressedFloatFormat, MipmapsOption };
+        use glium::Program;
 
-
-        // building the display, ie. the main object
         let events_loop = EventsLoop::new();
-        let window = WindowBuilder::new();
-
-        let context = ContextBuilder::new();
+        let window = WindowBuilder::new().with_title(name);
+        let context = ContextBuilder::new().with_vsync(true);
         let display = Display::new(window, context, &events_loop).unwrap();
 
         let vertex_buffer = {
@@ -118,18 +118,16 @@ impl Window {
         let index_buffer = IndexBuffer::new(&display, PrimitiveType::TriangleStrip,
                                             &[1 as u16, 2, 0, 3]).unwrap();
 
-        use glium::texture::{UncompressedFloatFormat, MipmapsOption};
+        let opengl_texture = 
+            Texture2d::empty_with_format(&display,
+                                         UncompressedFloatFormat::U8U8U8,
+                                         MipmapsOption::NoMipmap,
+                                         W,H).unwrap();
 
-
-        let opengl_texture = Texture2d::empty_with_format(&display,
-                                               UncompressedFloatFormat::U8U8U8,
-                                               MipmapsOption::NoMipmap,
-                                               320,256).unwrap();
-
-        let vs = &include_str!("resources/standard.vs");
-        let fs = &include_str!("resources/standard.fs");
-
-        let program = glium::Program::from_source(&display, vs,fs, None).unwrap();
+        let program = Program::from_source(&display, 
+                                           &include_str!("resources/standard.vs"),
+                                           &include_str!("resources/standard.fs"),
+                                           None).unwrap();
 
         Self {
             display, vertex_buffer, program,
@@ -139,15 +137,21 @@ impl Window {
     }
 
     pub fn update(&mut self) -> Action {
-        use glium::{Surface};
 
-        let mut target = self.display.draw();
+        use glium::{Surface};
+        use glium::glutin::{Event,ElementState, WindowEvent};
 
         self.count += 1.0f32 / 60.0f32;
 
         let c = self.count;
 
-        target.clear_color(0.0, 1.0, (c * 3.0f32).cos() / 2.0f32 + 0.5f32, 1.0);
+        let r = (c * 3.0f32).cos() / 2.0f32 + 0.5f32;
+        let g = (c * -1.1f32).cos() / 2.0f32 + 0.5f32;
+        let b = (c * 1.0f32).cos() / 2.0f32 + 0.5f32;
+
+        let mut target = self.display.draw();
+
+        target.clear_color(r, g, b, 1.0);
 
         target.draw(&self.vertex_buffer, &self.index_buffer, &self.program, &uniform! { 
             matrix: [
@@ -157,17 +161,11 @@ impl Window {
                 [0.0, 0.0, 0.0, 1.0f32]
             ],
             tex: &self.opengl_texture
-
         }, &Default::default()).unwrap();
 
         target.finish().unwrap();
 
         let mut action = Action::Continue;
-
-        use glium::glutin::{Event,ElementState, WindowEvent};
-
-        // polling and handling the events received by the window
-
 
         let events_loop = &mut self.events_loop;
         let display = &mut self.display;

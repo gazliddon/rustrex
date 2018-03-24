@@ -401,11 +401,11 @@ impl Simple {
 
         let mut conn = GdbConnection::new();
 
-        window::run_loop(|| {
-
+        loop {
             self.process_watches();
 
             while self.sync == false {
+
                 use simple::ConnState::*;
 
                 let state = conn.update(self);
@@ -428,16 +428,17 @@ impl Simple {
             };
 
             w.update_texture(&buffer);
+
             let action = w.update();
 
-            if action == window::Action::Reset {
-                info!("Resetting");
-                self.reset();
+            match action {
+                window::Action::Reset => self.reset(),
+                window::Action::Stop => break,
+                window::Action::Continue => (),
             }
 
-            return action;
 
-        });
+        }
     }
 }
 
