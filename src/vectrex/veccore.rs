@@ -191,6 +191,8 @@ fn mk_data_mem(addr : u16 ,name : &str, data : &[u8], writeable : bool ) -> Box<
 }
 
 impl gdbstub::DebuggerHost for Vectrex {
+    fn do_break(&mut self) {
+    }
 
     fn force_pc(&mut self, _pc : u16)  {
     }

@@ -5,7 +5,7 @@ MEM_START              equ 0x9900
 
 ;; Screen Data
 
-SCREEN                 equ $a000
+SCREEN                 equ $0000
 SCREEN_W               equ 304
 SCREEN_H               equ 256
 SCREEN_W_BYTES         equ SCREEN_W / 2

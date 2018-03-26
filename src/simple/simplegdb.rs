@@ -5,11 +5,41 @@ use std::net::{TcpListener};
 
 use gdbstub;
 
+// pub enum Events {
+//     HasDisconnected,
+//     HasConnected,
+//     Break,
+//     Resume,
+//     ReadRegisters,
+//     Step,
+//     Examine(u16),
+//     Write(u16, u8),
+//     SetRegisters,
+//     GetRegisters(gdbstub::Reply),
+//     ForcePc(u16),
+// }
+//
+
+pub enum Events {
+    DoBreak,
+    ForcePc(u16),
+    ReadRegisters,
+    Resume,
+    Step,
+    WriteRegisters,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum ConnState {
     Start,
     Waiting,
     Connected,
+}
+
+pub enum ConnEvent {
+    HasDisconnected,
+    HasConnected,
+    HasNoEvent,
 }
 
 pub struct GdbConnection {
@@ -33,11 +63,19 @@ impl GdbConnection {
         }
     }
 
-    pub fn update(&mut self, host : &mut gdbstub::DebuggerHost) -> ConnState {
+    pub fn send_int(&mut self) {
+        if let Some(ref mut remote) = self.gdb {
+            let _ = remote.send_int();
+        }
+    }
+
+    pub fn update(&mut self, host : &mut gdbstub::DebuggerHost) -> (ConnState, ConnEvent) {
 
         use self::ConnState::*;
 
         let state = self.state.clone();
+
+        let mut event =  ConnEvent::HasNoEvent;
 
         match state {
 
@@ -60,6 +98,7 @@ impl GdbConnection {
 
                 if !is_gdb.is_err() {
                     self.state = Connected;
+                    event = ConnEvent::HasConnected;
                     self.gdb = Some(is_gdb.unwrap());
                     info!("gdb connected")
                 }
@@ -75,6 +114,7 @@ impl GdbConnection {
                 match ret {
                     Err(_) => { 
                         info!("gdb disconnected");
+                        event = ConnEvent::HasDisconnected;
                         self.state = Start;
                     },
                     _ => (),
@@ -83,7 +123,7 @@ impl GdbConnection {
 
         }
 
-        state
+        ( self.state, event )
     }
 }
 

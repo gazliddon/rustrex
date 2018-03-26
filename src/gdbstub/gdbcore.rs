@@ -1,10 +1,13 @@
-use std::net::{TcpListener, TcpStream, Shutdown};
+use std::net::{TcpListener, Shutdown,TcpStream};
 use std::io::{Read, Write};
 use gdbstub::reply::{Reply, Endian};
 
 use gdbstub::sigs::*;
 
+////////////////////////////////////////////////////////////////////////////////
+
 pub trait DebuggerHost {
+    fn do_break(&mut self);
     fn read_registers(&self, _reply : &mut Reply) ;
     fn write_registers(&mut self, _data : &[u8]) ;
     fn force_pc(&mut self, _pc : u16) ;
@@ -26,18 +29,13 @@ pub struct GdbRemote {
 }
 
 pub type GdbResult = Result<(), ()>;
-
-struct Byte { }
-struct HalfWord { }
-struct Word {}
-
 fn args_as_string(data : &[u8]) -> String {
     String::from_utf8(data.to_vec()).unwrap()
 }
 
 impl GdbRemote {
-
     pub fn new(listener: &TcpListener) -> GdbRemote {
+
         info!("Debugger waiting for gdb connection...");
 
         let remote =
@@ -60,6 +58,7 @@ impl GdbRemote {
                  host: &mut DebuggerHost) -> GdbResult {
 
         match self.next_packet() {
+
             PacketResult::Ok(packet) => {
                 try!(self.ack());
                 self.handle_packet(host,  &packet)
@@ -68,15 +67,37 @@ impl GdbRemote {
                 // Request retransmission
                 self.nack()
             }
+            PacketResult::Break =>  {
+                try!(self.ack());
+                host.do_break();
+                Ok(())
+            }
+
             PacketResult::EndOfStream => {
                 // Session over
                 Err(())
+            }
+
+            PacketResult::NoPacket => {
+                Ok(())
             }
         }
     }
 
     /// Attempt to return a single GDB packet.
     fn next_packet(&mut self) -> PacketResult {
+
+        let mut buf = [0;1];
+        info!("about to peek bytes");
+
+        if let Ok(_) = self.remote.peek(&mut buf)  {
+            if buf[0] == 0x03 {
+                let _ = self.remote.read_exact(&mut buf);
+                return PacketResult::Break;
+            }
+        } else {
+            return PacketResult::NoPacket;
+        }
 
         // Parser state machine
         enum State {
@@ -90,6 +111,7 @@ impl GdbRemote {
 
         let mut packet = Vec::new();
         let mut csum = 0u8;
+        info!("about to read bytes");
 
         for r in (&self.remote).bytes() {
 
@@ -202,6 +224,9 @@ impl GdbRemote {
                 self.send_empty_reply()
             }
         }
+    }
+
+    fn has_break(&mut self) {
     }
 
     fn handle_packet(&mut self,
@@ -375,8 +400,8 @@ impl GdbRemote {
         self.send_string(&bytes)
     }
 
-    fn send_trap(&mut self) -> GdbResult { self.send_sig(Sigs::SIGTRAP) }
-
+    pub fn send_trap(&mut self) -> GdbResult { self.send_sig(Sigs::SIGTRAP) }
+    pub fn send_int(&mut self) -> GdbResult { self.send_sig(Sigs::SIGINT) }
 
     // Add a breakpoint or watchpoint
     fn add_breakpoint(&mut self,
@@ -449,6 +474,8 @@ enum PacketResult {
     Ok(Vec<u8>),
     BadChecksum(Vec<u8>),
     EndOfStream,
+    Break,
+    NoPacket,
 }
 
 /// Get the value of an integer encoded in single lowercase

@@ -8,9 +8,10 @@ use std::time::{Duration, Instant};
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Action {
-    Stop,
+    Quit,
     Continue,
     Reset, 
+    Pause,
 }
 
 pub fn run_loop<F>(mut callback: F) where F: FnMut() -> Action {
@@ -20,9 +21,10 @@ pub fn run_loop<F>(mut callback: F) where F: FnMut() -> Action {
 
     loop {
         match callback() {
-            Action::Stop => break,
+            Action::Quit => break,
             Action::Reset => (),
-            Action::Continue => ()
+            Action::Continue => (),
+            _ => (),
         };
 
         let now = Instant::now();
@@ -144,14 +146,14 @@ impl Window {
 
         self.count += 1.0f32 / 60.0f32;
 
-        let c = self.count * 4.0 ;
-        let r = (c * 3.0f32).cos() / 2.0f32 + 0.5f32;
-        let g = (c * -1.1f32).cos() / 2.0f32 + 0.5f32;
-        let b = (c * 1.0f32).cos() / 2.0f32 + 0.5f32;
+        // let c = self.count * 4.0 ;
+        // let r = (c * 3.0f32).cos() / 2.0f32 + 0.5f32;
+        // let g = (c * -1.1f32).cos() / 2.0f32 + 0.5f32;
+        // let b = (c * 1.0f32).cos() / 2.0f32 + 0.5f32;
 
         let mut target = self.display.draw();
 
-        target.clear_color(r, g, b, 1.0);
+        target.clear_color(0.0, 0.0, 0.3, 1.0);
 
         let sampler = self.opengl_texture.sampled()
             .magnify_filter(uniforms::MagnifySamplerFilter::Nearest)
@@ -178,15 +180,16 @@ impl Window {
             Event::WindowEvent { event, window_id } =>
                 if window_id == display.gl_window().id() {
                     match event {
-                        WindowEvent::Closed => action = Action::Stop,
+                        WindowEvent::Closed => action = Action::Quit,
 
                         WindowEvent::KeyboardInput { input, .. } => {
                             if let ElementState::Pressed = input.state {
                                 use glium::glutin::VirtualKeyCode::*;
 
                                 action = match input.virtual_keycode {
-                                    Some(Escape) | Some(Q) => Action::Stop,
+                                    Some(Escape) | Some(Q) => Action::Quit,
                                     Some(R) => Action::Reset,
+                                    Some(P) => Action::Pause,
                                     _=> Action::Continue,
 
                                 };

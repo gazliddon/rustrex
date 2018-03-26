@@ -4,19 +4,20 @@
 
         code
 
-start       
-    sync
+start      
             lda #$55
             tfr a,cc
             lds #stack_top
             ldu #ustack_top
             lda #$0f
 
+            lda #0
+            sync
+
             ldx #pal
             bsr copy_pal
 
             ldb #0
-
 1          
             sta PALETTE
             inca
@@ -24,11 +25,15 @@ start
             inca
             sta PALETTE+2
             inca
-            stb SCREEN
-            stb SCREEN+1
-            stb SCREEN+3
+
+            ldy #SCREEN
+2           stb ,y+
+            cmpy #SCREEN+256
+            bne 2B
             incb
+
             sync
+
             bra 1B
 
 

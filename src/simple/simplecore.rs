@@ -36,6 +36,68 @@ use std::cell::RefCell;
 
 use utils;
 
+#[derive(Debug, Clone, Copy, PartialEq)]
+enum SimState {
+    Paused,
+    Running,
+    Debugging,
+    Resumed,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+struct State {
+    state : Option<SimState>,
+    last_state : Option<SimState>,
+}
+
+impl State {
+
+    pub fn new(state : &SimState) -> Self {
+        let ret = Self {
+            state : Some(*state),
+            last_state : None,
+        };
+
+        info!("State {:?}", ret);
+        ret
+    }
+
+    pub fn set(&mut self, new_state : &SimState) {
+        self.last_state  = self.state;
+        self.state = Some(*new_state);
+    }
+
+    pub fn has_changed(&self) -> bool {
+        !( self.state == self.last_state )
+    }
+
+    pub fn clear_change(&mut self) {
+        self.last_state = self.state
+    }
+
+    pub fn get(&self) -> Option<SimState> {
+        self.state
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+enum SimEvent {
+    DebuggerConnected,
+    DebuggerDisconnected,
+    DebuggerStep,
+    DebuggerBreak,
+    HitSync,
+    Pause,
+    Quit,
+    RomChanged,
+    MaxCycles,
+    Reset,
+    DebuggerResume,
+    SetMem(u16,u8),
+
+}
+
+use simple::ConnEvent;
 ////////////////////////////////////////////////////////////////////////////////
 
 
@@ -226,6 +288,9 @@ I: Iterator<Item = &'a u8>,
 
 impl gdbstub::DebuggerHost for Simple {
 
+    fn do_break(&mut self) {
+        self.add_event(Some(SimEvent::DebuggerBreak));
+    }
     fn force_pc(&mut self, pc : u16) {
         self.regs.pc = pc;
     }
@@ -247,10 +312,14 @@ impl gdbstub::DebuggerHost for Simple {
     }
 
     fn resume(&mut self) {
-        warn!("unimplemented resume")
+        info!("Calling resume");
+        println!("{:?}", self.events.len());
+        self.add_event(Some(SimEvent::DebuggerResume));
+
     }
 
     fn set_step(&mut self) {
+        self.add_event(Some(SimEvent::DebuggerStep));
         self.step();
     }
 
@@ -309,10 +378,11 @@ pub struct Simple {
     regs       : Regs,
     mem        : SimpleMem,
     rc_clock   : Rc<RefCell<StandardClock>>,
-    sync       : bool,
     file       : Option<String>,
     watcher    : Option<FileWatcher>,
+    events     : Vec<SimEvent>,
 }
+
 
 impl Simple {
     pub fn new() -> Self {
@@ -323,21 +393,26 @@ impl Simple {
 
         let ret = Simple {
             mem, regs, rc_clock,
-            sync    : false,
             file    : None,
             watcher : None,
+            events  : vec![],
         };
 
         ret
     }
 
-    pub fn step(&mut self) -> cpu::InstructionDecoder {
+    pub fn step(&mut self) -> bool {
+
+        let mut ret = false;
+
         let i = cpu::step(&mut self.regs, &mut self.mem, &self.rc_clock);
 
         if i.op_code == 0x13 {
-            self.sync = true;
+            self.add_event(Some(SimEvent::HitSync));
+            ret  = true;
         }
-        i 
+
+        ret
     }
 
     pub fn reset(&mut self) {
@@ -345,20 +420,23 @@ impl Simple {
         info!("Reset! pc=${:03x}", self.regs.pc);
     }
 
-    fn has_changed(&mut self) -> bool {
+    fn handle_file_watcher(&mut self)  {
+        let mut has_changed = false;
+
         if let Some(ref mut watcher) = self.watcher {
-            watcher.has_changed()
-        } else {
-            false
+            if watcher.has_changed() {
+                has_changed = true;
+            }
+        }
+
+        if has_changed {
+            self.add_event(Some(SimEvent::RomChanged));
         }
     }
 
-    fn process_watches(&mut self) {
-        if self.has_changed() {
-            info!("File changed - reloading and resetting");
-            self.load_rom();
-            self.reset();
-        }
+    fn rom_changed(&mut self) {
+        self.load_rom();
+        self.reset();
     }
 
     fn load_rom(&mut self) {
@@ -387,64 +465,219 @@ impl Simple {
     }
 
     fn run_to_halt(&mut self, max_instructions : usize ) {
-
         for _ in 0..max_instructions {
-            self.step();
-
-            if self.sync {
+            if self.step() {
                 break;
             }
         }
-
-        self.sync = true;
     }
 
+    fn add_event(&mut self, event : Option<SimEvent>) {
+        if let Some(_ev) = event {
+            self.events.push(_ev)
+        };
+    }
+
+    pub fn handle_debugger(&mut self, dbg : &mut GdbConnection) {
+
+        let (_, event) = dbg.update(self);
+
+        let sim_event = match event {
+            ConnEvent::HasConnected => Some(SimEvent::DebuggerConnected),
+            ConnEvent::HasDisconnected => Some(SimEvent::DebuggerConnected),
+            _ => None,
+        };
+
+        self.add_event(sim_event);
+    }
+
+
+
+
+    pub fn handle_window(&mut self, w : &mut window::Window) {
+
+        use window::Action;
+
+        let win_event = w.update();
+
+        let sim_event = match win_event {
+            Action::Reset    => Some(SimEvent::Reset),
+            Action::Quit     => Some(SimEvent::Quit),
+            Action::Pause    => Some(SimEvent::Pause),
+            Action::Continue => None
+        };
+
+        self.add_event(sim_event);
+    }
+
+    fn get_state_ev(&mut self, state : &mut State) -> Option<(SimState, SimEvent)> {
+
+        let ev_wrapped = self.events.pop();
+        let state_wrapped = state.get();
+
+        if let Some(event) = ev_wrapped { 
+            if let Some(state) = state_wrapped {
+                return Some(( state, event ));
+            }
+        }
+
+        None
+    }
 
     pub fn run(&mut self) {
+        use self::SimEvent::*;
 
-        let w = &mut window::Window::new("my lovely window", DIMS);
+        let mut w = window::Window::new("my lovely window", DIMS);
 
-        let mut conn = GdbConnection::new();
+        let mut dbg = GdbConnection::new();
 
-        loop {
-            self.process_watches();
+        let mut state = State::new(&SimState::Running);
+        let mut quit = false;
 
-            while self.sync == false {
+        let mut watchdog = 0;
 
-                use simple::ConnState::*;
+        let mut verbose = false;
 
-                let state = conn.update(self);
+        while quit == false {
 
-                match state {
-                    Start | Waiting => {
-                        self.run_to_halt(2_000_000);
-                    },
-
-                    Connected => (),
-                }
-            };
-
-            self.sync = false;
-
-            let buffer = {
-                let scr = &self.mem.screen.data;
-                let pal = &self.mem.io.palette;
-                to_rgb(scr, pal)
-            };
-
-            w.update_texture(&buffer);
-
-            let action = w.update();
-
-            match action {
-                window::Action::Reset => self.reset(),
-                window::Action::Stop => break,
-                window::Action::Continue => (),
+            if verbose {
+                info!("About to handle defaulst");
             }
 
+            self.handle_window(&mut w);
+            self.handle_file_watcher();
 
+            let mut syncs = 0;
+
+            if verbose {
+                info!("About to get state and event");
+            }
+
+            while let Some((current_state, event)) = self.get_state_ev(&mut state) {
+                if verbose {
+                    info!("state {:?} event {:?}", current_state, event);
+                }
+
+                // Process these events always
+                match event {
+                    Quit => quit = true,
+                    RomChanged => self.rom_changed(),
+                    HitSync => syncs+=1,
+                    _ => (),
+                };
+
+                match current_state {
+                    SimState::Resumed => {
+                        match event {
+                            DebuggerDisconnected => state.set(&SimState::Paused),
+                            Pause | DebuggerBreak => {
+                                dbg.send_int();
+                                state.set(&SimState::Debugging);
+                            }
+                            _ => ()
+                        }
+                    },
+
+                    SimState::Running => {
+                        match event {
+                            DebuggerConnected => state.set(&SimState::Debugging),
+                            Pause => state.set(&SimState::Paused),
+                            _ => (),
+                        }
+                    },
+
+                    SimState::Paused => {
+                        match event {
+                            DebuggerConnected => state.set(&SimState::Debugging),
+                            Pause => state.set(&SimState::Running),
+                            _ => ()
+                        }
+                    },
+
+                    SimState::Debugging => {
+                        match event {
+                            DebuggerDisconnected => state.set(&SimState::Paused),
+                            DebuggerResume => {
+                                info!("Setting state to resumed!");
+                                state.set(&SimState::Resumed);
+                            }
+
+                            DebuggerStep => syncs+=1,
+                            _ => ()
+                        }
+                    }
+                };
+
+                if state.has_changed() {
+                    if let Some(new_state) = state.get() {
+                        // on entry to a new state
+                        state.clear_change();
+                        info!("State changed to {:?}", new_state);
+                        match new_state {
+                            SimState::Resumed => {
+                                verbose = true;
+                            },
+                                
+                            SimState::Running => (),
+                            SimState::Paused => (),
+                            SimState::Debugging =>(), 
+                        };
+                    }
+                }
+            }
+        
+            if let Some(current_state) = state.get() {
+                match current_state {
+
+                    SimState::Resumed => {
+                        self.run_to_halt(2_000_000);
+                        if verbose {
+                            info!("ran sim ");
+                            info!("about to handler debugger");
+                        }
+
+                        self.handle_debugger(&mut dbg);
+
+                        if verbose {
+                            info!("handled handler debugger")
+                        }
+                    },
+
+                    SimState::Running => {
+                        self.run_to_halt(2_000_000);
+                        self.handle_debugger(&mut dbg);
+                    },
+
+                    SimState::Paused => {
+                        self.handle_debugger(&mut dbg);
+                    },
+
+                    SimState::Debugging => {
+                        self.handle_debugger(&mut dbg);
+                    },
+                };
+            }
+
+            watchdog+=1;
+
+            if ( watchdog % 120 ) == 0 {
+                info!("Watching {}",watchdog);
+            }
+
+            if syncs != 0 {
+
+                let buffer = {
+                    let scr = &self.mem.screen.data;
+                    let pal = &self.mem.io.palette;
+                    to_rgb(scr, pal)
+                };
+
+                w.update_texture(&buffer);
+            }
         }
+
     }
 }
+
 
 
