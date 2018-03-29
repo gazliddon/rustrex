@@ -4,6 +4,7 @@ use std::thread;
 
 use gdbstub::{ DebuggerHost, GdbRemote, Reply };
 
+#[derive(Debug, Clone, PartialEq)]
 pub enum Message {
     Disconnected,
     Connected,
@@ -12,10 +13,28 @@ pub enum Message {
     ReadRegisters,
     Resume,
     Step,
-    WriteRegisters,
+    WriteRegisters(Vec<u8>),
     Examine(u16),
     Write(u16, u8),
     Ack,
+}
+
+fn match_variant(a : &Message, b : &Message) -> bool {
+
+    match (a,b) {
+        (&Message::Disconnected,&Message::Disconnected ) => true,
+        (&Message::Connected,&Message::Connected ) => true,
+        (&Message::DoBreak,&Message::DoBreak ) => true,
+        (&Message::ForcePc(..),&Message::ForcePc(..) ) => true,
+        (&Message::ReadRegisters,&Message::ReadRegisters ) => true,
+        (&Message::Resume,&Message::Resume ) => true,
+        (&Message::Step,&Message::Step ) => true,
+        (&Message::WriteRegisters(..),&Message::WriteRegisters(..) ) => true,
+        (&Message::Examine(..),&Message::Examine(..) ) => true,
+        (&Message::Write(..),&Message::Write(..) ) => true,
+        (&Message::Ack,&Message::Ack ) => true,
+        _ => false,
+    }
 }
 
 struct DebuggerProxy {
@@ -24,50 +43,70 @@ struct DebuggerProxy {
 }
 
 impl DebuggerProxy {
+    pub fn new(tx : mpsc::Sender<Message>, rx : mpsc::Receiver<Message>) -> Self {
+        Self { tx , rx } }
 
     pub fn send(&self, ev : Message) -> Message {
         let _ = self.tx.send(ev);
-        unimplemented!()
+        if let Ok(msg) = self.rx.recv() {
+            msg
+        } else {
+            panic!("msg system fucked")
+        }
+    }
+
+    pub fn send_wait_ack(&self, _ev : Message) {
+        let msg = self.send(_ev);
+        assert!(msg == Message::Ack);
     }
 
     pub fn ack(&self, _ev : Message) {
-        unimplemented!("ack");
+        let _ret = self.tx.send(Message::Ack);
     }
 }
 
 impl DebuggerHost for DebuggerProxy {
-
     fn do_break(&mut self) {
-        let _ret = self.send(Message::DoBreak);
+        self.send_wait_ack(Message::DoBreak)
     }
 
-    fn read_registers(&self, _reply : &mut Reply)  {
-        let _ret = self.send(Message::ReadRegisters);
+    fn read_registers(&self, reply : &mut Reply)  {
+        if let Message::WriteRegisters(data) = self.send(Message::ReadRegisters) {
+            for i in data {
+                reply.push_u8(i)
+            }
+        } else {
+            panic!("kjsakjska")
+        }
     }
 
-    fn write_registers(&mut self, _data : &[u8])  {
-        let _ret = self.send(Message::WriteRegisters);
+    fn write_registers(&mut self, data : &[u8])  {
+        self.send_wait_ack(Message::WriteRegisters(data.to_vec()));
     }
 
     fn examine(&self, addr : u16) -> u8 {
-        let _ret = self.send(Message::Examine(addr));
-        0
+        if let Message::Write(addr2, val) = self.send(Message::Examine(addr)) {
+            assert!(addr2 == addr);
+            val
+        } else {
+            panic!("kjsakjska")
+        }
     }
 
     fn write(&mut self, addr : u16, val : u8) {
-        let _ret = self.send(Message::Write(addr, val));
+        self.send_wait_ack(Message::Write(addr, val));
     }
 
     fn resume(&mut self) {
-        let _ret = self.send(Message::Resume);
+        self.send_wait_ack(Message::Resume);
     }
 
     fn force_pc(&mut self, _pc : u16)  {
-        let _ret = self.send(Message::ForcePc(_pc));
+        self.send_wait_ack(Message::ForcePc(_pc));
     }
 
     fn set_step(&mut self) {
-        let _ret = self.send(Message::Step);
+        self.send_wait_ack(Message::Step);
     }
 
     fn add_breakpoint(&mut self, _addr : u16) {
@@ -95,7 +134,7 @@ impl DebuggerHost for DebuggerProxy {
     }
 }
 
-struct ThreadedGdb {
+pub struct ThreadedGdb {
     pub rx  : mpsc::Receiver<Message>,
     pub tx  : mpsc::Sender<Message>,
 }
@@ -105,15 +144,16 @@ impl ThreadedGdb {
     pub fn new() -> ThreadedGdb {
 
         let (tx, rx) =  mpsc::channel();
+
         let (tx_client, rx_client) =  mpsc::channel();
 
         thread::spawn(move || {
             let listener = TcpListener::bind("127.0.0.1:6809").unwrap();
             let mut remote = GdbRemote::new(&listener);
 
-            let _ = tx.send(Message::Connected);
+            let mut dbg_proxy = DebuggerProxy::new(tx, rx_client);
 
-            let mut dbg_proxy = DebuggerProxy { tx : tx.clone(), rx : rx_client, };
+            dbg_proxy.send_wait_ack(Message::Connected);
 
             loop {
                 let ret  = remote.serve(&mut dbg_proxy);
@@ -123,7 +163,7 @@ impl ThreadedGdb {
                 };
             }
 
-            let _ = tx.send(Message::Disconnected);
+            dbg_proxy.send_wait_ack(Message::Disconnected);
         });
 
         ThreadedGdb {
@@ -132,12 +172,23 @@ impl ThreadedGdb {
         }
     }
 
-    pub fn reply(&mut self, _msg : Message) {
-        unimplemented!();
+    pub fn reply(&mut self, msg : Message) {
+        self.tx.send(msg).unwrap()
     }
 
+    pub fn ack(&mut self) {
+        self.reply(Message::Ack)
+    }
+
+
     pub fn poll(&mut self) -> Option<Message> {
-        unimplemented!();
+
+        let val = self.rx.try_recv();
+
+        match val {
+            Ok(message )=> Some(message),
+            Err(_) => None,
+        }
     }
 }
 
