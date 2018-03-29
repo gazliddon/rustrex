@@ -70,7 +70,7 @@ impl GdbRemote {
             PacketResult::Break =>  {
                 try!(self.ack());
                 host.do_break();
-                Ok(())
+                self.send_trap()
             }
 
             PacketResult::EndOfStream => {
@@ -88,7 +88,6 @@ impl GdbRemote {
     fn next_packet(&mut self) -> PacketResult {
 
         let mut buf = [0;1];
-        info!("about to peek bytes");
 
         if let Ok(_) = self.remote.peek(&mut buf)  {
             if buf[0] == 0x03 {
@@ -111,7 +110,6 @@ impl GdbRemote {
 
         let mut packet = Vec::new();
         let mut csum = 0u8;
-        info!("about to read bytes");
 
         for r in (&self.remote).bytes() {
 
@@ -224,9 +222,6 @@ impl GdbRemote {
                 self.send_empty_reply()
             }
         }
-    }
-
-    fn has_break(&mut self) {
     }
 
     fn handle_packet(&mut self,
@@ -402,6 +397,7 @@ impl GdbRemote {
 
     pub fn send_trap(&mut self) -> GdbResult { self.send_sig(Sigs::SIGTRAP) }
     pub fn send_int(&mut self) -> GdbResult { self.send_sig(Sigs::SIGINT) }
+    pub fn send_cont(&mut self) -> GdbResult { self.send_sig(Sigs::SIGCONT) }
 
     // Add a breakpoint or watchpoint
     fn add_breakpoint(&mut self,

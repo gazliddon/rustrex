@@ -32,7 +32,7 @@ use window;
 use std::rc::Rc;
 use std::cell::RefCell;
 
-use gdbstub::ThreadedGdb;
+use gdbstub::{ ThreadedGdb, Message };
 
 use utils;
 
@@ -82,10 +82,9 @@ impl State {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 enum SimEvent {
-    DebuggerConnected,
-    DebuggerDisconnected,
+    Debugger(Message),
     HitSync,
     Pause,
     Quit,
@@ -411,21 +410,11 @@ impl Simple {
         loop {
             if let Some(msg) = self.gdb.poll() {
                 match msg {
-                    Disconnected => {
+                    Disconnected | Connected | Resume | DoBreak | Step => {
                         self.gdb.ack();
-                        self.add_event(SimEvent::DebuggerDisconnected)
+                        self.add_event(SimEvent::Debugger(msg))
                     }
 
-                    Connected => {
-                        self.gdb.ack();
-                        self.add_event(SimEvent::DebuggerConnected);
-                    }
-
-                    DoBreak => {
-                        self.gdb.ack();
-                        self.add_event(SimEvent::Pause);
-                    }
-                    
                     ForcePc(addr) => {
                         self.regs.pc = addr;
                         self.gdb.ack();
@@ -438,19 +427,39 @@ impl Simple {
                         self.gdb.reply(reply);
                     }
 
-                    Step => {
-                        warn!("need to single step here");
-                        self.gdb.ack();
-                    }
-
-                    Resume => {
-                        warn!("need to resume here");
-                        self.gdb.ack();
-                    }
-
                     WriteRegisters(_reg_data) => {
                         warn!("need to write regs here");
                         self.gdb.ack();
+                    }
+
+                    ReadRegisters => {
+                        let regs = &self.regs;
+
+                        let cc = regs.flags.bits();
+
+                        let ret : Vec<u8> = vec![
+                            cc,
+                            regs.a,
+                            regs.b,
+                            regs.dp,
+
+                            (regs.x >> 8) as u8,
+                            regs.x as u8,
+
+                            (regs.y >> 8) as u8,
+                            regs.y as u8,
+
+                            (regs.u >> 8) as u8,
+                            regs.u as u8,
+
+                            (regs.s >> 8) as u8,
+                            regs.s as u8,
+
+                            (regs.pc >> 8) as u8,
+                            regs.pc as u8,
+                        ];
+
+                        self.gdb.reply(WriteRegisters(ret));
                     }
 
                     _ => unimplemented!("unimplemented msg {:?}", msg),
@@ -459,8 +468,6 @@ impl Simple {
                 break
             }
         }
-
-
 
         // match msg {
         //     Disconnected => (),
@@ -509,11 +516,19 @@ impl Simple {
                 };
 
                 match state.get() {
+
                     SimState::Running => {
                         match event {
                             Pause => state.set(&SimState::Paused),
                             Quit => state.set(&SimState::Quitting),
-                            DebuggerConnected => state.set(&SimState::Paused),
+
+                            Debugger(msg) => {
+                                match msg {
+                                    Message::Connected => state.set(&SimState::Paused),
+                                    Message::DoBreak => state.set(&SimState::Paused),
+                                    _ => warn!("Unhandled debugger msg {:?} in state {:?}", msg, state.get())
+                                }
+                            }
                             _ => (),
                         }
                     },
@@ -522,6 +537,14 @@ impl Simple {
                         match event {
                             Pause => state.set(&SimState::Running),
                             Quit => state.set(&SimState::Quitting),
+                            HitSync => self.update_texture(),
+                            Debugger(msg) => {
+                                match msg {
+                                    Message::Resume => state.set(&SimState::Running),
+                                    Message::Step => {self.step(); ()}
+                                    _ => warn!("Unhandled debugger msg {:?} in state {:?}", msg, state.get())
+                                }
+                            }
                             _ => ()
                         }
                     },
@@ -538,14 +561,13 @@ impl Simple {
 
                 SimState::Running => {
                     self.run_to_sync(2_000_000 / 60);
+                    self.update_texture();
                 },
 
                 SimState::Paused => {
                 },
-
             };
 
-            self.update_texture();
         }
     }
 }

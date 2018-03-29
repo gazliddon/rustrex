@@ -67,7 +67,7 @@ impl DebuggerProxy {
 
 impl DebuggerHost for DebuggerProxy {
     fn do_break(&mut self) {
-        self.send_wait_ack(Message::DoBreak)
+        self.send_wait_ack(Message::DoBreak);
     }
 
     fn read_registers(&self, reply : &mut Reply)  {
@@ -179,7 +179,6 @@ impl ThreadedGdb {
     pub fn ack(&mut self) {
         self.reply(Message::Ack)
     }
-
 
     pub fn poll(&mut self) -> Option<Message> {
 
