@@ -55,6 +55,37 @@ pal     fcb  $00,$0,$0
         fcb  $f0,$00,$00
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+;; x -> palette entry
+;; y -> table
+;; dd = speed through table
+palette_cycler
+        ldx #1f
+        stx tsk_func,u
+        rts
+
+1
+        
+        rts
+
+;; x -> palette entry
+;; y -> table
+;; dd = speed through table
+
+alloc_cycler
+        pshs  x,y,a,b
+        jsr task_alloc
+        puls x,y,a,b
+
+        stx  tsk_x,u
+        stx  tsk_y,u
+        std  tsk_d,u
+
+        rts
+
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; X -> palette to read from
 copy_pal    lda #(16 * 3) -1
             pshu a
@@ -131,7 +162,11 @@ num_of_tasks    equ 100
 
 tsk_next        equ 0
 tsk_func        equ 2
-tsk_countdown   equ 4
+tsk_tick        equ 4
+tsk_sleep       equ 5
+tsk_d           equ 7
+tsk_y           equ 9
+tsk_x           equ 11
 
 tasks           rmb task_size * num_of_tasks
 tasks_end       rmb 0
@@ -165,27 +200,78 @@ task_init_system
     bne 1b
     rts
 
+
+;; U -> current task
+task_exec 
+    lda tsk_tick,u
+    beq 1f
+    dec tsk_tick,u
+    rts
+
+1
+    lda tsk_sleep,u
+    sta tsk_tick,u
+
+    ldd tsk_d,u
+    ldx tsk_x,u
+    ldy tsk_y,u
+    
+    jsr [tsk_func,u]
+
+    std tsk_d,u
+    stx tsk_x,u
+    sty tsk_y,u
+
+    rts
+
+task_run_tasks
+    ;; u -> active task list
+    ldu  #active_tasks
+2
+    ;; u -> next task, if zero end of list
+    ldu ,u
+    beq 1f
+    ;; set this as the current task
+    stu current_task
+    ;; run the task
+    bsr task_exec
+    ;; do the next one
+    bra 2b
+1
+    rts
+
+
+;; Allocates a task, will be executed after the current
+;; task
 ;; X -> func
 ;; A = time till execute
+;; U -> current task
+;; preserves u
+;; y -> new task
 task_alloc
-
-    ldu     free_tasks
+    ;; y -> free task
+    ldy     free_tasks
     bne     1f
 
     ;; no tasks!
     swi2
+    ;; func, tick, sleep for new task
 1
-    stx tsk_func,u
-    sta tsk_countdown,u
+    stx tsk_func,y
+    sta tsk_tick,y
+    clr tsk_sleep,y
 
-    ;; Head of free tasks -> to next free task
+    ;; Get next free task
+    ldd ,y
+    ;; free tasks now -> to that
+    std free_tasks
+
+    ;; insert myself into linked list
+    ;; will execute after current task
     ldx ,u
-    stx free_tasks
-    ;; Make this task point to first active task
-    ldx active_tasks
-    stx ,u
-    ;; point active tasks to this task
-    stu active_tasks
+    stx ,y
+    sty ,u
+
     rts
 
 ;; x -> task to free
