@@ -35,51 +35,13 @@ use std::cell::RefCell;
 use gdbstub::{ ThreadedGdb, Message };
 
 use utils;
+use state;
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 enum SimState {
     Paused,
     Running,
     Quitting,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq)]
-struct State {
-    state : SimState,
-    last_state : Option<SimState>,
-}
-
-impl State {
-    pub fn new(state : &SimState) -> Self {
-        let ret = Self {
-            state : *state,
-            last_state : None,
-        };
-
-        info!("State {:?}", ret);
-        ret
-    }
-
-    pub fn set(&mut self, new_state : &SimState) {
-        self.last_state  = Some(self.state);
-        self.state = *new_state;
-    }
-
-    pub fn has_changed(&self) -> bool {
-        if let Some(last_state) = self.last_state {
-            last_state != self.state
-        } else {
-            false
-        }
-    }
-
-    pub fn clear_change(&mut self) {
-        self.last_state = Some(self.state)
-    }
-
-    pub fn get(&self) -> SimState {
-        self.state
-    }
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -405,6 +367,7 @@ impl Simple {
     }
 
     pub fn handle_debugger(&mut self) {
+
         use gdbstub::Message::*;
 
         loop {
@@ -421,9 +384,7 @@ impl Simple {
                     }
 
                     Examine(addr) => {
-                        let reply =  Write( addr,
-                                            self.mem.inspect_byte(addr));
-
+                        let reply =  Write( addr, self.mem.inspect_byte(addr));
                         self.gdb.reply(reply);
                     }
 
@@ -468,24 +429,6 @@ impl Simple {
                 break
             }
         }
-
-        // match msg {
-        //     Disconnected => (),
-        //     Connected => (),
-        //     DoBreak => (),
-        //     ForcePc(addr) => {
-        //         self.regs.pc = addr;
-        //     },
-
-        //     ReadRegisters => (),
-        //     Resume => (),
-        //     Step => (),
-        //     WriteRegisters(reg_data) => (),
-        //     Examine(addr) => (),
-        //     Write(addr, val) => (),
-        //      _ => unimplemented!("{:?}", msg),
-        // }
-
     }
 
     pub fn update_texture(&mut self) {
@@ -500,7 +443,7 @@ impl Simple {
 
     pub fn run(&mut self) {
         use self::SimEvent::*;
-        let mut state = State::new(&SimState::Running);
+        let mut state = state::State::new(&SimState::Running);
 
         loop {
             self.handle_window();
@@ -508,10 +451,9 @@ impl Simple {
             self.handle_debugger();
 
             while let Some(event) = self.events.pop() {
-
                 match event {
                     RomChanged => self.rom_changed(),
-                    HitSync =>  (),
+                    HitSync =>  self.update_texture(),
                     _ => (),
                 };
 
@@ -537,11 +479,12 @@ impl Simple {
                         match event {
                             Pause => state.set(&SimState::Running),
                             Quit => state.set(&SimState::Quitting),
-                            HitSync => self.update_texture(),
+
                             Debugger(msg) => {
                                 match msg {
                                     Message::Resume => state.set(&SimState::Running),
                                     Message::Step => {self.step(); ()}
+                                    Message::Disconnected => state.set(&SimState::Running),
                                     _ => warn!("Unhandled debugger msg {:?} in state {:?}", msg, state.get())
                                 }
                             }
@@ -554,6 +497,11 @@ impl Simple {
                 };
             };
 
+            if state.has_changed() {
+                info!("State changed: {:?}", state);
+                state.clear_change();
+            }
+
             match state.get() {
                 SimState::Quitting => {
                     break;
@@ -561,13 +509,15 @@ impl Simple {
 
                 SimState::Running => {
                     self.run_to_sync(2_000_000 / 60);
-                    self.update_texture();
-                },
+                    self.win.draw();
+                }
 
                 SimState::Paused => {
-                },
+                    // use std::{thread, time};
+                    // let sleep_time = time::Duration::from_millis(3);
+                    // thread::sleep(sleep_time);
+                }
             };
-
         }
     }
 }

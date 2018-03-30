@@ -210,18 +210,19 @@ impl GdbRemote {
     fn handle_query(&mut self, args : &[u8]) -> GdbResult {
         use std::str;
 
-        let text = str::from_utf8(args).unwrap();
+        let _text = str::from_utf8(args).unwrap();
 
-        match text {
-            "Attached" => self.send_string(b"1"),
-            "TStatus" => self.send_string(b"T0"),
-            "C" => self.send_empty_reply(),
-            _ => {
-
-                info!("unhandled q {}", text);
                 self.send_empty_reply()
-            }
-        }
+
+        // match text {
+        //     "Attached" => self.send_string(b"1"),
+        //     "TStatus" => self.send_string(b"T0"),
+        //     "C" => self.send_empty_reply(),
+        //     _ => {
+        //         info!("unhandled q {}", text);
+        //         self.send_empty_reply()
+        //     }
+        // }
     }
 
     fn handle_packet(&mut self,
@@ -255,6 +256,15 @@ impl GdbRemote {
 
             'Z' => self.add_breakpoint(host, args),
             'z' => self.del_breakpoint(host, args),
+            'H' => self.send_ok(),
+            'v' => {
+                if args_str == "Cont?" {
+                    self.send_empty_reply()
+                } else {
+                    info!("unhandled v {} {:?}", command, args_str);
+                    self.send_empty_reply()
+                }
+            },
 
             // Send empty response for unsupported packets
             _ => {

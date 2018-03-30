@@ -19,24 +19,6 @@ pub enum Message {
     Ack,
 }
 
-fn match_variant(a : &Message, b : &Message) -> bool {
-
-    match (a,b) {
-        (&Message::Disconnected,&Message::Disconnected ) => true,
-        (&Message::Connected,&Message::Connected ) => true,
-        (&Message::DoBreak,&Message::DoBreak ) => true,
-        (&Message::ForcePc(..),&Message::ForcePc(..) ) => true,
-        (&Message::ReadRegisters,&Message::ReadRegisters ) => true,
-        (&Message::Resume,&Message::Resume ) => true,
-        (&Message::Step,&Message::Step ) => true,
-        (&Message::WriteRegisters(..),&Message::WriteRegisters(..) ) => true,
-        (&Message::Examine(..),&Message::Examine(..) ) => true,
-        (&Message::Write(..),&Message::Write(..) ) => true,
-        (&Message::Ack,&Message::Ack ) => true,
-        _ => false,
-    }
-}
-
 struct DebuggerProxy {
     pub tx  : mpsc::Sender<Message>,
     pub rx  : mpsc::Receiver<Message>,
@@ -140,30 +122,30 @@ pub struct ThreadedGdb {
 }
 
 impl ThreadedGdb {
-
     pub fn new() -> ThreadedGdb {
-
         let (tx, rx) =  mpsc::channel();
-
         let (tx_client, rx_client) =  mpsc::channel();
 
         thread::spawn(move || {
-            let listener = TcpListener::bind("127.0.0.1:6809").unwrap();
-            let mut remote = GdbRemote::new(&listener);
-
             let mut dbg_proxy = DebuggerProxy::new(tx, rx_client);
 
-            dbg_proxy.send_wait_ack(Message::Connected);
+            let listener = TcpListener::bind("127.0.0.1:6809").unwrap();
 
             loop {
-                let ret  = remote.serve(&mut dbg_proxy);
-                match ret {
-                    Err(_) => break,
-                    _ => ()
-                };
-            }
+                let mut remote = GdbRemote::new(&listener);
 
-            dbg_proxy.send_wait_ack(Message::Disconnected);
+                dbg_proxy.send_wait_ack(Message::Connected);
+
+                loop {
+                    let ret  = remote.serve(&mut dbg_proxy);
+                    match ret {
+                        Err(_) => break,
+                        _ => ()
+                    };
+                }
+
+                dbg_proxy.send_wait_ack(Message::Disconnected);
+            }
         });
 
         ThreadedGdb {
@@ -181,9 +163,7 @@ impl ThreadedGdb {
     }
 
     pub fn poll(&mut self) -> Option<Message> {
-
         let val = self.rx.try_recv();
-
         match val {
             Ok(message )=> Some(message),
             Err(_) => None,

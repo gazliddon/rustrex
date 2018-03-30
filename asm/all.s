@@ -123,6 +123,77 @@ screen_clear
     puls u
     rts
 
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+task_size       equ 16
+num_of_tasks    equ 100
+
+tsk_next        equ 0
+tsk_func        equ 2
+tsk_countdown   equ 4
+
+tasks           rmb task_size * num_of_tasks
+tasks_end       rmb 0
+
+active_tasks    rmb 2
+free_tasks      rmb 2
+current_task    rmb 2
+
+task_init_system
+    ;; no active tasks
+    ;; x is my zero
+    ldx #0
+    stx active_tasks
+    stx current_task
+
+    ldu #tasks
+    stu free_tasks
+1
+    ;; get ptr to next task
+    leay task_size,u
+    cmpy #tasks_end
+    bne 2f
+    tfr y,x
+
+    ;; init the task
+    ;; ???
+2
+    ;; Store set z flags
+    ;; if x was zero then we're the end of the list
+    sty ,u
+    bne 1b
+    rts
+
+;; X -> func
+;; A = time till execute
+task_alloc
+
+    ldu     free_tasks
+    bne     1f
+
+    ;; no tasks!
+    swi2
+1
+    stx tsk_func,u
+    sta tsk_countdown,u
+
+    ;; Head of free tasks -> to next free task
+    ldx ,u
+    stx free_tasks
+    ;; Make this task point to first active task
+    ldx active_tasks
+    stx ,u
+    ;; point active tasks to this task
+    stu active_tasks
+    rts
+
+;; x -> task to free
+task_free
+    rts
+
+
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 reserved 
 sw3vec

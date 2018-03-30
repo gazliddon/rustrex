@@ -48,6 +48,7 @@ mod m6522;
 mod vectrex;
 mod simple;
 mod watcher;
+mod state;
 
 use tests::{GregTest, JsonTest, Tester};
 use clap::{Arg, App, SubCommand, ArgMatches};

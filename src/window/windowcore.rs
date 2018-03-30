@@ -138,18 +138,10 @@ impl Window {
             dims  : dims,
         }
     }
-
-    pub fn update(&mut self) -> Action {
+    pub fn draw(&mut self) {
         // drae the screen
         use glium::{Surface, uniforms};
-        use glium::glutin::{Event,ElementState, WindowEvent};
-
-        self.count += 1.0f32 / 60.0f32;
-
-        // let c = self.count * 4.0 ;
-        // let r = (c * 3.0f32).cos() / 2.0f32 + 0.5f32;
-        // let g = (c * -1.1f32).cos() / 2.0f32 + 0.5f32;
-        // let b = (c * 1.0f32).cos() / 2.0f32 + 0.5f32;
+        // use glium::glutin::{Event,ElementState, WindowEvent};
 
         let mut target = self.display.draw();
 
@@ -171,6 +163,15 @@ impl Window {
         }, &Default::default()).unwrap();
 
         target.finish().unwrap();
+    }
+
+    pub fn update(&mut self) -> Action {
+        // drae the screen
+        // use glium::{Surface, uniforms};
+        use glium::glutin::{Event,ElementState, WindowEvent};
+
+        self.count += 1.0f32 / 60.0f32;
+
 
         let mut action = Action::Continue;
         let events_loop = &mut self.events_loop;
