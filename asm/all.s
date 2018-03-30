@@ -2,10 +2,7 @@
 
         org MEM_START
 
-        code
-
-start      
-            lda #$55
+start      lda #$55
             tfr a,cc
             lds #stack_top
             ldu #ustack_top
@@ -18,23 +15,19 @@ start
             bsr copy_pal
 
             ldb #0
-1          
-            sta PALETTE
+@loop       sta PALETTE
             inca
             sta PALETTE+1
             inca
             sta PALETTE+2
             inca
-
             ldy #SCREEN
-2           stb ,y+
+@loop2      stb ,y+
             cmpy #SCREEN+256
-            bne 2B
+            bne @loop2
             incb
-
             sync
-
-            bra 1B
+            bra @loop
 
 
 pal     fcb  $00,$0,$0
@@ -59,41 +52,52 @@ pal     fcb  $00,$0,$0
 ;; x -> palette entry
 ;; y -> table
 ;; dd = speed through table
+
+init_x equ 0
+init_y equ 2
+init_d equ 4
+
+
 palette_cycler
-        ldx #1f
-        stx tsk_func,u
+        std task.temp0,u
+        ldd #@resume
+        std task.func,u
+        ldd #0
+@resume
+
         rts
 
-1
-        
-        rts
-
-;; x -> palette entry
-;; y -> table
+;; x -> reg_init
 ;; dd = speed through table
 
-alloc_cycler
-        pshs  x,y,a,b
+alloc_with_init
+        pshs x
         jsr task_alloc
-        puls x,y,a,b
+        puls x
 
-        stx  tsk_x,u
-        stx  tsk_y,u
-        std  tsk_d,u
+        ldd init_d,x
+        std task.d,y
 
+        ldd init_x,x
+        std task.x,y
+
+        ldd init_y,x
+        std task.y,y
         rts
-
-
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; X -> palette to read from
-copy_pal    lda #(16 * 3) -1
+
+copy_pal
+
+            lda #61*3-1
             pshu a
             ldy #PALETTE
-1           ldd ,x++
+
+@loop       ldd ,x++
             std ,y++
             dec ,u
-            bpl 1B
+            bpl @loop
             rts
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -109,7 +113,7 @@ screen_clear
     tfr d,x
     tfr d,y
 
-1
+@loop
     ;; stack blasts 36 * 7 bytes + 4 bytes = 256 bytes
     pshu a,b,d,x,y
     pshu a,b,d,x,y
@@ -148,32 +152,41 @@ screen_clear
     pshu a,b,d,x,y
     pshu a,b,d,x,y
     pshu x,y
-
+    ;;
     cmpu #SCREEN + SCREEN_SIZE_BYTES
-    bne 1B
+    bne @loop
+
     puls u
     rts
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-task_size       equ 16
+task    STRUCT
+
+next        rmd 1
+func        rmd 1
+tick        rmb 1
+sleep       rmb 1
+d           rmd 1   
+y           rmd 1
+x           rmd 1
+temp0       rmd 1
+temp1       rmd 1 
+
+        ENDSTRUCT
+
+tsk_size        equ sizeof{task}
+
 num_of_tasks    equ 100
 
-tsk_next        equ 0
-tsk_func        equ 2
-tsk_tick        equ 4
-tsk_sleep       equ 5
-tsk_d           equ 7
-tsk_y           equ 9
-tsk_x           equ 11
+tasks           rmb tsk_size * num_of_tasks
 
-tasks           rmb task_size * num_of_tasks
 tasks_end       rmb 0
 
-active_tasks    rmb 2
-free_tasks      rmb 2
-current_task    rmb 2
+active_tasks    rmd 1
+free_tasks      rmd 1
+current_task    rmd 2
 
 task_init_system
     ;; no active tasks
@@ -184,60 +197,59 @@ task_init_system
 
     ldu #tasks
     stu free_tasks
-1
+@loop
     ;; get ptr to next task
-    leay task_size,u
+    leay tsk_size,u
     cmpy #tasks_end
-    bne 2f
+    bne @no_task
     tfr y,x
-
-    ;; init the task
-    ;; ???
-2
+    ;;
+@no_task
     ;; Store set z flags
     ;; if x was zero then we're the end of the list
     sty ,u
-    bne 1b
+    bne @loop
     rts
 
 
 ;; U -> current task
 task_exec 
-    lda tsk_tick,u
-    beq 1f
-    dec tsk_tick,u
+    lda task.tick,u
+    beq @run_task
+    dec task.tick,u
     rts
+    ;;
+@run_task
+    lda task.sleep,u
+    sta task.tick,u
 
-1
-    lda tsk_sleep,u
-    sta tsk_tick,u
 
-    ldd tsk_d,u
-    ldx tsk_x,u
-    ldy tsk_y,u
+    ldd task.d,u
+    ldx task.x,u
+    ldy task.y,u
     
-    jsr [tsk_func,u]
+    jsr [task.func,u]
 
-    std tsk_d,u
-    stx tsk_x,u
-    sty tsk_y,u
+    leau tsk_size,u 
+    pshu d,x,y
+    leau -tsk_size+6,y
 
     rts
 
 task_run_tasks
     ;; u -> active task list
     ldu  #active_tasks
-2
+@loop
     ;; u -> next task, if zero end of list
     ldu ,u
-    beq 1f
+    beq @done
     ;; set this as the current task
     stu current_task
     ;; run the task
     bsr task_exec
     ;; do the next one
-    bra 2b
-1
+    bra @loop
+@done
     rts
 
 
@@ -251,15 +263,15 @@ task_run_tasks
 task_alloc
     ;; y -> free task
     ldy     free_tasks
-    bne     1f
-
+    bne     @got_task
+    ;;
     ;; no tasks!
     swi2
     ;; func, tick, sleep for new task
-1
-    stx tsk_func,y
-    sta tsk_tick,y
-    clr tsk_sleep,y
+@got_task
+    stx task.func,y
+    sta task.tick,y
+    clr task.sleep,y
 
     ;; Get next free task
     ldd ,y
@@ -279,7 +291,6 @@ task_free
     rts
 
 
-
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 reserved 
 sw3vec
@@ -289,10 +300,10 @@ irqvec
 swivec
 nmivec
 
-1    bra 1B
+@loop
+    bra @loop
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-        bss
 ustack  rmb $100
 ustack_top
 
@@ -300,7 +311,6 @@ stack   rmb $100
 stack_top
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-		data
 
         org  $fff0           
         fdb  $0000 

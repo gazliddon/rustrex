@@ -1,5 +1,5 @@
 BIN_PATH := ../bin/osx
-AS := $(BIN_PATH)/asm6809
+AS := lwasm
 OUT := out
 
 all : dirs code
@@ -15,7 +15,7 @@ $(OUT) :
 	@mkdir -p $(OUT)
 
 $(OUT)/all.bin $(OUT)/all.syms : all.s
-	@$(AS) -9 -B -o $(OUT)/all.bin all.s -s $(OUT)/all.syms -v
+	@$(AS) -9 -r -o $(OUT)/all.bin all.s -s -l=$(OUT)/all.syms
 	@echo Compiled all.s
 
 clean :
