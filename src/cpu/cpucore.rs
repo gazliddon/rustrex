@@ -100,7 +100,11 @@ impl<'a, C : 'a + Clock, M : 'a + MemoryIO> Context<'a, C, M> {
     }
 
     fn ea<A : AddressLines>(&mut self) -> u16 {
-        A::ea(self.mem, self.regs, &mut self.ins)
+        if let Ok(ea) = A::ea(self.mem, self.regs, &mut self.ins) {
+            ea
+        } else {
+            panic!("fix this")
+        }
     }
 
     // fn op8_2<A : AddressLines>( &mut self, write_mask : u8, func : fn(&mut Flags,u8, u32, u32) -> u8, i0 : u8 ) -> u8{
