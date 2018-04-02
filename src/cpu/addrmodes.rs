@@ -1,5 +1,5 @@
 use mem::MemoryIO;
-use cpu::{ Regs, InstructionDecoder, IndexedFlags, IndexModes};
+use cpu::{ Regs, InstructionDecoder, IndexedFlags, IndexModes, CpuErr};
 
 pub trait AddressLines {
 
@@ -265,8 +265,7 @@ impl AddressLines for Indexed {
             },
 
             IndexModes::Illegal => { 
-                // "illegal".to_string() 
-                panic!("IndexModes::Illegal")
+                panic!("IndexModes::Illegal {:02X} {:08b} at {:?}", index_mode_id, index_mode_id ,regs)
             },
 
             IndexModes::Ea=> {

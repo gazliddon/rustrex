@@ -1,51 +1,121 @@
-        include	"equates.inc"
-
         org MEM_START
 
+        include	"equates.s"
+
 start      lda #$55
-            tfr a,cc
-            lds #stack_top
-            ldu #ustack_top
-            lda #$0f
+           tfr a,cc
+           lds #stack_top
+
+            jsr clear_screen
 
             lda #0
             sync
 
-            ldx #pal
-            bsr copy_pal
+            ;; copy the palette over
 
-            ldb #0
-@loop       sta PALETTE
-            inca
-            sta PALETTE+1
-            inca
-            sta PALETTE+2
-            inca
-            ldy #SCREEN
-@loop2      stb ,y+
-            cmpy #SCREEN+256
-            bne @loop2
-            incb
+            lda #255
+            sta PALETTE+3
+            lda #127
+            sta PALETTE+4
+            lda #0
+            sta PALETTE+5
+            ;;
+@loop
+            ;;
+            inc PALETTE+15*3
+            inc PALETTE+15*3
+            inc PALETTE+15*3
+            lda PALETTE+15
+            lsra
+            sta PALETTE+15*3+1
+            ;;
+            ldx #0
+            bsr draw_box
+            ;;
+            jsr print_a
+            ;;
             sync
+            nop
+            nop
             bra @loop
 
+clear_screen
+    ldy #SCREEN
+    ldd #0
+@loop
+    std ,y++
+    cmpy #SCREEN+SCREEN_SIZE_BYTES
+    bne @loop
+    rts
+font
+    fdb small_a
+    fdb small_b
+    fdb small_c
 
-pal     fcb  $00,$0,$0
-        fcb  $10,$00,$00
-        fcb  $20,$00,$00
-        fcb  $30,$00,$00
-        fcb  $40,$00,$00
-        fcb  $50,$00,$00
-        fcb  $60,$00,$00
-        fcb  $70,$00,$00
-        fcb  $80,$00,$00
-        fcb  $90,$00,$00
-        fcb  $a0,$00,$00
-        fcb  $b0,$00,$00
-        fcb  $c0,$00,$00
-        fcb  $d0,$00,$00
-        fcb  $e0,$00,$00
-        fcb  $f0,$00,$00
+small_a
+    fdb $fff0
+    fdb $f0f0
+    fdb $fff0
+    fdb $f0f0
+    fdb $f0f0
+    fdb $0000
+
+small_a_2
+    fdb $fff0,$f0f0,$fff0
+    fdb $f0f0,$ff00,$0000
+    fdb $0,$0,$0
+
+
+
+small_b
+    fdb $fff0
+    fdb $f0f0
+    fdb $ff00
+    fdb $f0f0
+    fdb $fff0
+    fdb $0000
+small_c
+    fdb $0f00
+    fdb $f0f0
+    fdb $f000
+    fdb $f0f0
+    fdb $0f00
+    fdb $0000
+
+
+;; Draw a block
+;; a = col
+;; x = addr
+
+;;yxba
+draw_box
+    pshs u
+    ldy small_a_2
+    ldx small_a_2+2
+    ldd small_a_2+4
+
+    ldu #SCREEN+6
+    pshu a,b,x,y
+
+    ldy small_a_2+0+6
+    ldx small_a_2+2+6
+    ldd small_a_2+4+6
+    ldu #SCREEN+6+0x100
+    pshu a,b,x,y
+    
+    ldy small_a_2+0+12
+    ldx small_a_2+2+12
+    ldd small_a_2+4+12
+    ldu #SCREEN+6+0x200
+    pshu a,b,x,y
+
+    puls u
+    rts
+
+    
+
+    
+
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -56,7 +126,6 @@ pal     fcb  $00,$0,$0
 init_x equ 0
 init_y equ 2
 init_d equ 4
-
 
 palette_cycler
         std task.temp0,u
@@ -99,6 +168,65 @@ copy_pal
             dec ,u
             bpl @loop
             rts
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; u -> data
+;; x -> screen
+lett_a
+    fdb 0x00
+    fdb 0xf0
+    fdb 0xf0
+    fdb 0xf0
+    fdb 0xf0
+    fdb 0x00
+
+    fdb 0x00
+    fdb 0x00
+    fdb 0x00
+    fdb 0xff
+    fdb 0x00
+    fdb 0xff
+
+    fdb 0x00
+    fdb 0xf0
+    fdb 0xf0
+    fdb 0xff
+    fdb 0x00
+    fdb 0x0f
+
+orig_scr   rmb 2
+save_s     rmb 2
+
+print_6x6
+    sts save_s
+
+    stx orig_scr
+    tfr x,s
+
+    pulu x,y,a,b
+    pshs x,y,a,b
+
+    dec orig_scr
+    lds orig_scr
+    pulu x,y,a,b
+    pshs x,y,a,b
+
+    dec orig_scr
+    lds orig_scr
+    pulu x,y,a,b
+    pshs x,y,a,b
+
+    lds save_s
+    rts
+
+print_a
+    sts save_s
+    ldx #SCREEN+0x800+6*3
+    ldu #lett_a
+    lds save_s
+    rts
+    jmp print_6x6
+
+
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; clear_scren
@@ -162,134 +290,7 @@ screen_clear
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-task    STRUCT
-
-next        rmd 1
-func        rmd 1
-tick        rmb 1
-sleep       rmb 1
-d           rmd 1   
-y           rmd 1
-x           rmd 1
-temp0       rmd 1
-temp1       rmd 1 
-
-        ENDSTRUCT
-
-tsk_size        equ sizeof{task}
-
-num_of_tasks    equ 100
-
-tasks           rmb tsk_size * num_of_tasks
-
-tasks_end       rmb 0
-
-active_tasks    rmd 1
-free_tasks      rmd 1
-current_task    rmd 2
-
-task_init_system
-    ;; no active tasks
-    ;; x is my zero
-    ldx #0
-    stx active_tasks
-    stx current_task
-
-    ldu #tasks
-    stu free_tasks
-@loop
-    ;; get ptr to next task
-    leay tsk_size,u
-    cmpy #tasks_end
-    bne @no_task
-    tfr y,x
-    ;;
-@no_task
-    ;; Store set z flags
-    ;; if x was zero then we're the end of the list
-    sty ,u
-    bne @loop
-    rts
-
-
-;; U -> current task
-task_exec 
-    lda task.tick,u
-    beq @run_task
-    dec task.tick,u
-    rts
-    ;;
-@run_task
-    lda task.sleep,u
-    sta task.tick,u
-
-
-    ldd task.d,u
-    ldx task.x,u
-    ldy task.y,u
-    
-    jsr [task.func,u]
-
-    leau tsk_size,u 
-    pshu d,x,y
-    leau -tsk_size+6,y
-
-    rts
-
-task_run_tasks
-    ;; u -> active task list
-    ldu  #active_tasks
-@loop
-    ;; u -> next task, if zero end of list
-    ldu ,u
-    beq @done
-    ;; set this as the current task
-    stu current_task
-    ;; run the task
-    bsr task_exec
-    ;; do the next one
-    bra @loop
-@done
-    rts
-
-
-;; Allocates a task, will be executed after the current
-;; task
-;; X -> func
-;; A = time till execute
-;; U -> current task
-;; preserves u
-;; y -> new task
-task_alloc
-    ;; y -> free task
-    ldy     free_tasks
-    bne     @got_task
-    ;;
-    ;; no tasks!
-    swi2
-    ;; func, tick, sleep for new task
-@got_task
-    stx task.func,y
-    sta task.tick,y
-    clr task.sleep,y
-
-    ;; Get next free task
-    ldd ,y
-    ;; free tasks now -> to that
-    std free_tasks
-
-    ;; insert myself into linked list
-    ;; will execute after current task
-    ldx ,u
-    stx ,y
-    sty ,u
-
-    rts
-
-;; x -> task to free
-task_free
-    rts
-
+    include "tasker.s"
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 reserved 
@@ -321,4 +322,3 @@ stack_top
         fdb  swivec
         fdb  nmivec
         fdb  start
-

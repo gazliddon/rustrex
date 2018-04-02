@@ -24,7 +24,6 @@ extern crate sha1;
 extern crate separator;
 extern crate itertools;
 
-
 extern crate regex;
 extern crate num;
 extern crate clap;

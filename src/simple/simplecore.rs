@@ -277,16 +277,21 @@ impl Simple {
     }
 
     pub fn step(&mut self) -> bool {
+
         let mut ret = false;
 
-        let i = cpu::step(&mut self.regs, &mut self.mem, &self.rc_clock);
+        if let Ok(i) = cpu::step(&mut self.regs, &mut self.mem, &self.rc_clock) {
+            if i.op_code == 0x13 {
+                self.add_event(SimEvent::HitSync);
+                ret  = true;
+            }
 
-        if i.op_code == 0x13 {
-            self.add_event(SimEvent::HitSync);
-            ret  = true;
+            ret
+
+        } else {
+            panic!("fix this shit!")
+
         }
-
-        ret
     }
 
     pub fn reset(&mut self) {
@@ -352,19 +357,19 @@ impl Simple {
     pub fn handle_window(&mut self) {
         use window::Action;
 
-        let win_event = self.win.update();
-
-        let sim_event = match win_event {
-            Action::Reset    => Some(SimEvent::Reset),
-            Action::Quit     => Some(SimEvent::Quit),
-            Action::Pause    => Some(SimEvent::Pause),
-            Action::Continue => None
-        };
-
-        if let Some(event) = sim_event {
-            self.add_event(event);
+        for ev in self.win.update() {
+            let sim_event = match ev {
+                Action::Reset    => Some(SimEvent::Reset),
+                Action::Quit     => Some(SimEvent::Quit),
+                Action::Pause    => Some(SimEvent::Pause),
+                Action::Continue => None
+            };
+            if let Some(event) = sim_event {
+                self.add_event(event);
+            }
         }
     }
+
 
     pub fn handle_debugger(&mut self) {
 
@@ -388,8 +393,45 @@ impl Simple {
                         self.gdb.reply(reply);
                     }
 
-                    WriteRegisters(_reg_data) => {
-                        warn!("need to write regs here");
+                    WriteRegisters(data) => {
+
+                        {
+                            for i in data.clone() {
+                                println!("{:02x}", i);
+                            };
+                        }
+
+
+                        let mut data = data.clone();
+
+                        macro_rules! pop8 {
+                            () => { data.pop().unwrap() }
+                        }
+
+                        macro_rules! pop16 {
+                            () => ( {
+                                let l = pop8!() as u16;
+                                let h = pop8!() as u16;
+                                h << 8 | l
+                            } )
+                        }
+
+
+                        let regs = &mut self.regs;
+
+                        regs.pc = pop16!();
+                        regs.s = pop16!();
+                        regs.u = pop16!();
+                        regs.y = pop16!();
+                        regs.x = pop16!();
+                        regs.dp = pop8!();
+                        regs.b = pop8!();
+                        regs.a = pop8!();
+                        regs.flags.set_flags(pop8!());
+
+
+                        info!("pc = ${:04x}", regs.pc);
+
                         self.gdb.ack();
                     }
 
@@ -443,7 +485,9 @@ impl Simple {
 
     pub fn run(&mut self) {
         use self::SimEvent::*;
-        let mut state = state::State::new(&SimState::Running);
+        let mut state = state::State::new(&SimState::Paused);
+
+        self.reset();
 
         loop {
             self.handle_window();
@@ -513,9 +557,9 @@ impl Simple {
                 }
 
                 SimState::Paused => {
-                    // use std::{thread, time};
-                    // let sleep_time = time::Duration::from_millis(3);
-                    // thread::sleep(sleep_time);
+                    use std::{thread, time};
+                    let sleep_time = time::Duration::from_millis(3);
+                    thread::sleep(sleep_time);
                 }
             };
         }

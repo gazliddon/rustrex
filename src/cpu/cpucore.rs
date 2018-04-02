@@ -1173,7 +1173,7 @@ impl<'a, C : 'a + Clock, M : 'a + MemoryIO> Context<'a, C, M> {
     }
 
     fn unimplemented(&mut self) {
-        // panic!("unimplemnted op code")
+        panic!("unimplemnted op code")
     }
 }
 
@@ -1198,7 +1198,12 @@ pub fn reset<M: MemoryIO>(regs : &mut Regs, mem : &mut M) {
     };
 }
 
-pub fn step<M: MemoryIO, C : Clock>(regs : &mut Regs, mem : &mut M, ref_clock : &Rc<RefCell<C>>) -> InstructionDecoder {
+pub enum CpuErr {
+    UnknownInstruction,
+    IllegalAddressingMode,
+}
+
+pub fn step<M: MemoryIO, C : Clock>(regs : &mut Regs, mem : &mut M, ref_clock : &Rc<RefCell<C>>) -> Result<InstructionDecoder, CpuErr> {
 
     let mut ctx = Context::new(mem,regs,ref_clock);
 
@@ -1208,7 +1213,9 @@ pub fn step<M: MemoryIO, C : Clock>(regs : &mut Regs, mem : &mut M, ref_clock : 
     op_table!(ctx.fetch_instruction(), { ctx.unimplemented() });
 
     ctx.regs.pc =  ctx.ins.next_addr;
-    ctx.ins.clone()
+
+    Ok(ctx.ins.clone())
+
 }
 
 

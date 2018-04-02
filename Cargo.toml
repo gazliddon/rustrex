@@ -8,6 +8,9 @@ authors = ["Gaz Liddon Retina <gaz@gazaxian.com>"]
 opt-level = 0
 debug = true
 
+[dependencies.glium]
+path = "../glium"
+
 [dependencies]
 bitflags="*"
 serde = "1.0"
@@ -24,6 +27,5 @@ log="*"
 env_logger="*"
 gl = "*"
 itertools = "0.7.7"
-glium = "*"
 image = "0.18"
 notify = "4.0.0"

@@ -299,7 +299,13 @@ impl Vectrex {
     }
 
     pub fn update(&mut self) -> InstructionDecoder {
-        cpu::step(&mut self.regs, &mut self.vec_mem, &self.rc_clock)
+        let ins = cpu::step(&mut self.regs, &mut self.vec_mem, &self.rc_clock);
+
+        if let Ok(ins) = ins {
+            ins
+        } else {
+            panic!("fucked")
+        }
     }
 
     pub fn step(&mut self) -> InstructionDecoder {
@@ -309,16 +315,18 @@ impl Vectrex {
         let pc = self.regs.pc;
         let (_, txt) =  diss.diss(&mut self.vec_mem, pc, None);
 
-
-        let r = cpu::step(&mut self.regs, &mut self.vec_mem, &self.rc_clock);
-
+        if let Ok(ins) = cpu::step(&mut self.regs, &mut self.vec_mem, &self.rc_clock) {
         if self.vec_mem.via.is_dirty() {
             println!("${:04x}   {:20} : {} ",  pc, txt, self.regs);
             println!();
             self.vec_mem.via.clear_dirty();
         }
+        ins
 
-        r
+        } else {
+            panic!("fix this!");
+
+        }
     }
 
     pub fn reset(&mut self) {

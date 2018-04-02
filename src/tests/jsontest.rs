@@ -165,7 +165,7 @@ impl tester::Tester for JsonTest {
 
             let ins = step(&mut self.regs, &mut self.mem, &self.clock);
 
-            // let ins = self.cpu.step(&mut self.mem);
+            if let Ok(ins) = ins {
 
             let sim = &self.regs;
 
@@ -228,6 +228,11 @@ impl tester::Tester for JsonTest {
                 panic!("Done");
 
             } 
+            }
+            
+
+            // let ins = self.cpu.step(&mut self.mem);
+
 
         }
 
