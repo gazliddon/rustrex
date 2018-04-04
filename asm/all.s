@@ -226,8 +226,6 @@ print_a
     rts
     jmp print_6x6
 
-
-
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; clear_scren
 ;; Clear the screen to pixel pair in A
