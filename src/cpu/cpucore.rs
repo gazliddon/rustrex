@@ -1319,6 +1319,8 @@ pub fn reset<M: MemoryIO>(regs : &mut Regs, mem : &mut M) {
 
 pub fn step<M: MemoryIO, C : Clock>(regs : &mut Regs, mem : &mut M, ref_clock : &Rc<RefCell<C>>) -> Result<InstructionDecoder, CpuErr> {
 
+    let old_pc = regs.pc;
+
     let mut ctx = Context::new(mem,regs,ref_clock);
 
     macro_rules! handle_op {
@@ -1327,6 +1329,7 @@ pub fn step<M: MemoryIO, C : Clock>(regs : &mut Regs, mem : &mut M, ref_clock : 
     let rez  = op_table!(ctx.fetch_instruction(), { ctx.unimplemented() });
 
     if let Err(err) = rez {
+        ctx.regs.pc = old_pc;
 
         Err(err)
 
@@ -1334,9 +1337,7 @@ pub fn step<M: MemoryIO, C : Clock>(regs : &mut Regs, mem : &mut M, ref_clock : 
         ctx.regs.pc =  ctx.ins.next_addr;
 
         Ok(ctx.ins.clone())
-
     }
-
 }
 
 

@@ -39,7 +39,7 @@ impl DebuggerProxy {
         if let Ok(msg) = received {
             msg
         } else {
-            warn!("received {:?}",received);
+            warn!("Error {:?}",received);
             panic!("msg system fucked")
         }
     }
@@ -97,13 +97,14 @@ impl DebuggerHost for DebuggerProxy {
         self.send_wait_ack(Message::DoBreak);
     }
 
-    fn read_registers(&self, reply : &mut Reply)  {
-        if let Message::WriteRegisters(data) = self.send(Message::ReadRegisters) {
+    fn read_registers(&self, response : &mut Reply)  {
+        let reply = self.send(Message::ReadRegisters); 
+        if let Message::WriteRegisters(data) = reply {
             for i in data {
-                reply.push_u8(i)
+                response.push_u8(i)
             }
         } else {
-            panic!("kjsakjska")
+            panic!("examine: expected WriteRegisters got {:?}", reply)
         }
     }
 
@@ -112,11 +113,12 @@ impl DebuggerHost for DebuggerProxy {
     }
 
     fn examine(&self, addr : u16) -> u8 {
-        if let Message::Write(addr2, val) = self.send(Message::Examine(addr)) {
+        let reply = self.send(Message::Examine(addr)) ;
+        if let Message::Write(addr2, val) = reply {
             assert!(addr2 == addr);
             val
         } else {
-            panic!("kjsakjska")
+            panic!("examine: expected Write got {:?}", reply)
         }
     }
 
@@ -124,8 +126,13 @@ impl DebuggerHost for DebuggerProxy {
         self.send_wait_ack(Message::Write(addr, val));
     }
 
-    fn resume(&mut self) {
-        self.send_wait_ack(Message::Resume);
+    fn resume(&mut self) -> Sigs {
+        let reply = self.send(Message::Resume);
+        if let Message::Halt(sig) = reply {
+            sig
+        } else {
+            panic!("resume: expected Halt got {:?}", reply)
+        }
     }
 
     fn force_pc(&mut self, _pc : u16)  {

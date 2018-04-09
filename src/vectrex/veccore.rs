@@ -197,7 +197,7 @@ impl gdbstub::DebuggerHost for Vectrex {
     fn force_pc(&mut self, _pc : u16)  {
     }
 
-    fn resume(&mut self)  {
+    fn resume(&mut self)  -> gdbstub::Sigs {
         panic!("kjsakjska")
     }
 

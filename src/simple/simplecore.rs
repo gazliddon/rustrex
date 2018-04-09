@@ -278,9 +278,6 @@ impl Simple {
     }
 
     pub fn step(&mut self) -> Option<SimEvent> {
-
-        let old_pc = self.regs.pc;
-
         let res = cpu::step(&mut self.regs, &mut self.mem, &self.rc_clock);
 
         let ret =  match res {
@@ -293,7 +290,6 @@ impl Simple {
             }
 
             Err(_cpu_err) => {
-                self.regs.pc = old_pc;
                 Some(SimEvent::Halt(Sigs::SIGILL))
             }
         };

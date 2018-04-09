@@ -19,7 +19,7 @@ pub trait DebuggerHost {
     fn read_registers(&self, _reply : &mut Reply) ;
     fn write_registers(&mut self, _data : &[u8]) ;
     fn force_pc(&mut self, _pc : u16) ;
-    fn resume(&mut self) ;
+    fn resume(&mut self) -> Sigs ;
     fn set_step(&mut self) ;
     fn add_breakpoint(&mut self, _addr : u16) ;
     fn add_write_watchpoint (&mut self, _addr : u16);
@@ -376,8 +376,8 @@ impl GdbRemote {
         }
 
         // Tell the debugger we want to resume execution.
-        let _ = host.resume();
-        Ok(())
+        let sig = host.resume();
+        self.send_sig(sig)
     }
 
     fn read_registers(&mut self, host : & mut DebuggerHost) -> GdbResult {
