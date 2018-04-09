@@ -11,6 +11,13 @@ use cpu::alu;
 use std::cell::RefCell;
 use std::rc::Rc;
 
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum CpuErr {
+    UnknownInstruction,
+    Unimplemented,
+    IllegalAddressingMode,
+}
+
 pub trait Host<M: MemoryIO, C : Clock> {
     fn mem(&mut self) -> &mut M;
     fn clock(&mut self) -> &Rc<RefCell<C>>;
@@ -1309,11 +1316,6 @@ pub fn reset<M: MemoryIO>(regs : &mut Regs, mem : &mut M) {
     };
 }
 
-pub enum CpuErr {
-    UnknownInstruction,
-    Unimplemented,
-    IllegalAddressingMode,
-}
 
 pub fn step<M: MemoryIO, C : Clock>(regs : &mut Regs, mem : &mut M, ref_clock : &Rc<RefCell<C>>) -> Result<InstructionDecoder, CpuErr> {
 
@@ -1322,11 +1324,18 @@ pub fn step<M: MemoryIO, C : Clock>(regs : &mut Regs, mem : &mut M, ref_clock : 
     macro_rules! handle_op {
         ($addr:ident, $action:ident) => ({ ctx.$action::<$addr>() }) }
 
-    let _ = op_table!(ctx.fetch_instruction(), { ctx.unimplemented() });
+    let rez  = op_table!(ctx.fetch_instruction(), { ctx.unimplemented() });
 
-    ctx.regs.pc =  ctx.ins.next_addr;
+    if let Err(err) = rez {
 
-    Ok(ctx.ins.clone())
+        Err(err)
+
+    } else {
+        ctx.regs.pc =  ctx.ins.next_addr;
+
+        Ok(ctx.ins.clone())
+
+    }
 
 }
 

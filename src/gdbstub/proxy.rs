@@ -1,8 +1,8 @@
-use std::net::{TcpListener, };
+use std::net::{TcpListener};
 use std::sync::mpsc;
 use std::thread;
 
-use gdbstub::{ DebuggerHost, GdbRemote, Reply };
+use gdbstub::{ DebuggerHost, GdbRemote, Reply, Sigs};
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Message {
@@ -17,6 +17,8 @@ pub enum Message {
     Examine(u16),
     Write(u16, u8),
     Ack,
+    IllegalInstruction,
+    Halt(Sigs),
 }
 
 struct DebuggerProxy {
@@ -25,29 +27,72 @@ struct DebuggerProxy {
 }
 
 impl DebuggerProxy {
+
     pub fn new(tx : mpsc::Sender<Message>, rx : mpsc::Receiver<Message>) -> Self {
         Self { tx , rx } }
 
     pub fn send(&self, ev : Message) -> Message {
-        let _ = self.tx.send(ev);
-        if let Ok(msg) = self.rx.recv() {
+        let _ = self.tx.send(ev.clone());
+
+        let received = self.rx.recv();
+
+        if let Ok(msg) = received {
             msg
         } else {
+            warn!("received {:?}",received);
             panic!("msg system fucked")
         }
     }
 
-    pub fn send_wait_ack(&self, _ev : Message) {
-        let msg = self.send(_ev);
-        assert!(msg == Message::Ack);
+    pub fn send_wait_ack(&self, ev : Message) {
+        let msg = self.send(ev.clone());
+
+        match msg {
+            Message::Ack => (),
+            _ => {
+                warn!("sent {:?}", ev);
+                panic!("Want ack got {:?}", msg)
+            }
+        };
     }
 
     pub fn ack(&self, _ev : Message) {
         let _ret = self.tx.send(Message::Ack);
     }
+
+    pub fn serve(&mut self) {
+
+        let listener = TcpListener::bind("127.0.0.1:6809").unwrap();
+
+        loop {
+            let mut gdb = GdbRemote::new(&listener);
+
+            info!("GBD connected");
+
+            self.send_wait_ack(Message::Connected);
+            info!("Client confirmed connection");
+
+            loop {
+                let ret  = gdb.serve(self);
+
+                match ret {
+                    Err(err) => {
+                        warn!("Connection error {:?}", err);
+                        break;
+                    },
+                    _ => ()
+                };
+            }
+
+            self.send_wait_ack(Message::Disconnected);
+
+            info!("Disconnected");
+        }
+    }
 }
 
 impl DebuggerHost for DebuggerProxy {
+
     fn do_break(&mut self) {
         self.send_wait_ack(Message::DoBreak);
     }
@@ -121,36 +166,23 @@ pub struct ThreadedGdb {
     pub tx  : mpsc::Sender<Message>,
 }
 
+
+
+////////////////////////////////////////////////////////////////////////////////
 impl ThreadedGdb {
+
     pub fn new() -> ThreadedGdb {
-        let (tx, rx) =  mpsc::channel();
-        let (tx_client, rx_client) =  mpsc::channel();
+        let (client_tx, server_rx) =  mpsc::channel(); 
+        let (server_tx, client_rx) =  mpsc::channel(); 
 
         thread::spawn(move || {
-            let mut dbg_proxy = DebuggerProxy::new(tx, rx_client);
-
-            let listener = TcpListener::bind("127.0.0.1:6809").unwrap();
-
-            loop {
-                let mut remote = GdbRemote::new(&listener);
-
-                dbg_proxy.send_wait_ack(Message::Connected);
-
-                loop {
-                    let ret  = remote.serve(&mut dbg_proxy);
-                    match ret {
-                        Err(_) => break,
-                        _ => ()
-                    };
-                }
-
-                dbg_proxy.send_wait_ack(Message::Disconnected);
-            }
+            let mut dbg_proxy = DebuggerProxy::new(server_tx, server_rx);
+            dbg_proxy.serve()
         });
 
         ThreadedGdb {
-            rx,
-            tx : tx_client
+            tx : client_tx,
+            rx : client_rx,
         }
     }
 
@@ -162,10 +194,10 @@ impl ThreadedGdb {
         self.reply(Message::Ack)
     }
 
+    // poll from any messages from the debugger
     pub fn poll(&mut self) -> Option<Message> {
-        let val = self.rx.try_recv();
-        match val {
-            Ok(message )=> Some(message),
+        match self.rx.try_recv() {
+            Ok(msg) => Some(msg),
             Err(_) => None,
         }
     }

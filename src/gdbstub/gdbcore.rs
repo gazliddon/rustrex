@@ -2,9 +2,17 @@ use std::net::{TcpListener, Shutdown,TcpStream};
 use std::io::{Read, Write};
 use gdbstub::reply::{Reply, Endian};
 
-use gdbstub::sigs::*;
+use gdbstub::Sigs;
 
 ////////////////////////////////////////////////////////////////////////////////
+
+enum PacketResult {
+    Ok(Vec<u8>),
+    BadChecksum(Vec<u8>),
+    EndOfStream,
+    Break,
+    NoPacket,
+}
 
 pub trait DebuggerHost {
     fn do_break(&mut self);
@@ -63,10 +71,12 @@ impl GdbRemote {
                 try!(self.ack());
                 self.handle_packet(host,  &packet)
             }
+
             PacketResult::BadChecksum(_) => {
                 // Request retransmission
                 self.nack()
             }
+
             PacketResult::Break =>  {
                 try!(self.ack());
                 host.do_break();
@@ -366,7 +376,7 @@ impl GdbRemote {
         }
 
         // Tell the debugger we want to resume execution.
-        host.resume();
+        let _ = host.resume();
         Ok(())
     }
 
@@ -392,22 +402,17 @@ impl GdbRemote {
             _args: &[u8]) -> GdbResult {
 
         host.set_step();
-
         self.send_trap()
-
-            // self.resume(host, args)
     }
 
 
-    fn send_sig(&mut self, v : Sigs) -> GdbResult {
+    pub fn send_sig(&mut self, v : Sigs) -> GdbResult {
         let v = format!("S{:02X}", v as u8);
         let bytes = v.into_bytes();
         self.send_string(&bytes)
     }
 
     pub fn send_trap(&mut self) -> GdbResult { self.send_sig(Sigs::SIGTRAP) }
-    pub fn send_int(&mut self) -> GdbResult { self.send_sig(Sigs::SIGINT) }
-    pub fn send_cont(&mut self) -> GdbResult { self.send_sig(Sigs::SIGCONT) }
 
     // Add a breakpoint or watchpoint
     fn add_breakpoint(&mut self,
@@ -476,13 +481,6 @@ impl GdbRemote {
 
 }
 
-enum PacketResult {
-    Ok(Vec<u8>),
-    BadChecksum(Vec<u8>),
-    EndOfStream,
-    Break,
-    NoPacket,
-}
 
 /// Get the value of an integer encoded in single lowercase
 /// hexadecimal ASCII digit. Return None if the character is not valid

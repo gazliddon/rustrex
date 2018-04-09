@@ -63,11 +63,11 @@ impl GdbConnection {
         }
     }
 
-    pub fn send_int(&mut self) {
-        if let Some(ref mut remote) = self.gdb {
-            let _ = remote.send_int();
-        }
-    }
+    // pub fn send_int(&mut self) {
+    //     if let Some(ref mut remote) = self.gdb {
+    //         let _ = remote.send_int();
+    //     }
+    // }
 
     pub fn update(&mut self, host : &mut gdbstub::DebuggerHost) -> (ConnState, ConnEvent) {
 

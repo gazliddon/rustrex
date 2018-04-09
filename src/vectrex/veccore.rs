@@ -198,8 +198,9 @@ impl gdbstub::DebuggerHost for Vectrex {
     }
 
     fn resume(&mut self)  {
-
+        panic!("kjsakjska")
     }
+
     fn set_step(&mut self)  {
 
     }
