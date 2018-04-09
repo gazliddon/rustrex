@@ -139,8 +139,9 @@ impl DebuggerHost for DebuggerProxy {
         self.send_wait_ack(Message::ForcePc(_pc));
     }
 
-    fn set_step(&mut self) {
+    fn set_step(&mut self) -> Sigs {
         self.send_wait_ack(Message::Step);
+        Sigs::SIGTRAP
     }
 
     fn add_breakpoint(&mut self, _addr : u16) {
@@ -172,8 +173,6 @@ pub struct ThreadedGdb {
     pub rx  : mpsc::Receiver<Message>,
     pub tx  : mpsc::Sender<Message>,
 }
-
-
 
 ////////////////////////////////////////////////////////////////////////////////
 impl ThreadedGdb {

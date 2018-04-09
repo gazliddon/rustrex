@@ -20,7 +20,7 @@ pub trait DebuggerHost {
     fn write_registers(&mut self, _data : &[u8]) ;
     fn force_pc(&mut self, _pc : u16) ;
     fn resume(&mut self) -> Sigs ;
-    fn set_step(&mut self) ;
+    fn set_step(&mut self) -> Sigs ;
     fn add_breakpoint(&mut self, _addr : u16) ;
     fn add_write_watchpoint (&mut self, _addr : u16);
     fn add_read_watchpoint(&mut self, _addr : u16);
@@ -400,9 +400,8 @@ impl GdbRemote {
     fn step(&mut self,
             host: &mut DebuggerHost,
             _args: &[u8]) -> GdbResult {
-
-        host.set_step();
-        self.send_trap()
+        let result = host.set_step();
+        self.send_sig(result)
     }
 
 

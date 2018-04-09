@@ -288,7 +288,6 @@ impl Simple {
                     None
                 }
             }
-
             Err(_cpu_err) => {
                 Some(SimEvent::Halt(Sigs::SIGILL))
             }
@@ -391,7 +390,11 @@ impl Simple {
         loop {
             if let Some(msg) = self.gdb.poll() {
                 match msg {
-                    Disconnected | Connected | DoBreak | Step  => {
+                    Disconnected | Connected | DoBreak  => {
+                        self.gdb.ack();
+                    },
+
+                    Step => {
                         self.gdb.ack();
                         self.add_event(SimEvent::Debugger(msg))
                     }

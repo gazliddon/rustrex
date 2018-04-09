@@ -134,16 +134,10 @@ fn main() {
         .get_matches();
 
     if let Some(matches) = matches.subcommand_matches("emu") {
-
         info!("Running EMU");
-
         let mut emu = vectrex::Vectrex::from_matches(matches);
 
         emu.run();
-
-        // for i in 0..10_000_000 {
-        //     emu.step();
-        // }
     }
 
     if let Some(matches) = matches.subcommand_matches("simple") {

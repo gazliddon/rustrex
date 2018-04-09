@@ -201,9 +201,10 @@ impl gdbstub::DebuggerHost for Vectrex {
         panic!("kjsakjska")
     }
 
-    fn set_step(&mut self)  {
-
+    fn set_step(&mut self)  -> gdbstub::Sigs {
+        panic!("kslkslaks")
     }
+
     fn add_breakpoint(&mut self, _addr : u16)  {
 
     }
