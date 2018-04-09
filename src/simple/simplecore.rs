@@ -32,7 +32,7 @@ use window;
 use std::rc::Rc;
 use std::cell::RefCell;
 
-use gdbstub::{ ThreadedGdb, Message };
+use gdbstub::{ ThreadedGdb, Message, Sigs};
 
 use utils;
 use state;
@@ -45,8 +45,9 @@ enum SimState {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-enum SimEvent {
+pub enum SimEvent {
     Debugger(Message),
+    Halt(Sigs),
     HitSync,
     Pause,
     Quit,
@@ -276,22 +277,32 @@ impl Simple {
         ret
     }
 
-    pub fn step(&mut self) -> bool {
+    pub fn step(&mut self) -> Option<SimEvent> {
 
-        let mut ret = false;
+        let old_pc = self.regs.pc;
 
-        if let Ok(i) = cpu::step(&mut self.regs, &mut self.mem, &self.rc_clock) {
-            if i.op_code == 0x13 {
-                self.add_event(SimEvent::HitSync);
-                ret  = true;
+        let res = cpu::step(&mut self.regs, &mut self.mem, &self.rc_clock);
+
+        let ret =  match res {
+            Ok(i) => {
+                if i.op_code == 0x13 {
+                    Some(SimEvent::HitSync)
+                } else {
+                    None
+                }
             }
 
-            ret
+            Err(_cpu_err) => {
+                self.regs.pc = old_pc;
+                Some(SimEvent::Halt(Sigs::SIGILL))
+            }
+        };
 
-        } else {
-            panic!("fix this shit!")
+        if let Some(ref ev) = ret {
+            self.add_event(ev.clone());
+        };
 
-        }
+        ret
     }
 
     pub fn reset(&mut self) {
@@ -335,7 +346,6 @@ impl Simple {
 
         if matches.is_present("watch-rom") {
             info!("Adding watch for rom file");
-
             let watcher = FileWatcher::new(file);
             ret.watcher = Some(watcher);
         }
@@ -343,13 +353,22 @@ impl Simple {
         ret
     }
 
-    fn run_to_sync(&mut self, max_instructions : usize ) {
+    fn run_to_sync(&mut self, max_instructions : usize ) -> Option<SimEvent> {
+        // run for n instructions OR
+        // stop on an event
+        // Could be an error or whatever
+
         for _ in 0..max_instructions {
-            if self.step() {
-                break;
+
+            let ret = self.step();
+
+            if ret.is_some() {
+                return ret;
             }
         }
+        None
     }
+
     fn add_event(&mut self, event : SimEvent) {
         self.events.push(event)
     }
@@ -370,16 +389,18 @@ impl Simple {
         }
     }
 
-
     pub fn handle_debugger(&mut self) {
-
         use gdbstub::Message::*;
 
         loop {
             if let Some(msg) = self.gdb.poll() {
                 match msg {
-                    Disconnected | Connected | Resume | DoBreak | Step => {
+                    Disconnected | Connected | DoBreak | Step  => {
                         self.gdb.ack();
+                        self.add_event(SimEvent::Debugger(msg))
+                    }
+
+                    Resume => {
                         self.add_event(SimEvent::Debugger(msg))
                     }
 
@@ -395,42 +416,34 @@ impl Simple {
 
                     WriteRegisters(data) => {
 
-                        {
-                            for i in data.clone() {
-                                println!("{:02x}", i);
-                            };
+                        let mut _it = data.iter();
+
+                        macro_rules! take8 {
+                            () => { _it.next().unwrap().clone() }
                         }
 
-
-                        let mut data = data.clone();
-
-                        macro_rules! pop8 {
-                            () => { data.pop().unwrap() }
-                        }
-
-                        macro_rules! pop16 {
-                            () => ( {
-                                let l = pop8!() as u16;
-                                let h = pop8!() as u16;
+                        macro_rules! take16 {
+                            () => ({
+                                let h = take8!() as u16;
+                                let l = take8!() as u16;
                                 h << 8 | l
-                            } )
+                            })
                         }
-
 
                         let regs = &mut self.regs;
 
-                        regs.pc = pop16!();
-                        regs.s = pop16!();
-                        regs.u = pop16!();
-                        regs.y = pop16!();
-                        regs.x = pop16!();
-                        regs.dp = pop8!();
-                        regs.b = pop8!();
-                        regs.a = pop8!();
-                        regs.flags.set_flags(pop8!());
+                        regs.flags.set_flags(take8!());
+                        regs.a = take8!();
+                        regs.b = take8!();
+                        regs.dp = take8!();
 
+                        regs.x = take16!();
+                        regs.y = take16!();
+                        regs.s = take16!();
+                        regs.u = take16!();
+                        regs.pc = take16!();
 
-                        info!("pc = ${:04x}", regs.pc);
+                        info!("received registers and pc = ${:04x}", regs.pc);
 
                         self.gdb.ack();
                     }
@@ -465,7 +478,7 @@ impl Simple {
                         self.gdb.reply(WriteRegisters(ret));
                     }
 
-                    _ => unimplemented!("unimplemented msg {:?}", msg),
+                    _ => info!("unimplemented msg {:?}", msg),
                 }
             } else {
                 break
@@ -502,11 +515,15 @@ impl Simple {
                 };
 
                 match state.get() {
-
                     SimState::Running => {
                         match event {
                             Pause => state.set(&SimState::Paused),
                             Quit => state.set(&SimState::Quitting),
+
+                            Halt(sig) => {
+                                self.gdb.reply(Message::Halt(sig));
+                                state.set(&SimState::Paused)
+                            }
 
                             Debugger(msg) => {
                                 match msg {
@@ -558,13 +575,14 @@ impl Simple {
 
                 SimState::Paused => {
                     use std::{thread, time};
-                    let sleep_time = time::Duration::from_millis(3);
+                    let sleep_time = time::Duration::from_millis(1);
                     thread::sleep(sleep_time);
                 }
             };
         }
     }
 }
+
 
 
 
