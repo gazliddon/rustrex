@@ -29,6 +29,9 @@ pub trait DebuggerHost {
     fn del_read_watchpoint(&mut self, _addr : u16) ;
     fn examine(&self, _addr : u16) -> u8 ;
     fn write(&mut self, _addr : u16, val : u8);
+
+    fn get_reg(&self, _reg_num : usize) -> u16;
+    fn set_reg(&self, _r_num : usize, _val : u16);
 }
 
 pub struct GdbRemote {
@@ -222,17 +225,34 @@ impl GdbRemote {
 
         let _text = str::from_utf8(args).unwrap();
 
-                self.send_empty_reply()
+        self.send_empty_reply()
 
-        // match text {
-        //     "Attached" => self.send_string(b"1"),
-        //     "TStatus" => self.send_string(b"T0"),
-        //     "C" => self.send_empty_reply(),
-        //     _ => {
-        //         info!("unhandled q {}", text);
-        //         self.send_empty_reply()
-        //     }
-        // }
+            // match text {
+            //     "Attached" => self.send_string(b"1"),
+            //     "TStatus" => self.send_string(b"T0"),
+            //     "C" => self.send_empty_reply(),
+            //     _ => {
+            //         info!("unhandled q {}", text);
+            //         self.send_empty_reply()
+            //     }
+            // }
+    }
+
+    fn get_reg(&mut self, host : &mut DebuggerHost, args: &[u8]) -> GdbResult {
+        let reg = try!(parse_get_reg(args));
+        let val = host.get_reg(reg);
+
+        let mut reply = Reply::new(&self.endian);
+
+        reply.push_u16(val);
+        self.send_reply(reply)
+    }
+
+    fn set_reg(&mut self, host : &mut DebuggerHost, args: &[u8]) -> GdbResult {
+        let (reg, val) = try!(parse_set_reg(args));
+        host.set_reg(reg,val);
+        self.send_ok()
+
     }
 
     fn handle_packet(&mut self,
@@ -247,7 +267,7 @@ impl GdbRemote {
         let packet_str = str::from_utf8(packet).unwrap();
         let args_str = str::from_utf8(args).unwrap();
 
-        let to_check = "zZ";
+        let to_check = "zZPp";
 
         if to_check.find(command).is_some() {
             info!("raw cmd {}", packet_str);
@@ -263,6 +283,8 @@ impl GdbRemote {
             'G' => self.write_registers(host, args),
             'c' => self.resume(host, args),
             's' => self.step(host, args),
+            'P' => self.set_reg(host, args),
+            'p' => self.get_reg(host, args),
 
             'Z' => self.add_breakpoint(host, args),
             'z' => self.del_breakpoint(host, args),
@@ -594,6 +616,29 @@ fn parse_write_mem(args: &[u8]) -> Result<(u32, Vec<u8>), ()> {
         Ok((addr, bytes))
     }
 }
+
+/// Parse set registee 
+/// `regr=val`. Returns the paraemeters as a tuple
+/// error if a format error has been encountered.
+fn parse_set_reg(args: &[u8]) -> Result<(usize, u16), ()> {
+    let args: Vec<_> = args.split(|&b| b == b'=').collect();
+
+    if args.len() != 2 {
+        // Invalid number of arguments
+        return Err(());
+    }
+
+    let reg_num = try!(parse_hex(args[0]));
+    let reg_val = try!(parse_hex(args[1]));
+
+    Ok((reg_num as usize, reg_val as u16))
+}
+
+fn parse_get_reg(args: &[u8]) -> Result<usize, ()> {
+    let reg_num = try!(parse_hex(args));
+    Ok(reg_num as usize)
+}
+
 
 /// Parse breakpoint arguments: the format is
 /// `type,addr,kind`. Returns the three parameters in a tuple or an

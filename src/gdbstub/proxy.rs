@@ -19,6 +19,10 @@ pub enum Message {
     Ack,
     IllegalInstruction,
     Halt(Sigs),
+    BreakPoint(u16),
+    DeleteBreakPoint(u16),
+    SetReg(usize, u16),
+    GetReg(usize),
 }
 
 struct DebuggerProxy {
@@ -122,6 +126,21 @@ impl DebuggerHost for DebuggerProxy {
         }
     }
 
+    fn get_reg(&self, reg_num : usize) -> u16 {
+        let reply = self.send(Message::GetReg(reg_num)) ;
+
+        if let Message::SetReg(rnum, val) = reply {
+            assert!(rnum == reg_num);
+            val
+        } else {
+            panic!("get_reg: expected SetReg got {:?}", reply)
+        }
+    }
+
+    fn set_reg(&self, reg_num : usize, val : u16) {
+        self.send_wait_ack(Message::SetReg(reg_num, val));
+    }
+
     fn write(&mut self, addr : u16, val : u8) {
         self.send_wait_ack(Message::Write(addr, val));
     }
@@ -144,8 +163,12 @@ impl DebuggerHost for DebuggerProxy {
         Sigs::SIGTRAP
     }
 
-    fn add_breakpoint(&mut self, _addr : u16) {
-        unimplemented!("add_breakpoint");
+    fn add_breakpoint(&mut self, addr : u16) {
+        self.send_wait_ack(Message::BreakPoint(addr));
+    }
+
+    fn del_breakpoint(&mut self, addr : u16) {
+        self.send_wait_ack(Message::DeleteBreakPoint(addr));
     }
 
     fn add_write_watchpoint (&mut self, _addr : u16) {
@@ -156,9 +179,6 @@ impl DebuggerHost for DebuggerProxy {
         unimplemented!("add_read_watchpoint");
     }
 
-    fn del_breakpoint(&mut self, _addr : u16) {
-        unimplemented!("del_breakpoint");
-    }
 
     fn del_write_watchpoint(&mut self, _addr : u16) {
         unimplemented!("del_write_watchpoint");
@@ -167,6 +187,7 @@ impl DebuggerHost for DebuggerProxy {
     fn del_read_watchpoint(&mut self, _addr : u16) {
         unimplemented!("del_read_watchpoint");
     }
+
 }
 
 pub struct ThreadedGdb {

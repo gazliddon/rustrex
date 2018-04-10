@@ -251,6 +251,14 @@ impl gdbstub::DebuggerHost for Vectrex {
 
     fn write_registers(&mut self, _data : &[u8]) {
     }
+
+    fn get_reg(&self, _reg_num : usize) -> u16 {
+        unimplemented!("get_reg r = {}", _reg_num)
+    }
+
+    fn set_reg(&self, _r_num : usize, _val : u16) {
+        unimplemented!("set_reg r = {}  v = {}", _r_num, _val)
+    }
 }
 
 impl Vectrex {

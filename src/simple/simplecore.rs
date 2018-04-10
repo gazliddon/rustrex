@@ -385,22 +385,77 @@ impl Simple {
     }
 
     pub fn handle_debugger(&mut self) {
+
         use gdbstub::Message::*;
 
         loop {
             if let Some(msg) = self.gdb.poll() {
                 match msg {
                     Disconnected | Connected | DoBreak  => {
-                        self.gdb.ack();
+                        self.add_event(SimEvent::Debugger(msg));
+                        self.gdb.ack()
                     },
 
                     Step => {
-                        self.gdb.ack();
-                        self.add_event(SimEvent::Debugger(msg))
+                        warn!("Should send back correct sig for step mode");
+                        self.add_event(SimEvent::Debugger(msg));
+                        self.gdb.ack()
                     }
+
+                    SetReg(register_number, v16) => {
+
+                        let regs = &mut self.regs;
+
+                        let v8 = v16 as u8;
+
+                        match register_number {
+                            0 => { regs.flags.set_flags(v8) }
+                            1 => { regs.a = v8; }
+                            2 => { regs.b = v8; }
+                            3 => { regs.dp = v8;}
+                            4 => { regs.x = v16 }
+                            5 => { regs.y = v16 }
+                            6 => { regs.s = v16 }
+                            7 => { regs.u = v16 }
+                            8 => { regs.pc = v16}
+                            _ => { warn!("illgal reg num {} for set_reg", register_number) }
+                        };
+
+                        self.gdb.ack()
+                    },
+
+                    GetReg(register_number) => {
+
+                        let regs = &mut self.regs;
+
+                        let val = match register_number {
+                            0 => { regs.flags.bits() as u16}
+                            1 => { regs.a as u16}
+                            2 => { regs.b as u16}
+                            3 => { regs.dp as u16}
+                            4 => { regs.x }
+                            5 => { regs.y }
+                            6 => { regs.s }
+                            7 => { regs.u }
+                            8 => { regs.pc }
+                            _ => { warn!("illgal reg num {} for get_reg", register_number ); 0 }
+                        };
+
+                        self.gdb.reply(Message::SetReg(register_number, val))
+                    },
 
                     Resume => {
                         self.add_event(SimEvent::Debugger(msg))
+                    }
+
+                    BreakPoint(addr) => {
+                        warn!("TBD add breakpoint to 0x{:04x}", addr);
+                        self.gdb.ack()
+                    }
+
+                    DeleteBreakPoint(addr) => {
+                        warn!("TBD delete breakpoint at x{:04x}", addr);
+                        self.gdb.ack()
                     }
 
                     ForcePc(addr) => {
@@ -435,7 +490,6 @@ impl Simple {
                         regs.a = take8!();
                         regs.b = take8!();
                         regs.dp = take8!();
-
                         regs.x = take16!();
                         regs.y = take16!();
                         regs.s = take16!();
