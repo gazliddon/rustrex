@@ -33,9 +33,12 @@ use std::rc::Rc;
 use std::cell::RefCell;
 
 use gdbstub::{ ThreadedGdb, Message, Sigs};
+use gdbstub;
 
 use utils;
 use state;
+
+use breakpoints::{BreakPoint, BreakPoints, BreakPointTypes};
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 enum SimState {
@@ -54,6 +57,22 @@ pub enum SimEvent {
     RomChanged,
     MaxCycles,
     Reset,
+}
+// Extend breakpoint to be initialisable from gdb bp descriptions
+
+impl BreakPoint {
+
+    pub fn from_gdb_type( bp_type : gdbstub::BreakPointTypes, addr : u16 ) -> Self {
+        use gdbstub::BreakPointTypes::*;
+
+        let my_type = match bp_type {
+            Read  => BreakPointTypes::READ,
+            Write => BreakPointTypes::WRITE,
+            Exec  => BreakPointTypes::EXEC,
+        };
+
+        Self::new(my_type, addr)
+    }
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -245,15 +264,16 @@ I: Iterator<Item = &'a u8>,
 }
 
 pub struct Simple {
-    regs       : Regs,
-    mem        : SimpleMem,
-    rc_clock   : Rc<RefCell<StandardClock>>,
-    file       : Option<String>,
-    watcher    : Option<FileWatcher>,
-    events     : Vec<SimEvent>,
-    win        : window::Window,
-    dirty      : bool,
-    gdb        : ThreadedGdb,
+    regs         : Regs,
+    mem          : SimpleMem,
+    rc_clock     : Rc<RefCell<StandardClock>>,
+    file         : Option<String>,
+    watcher      : Option<FileWatcher>,
+    events       : Vec<SimEvent>,
+    win          : window::Window,
+    dirty        : bool,
+    gdb          : ThreadedGdb,
+    break_points : BreakPoints,
 }
 
 impl Simple {
@@ -266,12 +286,14 @@ impl Simple {
 
         let gdb = ThreadedGdb::new();
 
+        let break_points = BreakPoints::new();
+
         let ret = Simple {
-            mem, regs, rc_clock, win, gdb,
+            mem, regs, rc_clock, win, gdb, break_points,
             file    : None,
             watcher : None,
             events  : vec![],
-            dirty   : false
+            dirty   : false,
         };
 
         ret
@@ -386,23 +408,22 @@ impl Simple {
 
     pub fn handle_debugger(&mut self) {
 
-        use gdbstub::Message::*;
 
         loop {
             if let Some(msg) = self.gdb.poll() {
                 match msg {
-                    Disconnected | Connected | DoBreak  => {
+                    Message::Disconnected | Message::Connected | Message::DoBreak  => {
                         self.add_event(SimEvent::Debugger(msg));
                         self.gdb.ack()
                     },
 
-                    Step => {
+                    Message::Step => {
                         warn!("Should send back correct sig for step mode");
                         self.add_event(SimEvent::Debugger(msg));
                         self.gdb.ack()
                     }
 
-                    SetReg(register_number, v16) => {
+                    Message::SetReg(register_number, v16) => {
 
                         let regs = &mut self.regs;
 
@@ -424,7 +445,7 @@ impl Simple {
                         self.gdb.ack()
                     },
 
-                    GetReg(register_number) => {
+                    Message::GetReg(register_number) => {
 
                         let regs = &mut self.regs;
 
@@ -444,31 +465,33 @@ impl Simple {
                         self.gdb.reply(Message::SetReg(register_number, val))
                     },
 
-                    Resume => {
+                    Message::Resume => {
                         self.add_event(SimEvent::Debugger(msg))
                     }
 
-                    BreakPoint(addr) => {
-                        warn!("TBD add breakpoint to 0x{:04x}", addr);
+                    Message::BreakPoint(bp_type, addr) => {
+                        let break_point = BreakPoint::from_gdb_type(bp_type, addr);
+                        self.break_points.add(&break_point);
                         self.gdb.ack()
                     }
 
-                    DeleteBreakPoint(addr) => {
-                        warn!("TBD delete breakpoint at x{:04x}", addr);
+                    Message::DeleteBreakPoint(bp_type, addr) => {
+                        let break_point = BreakPoint::from_gdb_type(bp_type, addr);
+                        self.break_points.remove(&break_point);
                         self.gdb.ack()
                     }
 
-                    ForcePc(addr) => {
+                    Message::ForcePc(addr) => {
                         self.regs.pc = addr;
                         self.gdb.ack();
                     }
 
-                    Examine(addr) => {
-                        let reply =  Write( addr, self.mem.inspect_byte(addr));
+                    Message::Examine(addr) => {
+                        let reply =  Message::Write( addr, self.mem.inspect_byte(addr));
                         self.gdb.reply(reply);
                     }
 
-                    WriteRegisters(data) => {
+                    Message::WriteRegisters(data) => {
 
                         let mut _it = data.iter();
 
@@ -501,16 +524,13 @@ impl Simple {
                         self.gdb.ack();
                     }
 
-                    ReadRegisters => {
+                    Message::ReadRegisters => {
                         let regs = &self.regs;
 
                         let cc = regs.flags.bits();
 
                         let ret : Vec<u8> = vec![
-                            cc,
-                            regs.a,
-                            regs.b,
-                            regs.dp,
+                            cc, regs.a, regs.b, regs.dp,
 
                             (regs.x >> 8) as u8,
                             regs.x as u8,
@@ -528,7 +548,7 @@ impl Simple {
                             regs.pc as u8,
                         ];
 
-                        self.gdb.reply(WriteRegisters(ret));
+                        self.gdb.reply(Message::WriteRegisters(ret));
                     }
 
                     _ => info!("unimplemented msg {:?}", msg),

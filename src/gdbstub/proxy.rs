@@ -5,6 +5,13 @@ use std::thread;
 use gdbstub::{ DebuggerHost, GdbRemote, Reply, Sigs};
 
 #[derive(Debug, Clone, PartialEq)]
+pub enum BreakPointTypes {
+    Read,
+    Write,
+    Exec,
+}
+
+#[derive(Debug, Clone, PartialEq)]
 pub enum Message {
     Disconnected,
     Connected,
@@ -19,8 +26,8 @@ pub enum Message {
     Ack,
     IllegalInstruction,
     Halt(Sigs),
-    BreakPoint(u16),
-    DeleteBreakPoint(u16),
+    BreakPoint(BreakPointTypes, u16),
+    DeleteBreakPoint(BreakPointTypes, u16),
     SetReg(usize, u16),
     GetReg(usize),
 }
@@ -164,30 +171,30 @@ impl DebuggerHost for DebuggerProxy {
     }
 
     fn add_breakpoint(&mut self, addr : u16) {
-        self.send_wait_ack(Message::BreakPoint(addr));
+        self.send_wait_ack(Message::BreakPoint(BreakPointTypes::Exec, addr));
+    }
+
+    fn add_write_watchpoint (&mut self, addr : u16) {
+        self.send_wait_ack(Message::BreakPoint(BreakPointTypes::Write, addr));
+    }
+
+    fn add_read_watchpoint(&mut self, addr : u16) {
+        self.send_wait_ack(Message::BreakPoint(BreakPointTypes::Read, addr));
     }
 
     fn del_breakpoint(&mut self, addr : u16) {
-        self.send_wait_ack(Message::DeleteBreakPoint(addr));
-    }
-
-    fn add_write_watchpoint (&mut self, _addr : u16) {
-        unimplemented!("add_write_watchpoint ");
-    }
-
-    fn add_read_watchpoint(&mut self, _addr : u16) {
-        unimplemented!("add_read_watchpoint");
+        self.send_wait_ack(Message::DeleteBreakPoint(BreakPointTypes::Exec, addr));
     }
 
 
-    fn del_write_watchpoint(&mut self, _addr : u16) {
+    fn del_write_watchpoint(&mut self, addr : u16) {
+        self.send_wait_ack(Message::DeleteBreakPoint(BreakPointTypes::Write, addr));
         unimplemented!("del_write_watchpoint");
     }
 
-    fn del_read_watchpoint(&mut self, _addr : u16) {
-        unimplemented!("del_read_watchpoint");
+    fn del_read_watchpoint(&mut self, addr : u16) {
+        self.send_wait_ack(Message::DeleteBreakPoint(BreakPointTypes::Read, addr));
     }
-
 }
 
 pub struct ThreadedGdb {

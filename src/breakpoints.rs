@@ -19,9 +19,17 @@ impl BreakPoint {
         }
     }
 
+    pub fn new_read(  addr : u16 ) -> BreakPoint {
+        Self::new(BreakPointTypes::READ, addr)
+    }
+
+    pub fn new_write(  addr : u16 ) -> BreakPoint {
+        Self::new(BreakPointTypes::WRITE, addr)
+    }
 }
 
-struct BreakPoints {
+#[derive(Clone, Debug, PartialEq, PartialOrd)]
+pub struct BreakPoints {
     break_points : Vec<BreakPoint>,
 }
 
@@ -38,21 +46,21 @@ impl BreakPoints {
         it.position(|bp| *bp == *b)
     }
 
-    fn add_breakpoint(&mut self, b : &BreakPoint ) {
+    pub fn add(&mut self, b : &BreakPoint ) {
         if let Some(_) = self.find(b) {
-            self.clear_breakpoint(b)
+            self.remove(b)
         }
 
         self.break_points.push(b.clone());
     }
 
-    fn clear_breakpoint(&mut self,  b : &BreakPoint) {
+    pub fn remove(&mut self,  b : &BreakPoint) {
         if let Some(i) = self.find(b) {
             self.break_points.remove(i);
         }
     }
 
-    fn clear_breakpoints_at_addr(&mut self, _addr : u16) {
+    pub fn remove_at_addr(&mut self, _addr : u16) {
         panic!("tbd")
     }
 
