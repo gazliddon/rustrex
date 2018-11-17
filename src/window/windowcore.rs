@@ -13,6 +13,7 @@ pub enum Action {
     Continue,
     Reset, 
     Pause,
+    ToggleVerbose,
 }
 
 pub fn run_loop<F>(mut callback: F) where F: FnMut() -> Action {
@@ -202,6 +203,7 @@ impl Window {
                                                 Some(Escape) | Some(Q) => Action::Quit,
                                                 Some(R) => Action::Reset,
                                                 Some(P) => Action::Pause,
+                                                Some(V) => Action::ToggleVerbose,
                                                 _=> Action::Continue,
                                             };
                                         }

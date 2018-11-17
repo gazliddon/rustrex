@@ -41,7 +41,24 @@ impl BreakPoints {
         }
     }
 
-    fn find(&mut self, b : &BreakPoint) -> Option<usize> {
+    pub fn has_breakpoint(&self, addr : u16, kind: BreakPointTypes) -> bool {
+        let bp = BreakPoint { addr, kind };
+        self.find(&bp).is_some()
+    }
+
+    pub fn has_exec_breakpoint(&self, addr : u16) -> bool {
+        self.has_breakpoint(addr, BreakPointTypes::EXEC)
+    }
+
+    pub fn has_read_breakpoint(&self, addr : u16) -> bool {
+        self.has_breakpoint(addr, BreakPointTypes::READ)
+    }
+
+    pub fn has_write_breakpoint(&self, addr : u16) -> bool {
+        self.has_breakpoint(addr, BreakPointTypes::WRITE)
+    }
+
+    fn find(&self, b : &BreakPoint) -> Option<usize> {
         let mut it = self.break_points.iter();
         it.position(|bp| *bp == *b)
     }

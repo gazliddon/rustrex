@@ -48,8 +48,8 @@
                       (            all.s):00031                     ;;
 992D 8E0000           (            all.s):00032                     ldx #0
 9930 8D54             (            all.s):00033                     bsr draw_box
-                      (            all.s):00034                     ;;
-9932 BD9A42           (            all.s):00035                     jsr print_a
+9932 BD99F2           (            all.s):00034                     jsr print_a
+                      (            all.s):00035                     ;;
                       (            all.s):00036                     ;;
 9935 13               (            all.s):00037                     sync
 9936 12               (            all.s):00038                     nop
@@ -129,185 +129,179 @@
 99B5 3540             (            all.s):00112             puls u
 99B7 39               (            all.s):00113             rts
                       (            all.s):00114         
-                      (            all.s):00115             
+                      (            all.s):00115         ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
                       (            all.s):00116         
-                      (            all.s):00117             
-                      (            all.s):00118         
-                      (            all.s):00119         
-                      (            all.s):00120         ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-                      (            all.s):00121         
-                      (            all.s):00122         ;; x -> palette entry
-                      (            all.s):00123         ;; y -> table
-                      (            all.s):00124         ;; dd = speed through table
-                      (            all.s):00125         
-     0000             (            all.s):00126         init_x equ 0
-     0002             (            all.s):00127         init_y equ 2
-     0004             (            all.s):00128         init_d equ 4
-                      (            all.s):00129         
-99B8                  (            all.s):00130         palette_cycler
-99B8 EDC9000C         (            all.s):00131                 std task.temp0,u
-99BC CC99C6           (            all.s):00132                 ldd #@resume
-99BF EDC90002         (            all.s):00133                 std task.func,u
-99C3 CC0000           (            all.s):00134                 ldd #0
-99C6                  (            all.s):00135         @resume
+                      (            all.s):00117         ;; x -> palette entry
+                      (            all.s):00118         ;; y -> table
+                      (            all.s):00119         ;; dd = speed through table
+                      (            all.s):00120         
+     0000             (            all.s):00121         init_x equ 0
+     0002             (            all.s):00122         init_y equ 2
+     0004             (            all.s):00123         init_d equ 4
+                      (            all.s):00124         
+99B8                  (            all.s):00125         palette_cycler
+99B8 EDC9000C         (            all.s):00126                 std task.temp0,u
+99BC CC99C6           (            all.s):00127                 ldd #@resume
+99BF EDC90002         (            all.s):00128                 std task.func,u
+99C3 CC0000           (            all.s):00129                 ldd #0
+99C6                  (            all.s):00130         @resume
+                      (            all.s):00131         
+99C6 39               (            all.s):00132                 rts
+                      (            all.s):00133         
+                      (            all.s):00134         ;; x -> reg_init
+                      (            all.s):00135         ;; dd = speed through table
                       (            all.s):00136         
-99C6 39               (            all.s):00137                 rts
-                      (            all.s):00138         
-                      (            all.s):00139         ;; x -> reg_init
-                      (            all.s):00140         ;; dd = speed through table
+99C7                  (            all.s):00137         alloc_with_init
+99C7 3410             (            all.s):00138                 pshs x
+99C9 BD9B18           (            all.s):00139                 jsr task_alloc
+99CC 3510             (            all.s):00140                 puls x
                       (            all.s):00141         
-99C7                  (            all.s):00142         alloc_with_init
-99C7 3410             (            all.s):00143                 pshs x
-99C9 BD9B18           (            all.s):00144                 jsr task_alloc
-99CC 3510             (            all.s):00145                 puls x
-                      (            all.s):00146         
-99CE EC04             (            all.s):00147                 ldd init_d,x
-99D0 EDA90006         (            all.s):00148                 std task.d,y
-                      (            all.s):00149         
-99D4 EC84             (            all.s):00150                 ldd init_x,x
-99D6 EDA9000A         (            all.s):00151                 std task.x,y
-                      (            all.s):00152         
-99DA EC02             (            all.s):00153                 ldd init_y,x
-99DC EDA90008         (            all.s):00154                 std task.y,y
-99E0 39               (            all.s):00155                 rts
+99CE EC04             (            all.s):00142                 ldd init_d,x
+99D0 EDA90006         (            all.s):00143                 std task.d,y
+                      (            all.s):00144         
+99D4 EC84             (            all.s):00145                 ldd init_x,x
+99D6 EDA9000A         (            all.s):00146                 std task.x,y
+                      (            all.s):00147         
+99DA EC02             (            all.s):00148                 ldd init_y,x
+99DC EDA90008         (            all.s):00149                 std task.y,y
+99E0 39               (            all.s):00150                 rts
+                      (            all.s):00151         
+                      (            all.s):00152         ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+                      (            all.s):00153         ;; X -> palette to read from
+                      (            all.s):00154         
+99E1                  (            all.s):00155         copy_pal
                       (            all.s):00156         
-                      (            all.s):00157         ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-                      (            all.s):00158         ;; X -> palette to read from
-                      (            all.s):00159         
-99E1                  (            all.s):00160         copy_pal
-                      (            all.s):00161         
-99E1 86B6             (            all.s):00162                     lda #61*3-1
-99E3 3602             (            all.s):00163                     pshu a
-99E5 108E9800         (            all.s):00164                     ldy #PALETTE
-                      (            all.s):00165         
-99E9 EC81             (            all.s):00166         @loop       ldd ,x++
-99EB EDA1             (            all.s):00167                     std ,y++
-99ED 6AC4             (            all.s):00168                     dec ,u
-99EF 2AF8             (            all.s):00169                     bpl @loop
-99F1 39               (            all.s):00170                     rts
-                      (            all.s):00171         ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-                      (            all.s):00172         ;; u -> data
-                      (            all.s):00173         ;; x -> screen
-99F2                  (            all.s):00174         lett_a
-99F2 0000             (            all.s):00175             fdb 0x00
-99F4 00F0             (            all.s):00176             fdb 0xf0
-99F6 00F0             (            all.s):00177             fdb 0xf0
-99F8 00F0             (            all.s):00178             fdb 0xf0
-99FA 00F0             (            all.s):00179             fdb 0xf0
-99FC 0000             (            all.s):00180             fdb 0x00
-                      (            all.s):00181         
-99FE 0000             (            all.s):00182             fdb 0x00
-9A00 0000             (            all.s):00183             fdb 0x00
-9A02 0000             (            all.s):00184             fdb 0x00
-9A04 00FF             (            all.s):00185             fdb 0xff
-9A06 0000             (            all.s):00186             fdb 0x00
-9A08 00FF             (            all.s):00187             fdb 0xff
-                      (            all.s):00188         
-9A0A 0000             (            all.s):00189             fdb 0x00
-9A0C 00F0             (            all.s):00190             fdb 0xf0
-9A0E 00F0             (            all.s):00191             fdb 0xf0
-9A10 00FF             (            all.s):00192             fdb 0xff
-9A12 0000             (            all.s):00193             fdb 0x00
-9A14 000F             (            all.s):00194             fdb 0x0f
+99E1 86B6             (            all.s):00157                     lda #61*3-1
+99E3 3602             (            all.s):00158                     pshu a
+99E5 108E9800         (            all.s):00159                     ldy #PALETTE
+                      (            all.s):00160         
+99E9 EC81             (            all.s):00161         @loop       ldd ,x++
+99EB EDA1             (            all.s):00162                     std ,y++
+99ED 6AC4             (            all.s):00163                     dec ,u
+99EF 2AF8             (            all.s):00164                     bpl @loop
+99F1 39               (            all.s):00165                     rts
+                      (            all.s):00166         ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+                      (            all.s):00167         ;; u -> data
+                      (            all.s):00168         ;; x -> screen
+99F2                  (            all.s):00169         print_a
+99F2 10FF9A2E         (            all.s):00170             sts save_s
+99F6 8E0812           (            all.s):00171             ldx #SCREEN+0x800+6*3
+99F9 CE9A30           (            all.s):00172             ldu #lett_a
+99FC 10FE9A2E         (            all.s):00173             lds save_s
+9A00 39               (            all.s):00174             rts
+9A01 7E9A04           (            all.s):00175             jmp print_6x6
+                      (            all.s):00176         
+9A04                  (            all.s):00177         print_6x6
+9A04 10FF9A2E         (            all.s):00178             sts save_s
+                      (            all.s):00179         
+9A08 BF9A2C           (            all.s):00180             stx orig_scr
+9A0B 1F14             (            all.s):00181             tfr x,s
+                      (            all.s):00182         
+9A0D 3736             (            all.s):00183             pulu x,y,a,b
+9A0F 3436             (            all.s):00184             pshs x,y,a,b
+                      (            all.s):00185         
+9A11 7A9A2C           (            all.s):00186             dec orig_scr
+9A14 10FE9A2C         (            all.s):00187             lds orig_scr
+9A18 3736             (            all.s):00188             pulu x,y,a,b
+9A1A 3436             (            all.s):00189             pshs x,y,a,b
+                      (            all.s):00190         
+9A1C 7A9A2C           (            all.s):00191             dec orig_scr
+9A1F 10FE9A2C         (            all.s):00192             lds orig_scr
+9A23 3736             (            all.s):00193             pulu x,y,a,b
+9A25 3436             (            all.s):00194             pshs x,y,a,b
                       (            all.s):00195         
-9A16                  (            all.s):00196         orig_scr   rmb 2
-9A18                  (            all.s):00197         save_s     rmb 2
-                      (            all.s):00198         
-9A1A                  (            all.s):00199         print_6x6
-9A1A 10FF9A18         (            all.s):00200             sts save_s
-                      (            all.s):00201         
-9A1E BF9A16           (            all.s):00202             stx orig_scr
-9A21 1F14             (            all.s):00203             tfr x,s
-                      (            all.s):00204         
-9A23 3736             (            all.s):00205             pulu x,y,a,b
-9A25 3436             (            all.s):00206             pshs x,y,a,b
-                      (            all.s):00207         
-9A27 7A9A16           (            all.s):00208             dec orig_scr
-9A2A 10FE9A16         (            all.s):00209             lds orig_scr
-9A2E 3736             (            all.s):00210             pulu x,y,a,b
-9A30 3436             (            all.s):00211             pshs x,y,a,b
-                      (            all.s):00212         
-9A32 7A9A16           (            all.s):00213             dec orig_scr
-9A35 10FE9A16         (            all.s):00214             lds orig_scr
-9A39 3736             (            all.s):00215             pulu x,y,a,b
-9A3B 3436             (            all.s):00216             pshs x,y,a,b
-                      (            all.s):00217         
-9A3D 10FE9A18         (            all.s):00218             lds save_s
-9A41 39               (            all.s):00219             rts
-                      (            all.s):00220         
-9A42                  (            all.s):00221         print_a
-9A42 10FF9A18         (            all.s):00222             sts save_s
-9A46 8E0812           (            all.s):00223             ldx #SCREEN+0x800+6*3
-9A49 CE99F2           (            all.s):00224             ldu #lett_a
-9A4C 10FE9A18         (            all.s):00225             lds save_s
-9A50 39               (            all.s):00226             rts
-9A51 7E9A1A           (            all.s):00227             jmp print_6x6
-                      (            all.s):00228         
-                      (            all.s):00229         
+9A27 10FE9A2E         (            all.s):00196             lds save_s
+9A2B 39               (            all.s):00197             rts
+9A2C                  (            all.s):00198         orig_scr   rmb 2
+9A2E                  (            all.s):00199         save_s     rmb 2
+                      (            all.s):00200         
+9A30                  (            all.s):00201         lett_a
+9A30 0000             (            all.s):00202             fdb 0x00
+9A32 00F0             (            all.s):00203             fdb 0xf0
+9A34 00F0             (            all.s):00204             fdb 0xf0
+9A36 00F0             (            all.s):00205             fdb 0xf0
+9A38 00F0             (            all.s):00206             fdb 0xf0
+9A3A 0000             (            all.s):00207             fdb 0x00
+                      (            all.s):00208         
+9A3C 0000             (            all.s):00209             fdb 0x00
+9A3E 0000             (            all.s):00210             fdb 0x00
+9A40 0000             (            all.s):00211             fdb 0x00
+9A42 00FF             (            all.s):00212             fdb 0xff
+9A44 0000             (            all.s):00213             fdb 0x00
+9A46 00FF             (            all.s):00214             fdb 0xff
+                      (            all.s):00215         
+9A48 0000             (            all.s):00216             fdb 0x00
+9A4A 00F0             (            all.s):00217             fdb 0xf0
+9A4C 00F0             (            all.s):00218             fdb 0xf0
+9A4E 00FF             (            all.s):00219             fdb 0xff
+9A50 0000             (            all.s):00220             fdb 0x00
+9A52 000F             (            all.s):00221             fdb 0x0f
+                      (            all.s):00222         
+                      (            all.s):00223         
+                      (            all.s):00224         
+                      (            all.s):00225         ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+                      (            all.s):00226         ;; clear_scren
+                      (            all.s):00227         ;; Clear the screen to pixel pair in A
+9A54                  (            all.s):00228         screen_clear
+9A54 3440             (            all.s):00229             pshs u
                       (            all.s):00230         
-                      (            all.s):00231         ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-                      (            all.s):00232         ;; clear_scren
-                      (            all.s):00233         ;; Clear the screen to pixel pair in A
-9A54                  (            all.s):00234         screen_clear
-9A54 3440             (            all.s):00235             pshs u
-                      (            all.s):00236         
-9A56 CE0000           (            all.s):00237             ldu #SCREEN
-                      (            all.s):00238             ;; fill registers with clear color
-9A59 1F89             (            all.s):00239             tfr a,b ;; d = a a
-9A5B 1F8B             (            all.s):00240             tfr a,dp
-9A5D 1F01             (            all.s):00241             tfr d,x
-9A5F 1F02             (            all.s):00242             tfr d,y
-                      (            all.s):00243         
-9A61                  (            all.s):00244         @loop
-                      (            all.s):00245             ;; stack blasts 36 * 7 bytes + 4 bytes = 256 bytes
-9A61 3636             (            all.s):00246             pshu a,b,d,x,y
-9A63 3636             (            all.s):00247             pshu a,b,d,x,y
-9A65 3636             (            all.s):00248             pshu a,b,d,x,y
-9A67 3636             (            all.s):00249             pshu a,b,d,x,y
-9A69 3636             (            all.s):00250             pshu a,b,d,x,y
-9A6B 3636             (            all.s):00251             pshu a,b,d,x,y
-9A6D 3636             (            all.s):00252             pshu a,b,d,x,y
-9A6F 3636             (            all.s):00253             pshu a,b,d,x,y
-9A71 3636             (            all.s):00254             pshu a,b,d,x,y
-9A73 3636             (            all.s):00255             pshu a,b,d,x,y
-9A75 3636             (            all.s):00256             pshu a,b,d,x,y
-9A77 3636             (            all.s):00257             pshu a,b,d,x,y
-9A79 3636             (            all.s):00258             pshu a,b,d,x,y
-9A7B 3636             (            all.s):00259             pshu a,b,d,x,y
-9A7D 3636             (            all.s):00260             pshu a,b,d,x,y
-9A7F 3636             (            all.s):00261             pshu a,b,d,x,y
-9A81 3636             (            all.s):00262             pshu a,b,d,x,y
-9A83 3636             (            all.s):00263             pshu a,b,d,x,y
-9A85 3636             (            all.s):00264             pshu a,b,d,x,y
-9A87 3636             (            all.s):00265             pshu a,b,d,x,y
-9A89 3636             (            all.s):00266             pshu a,b,d,x,y
-9A8B 3636             (            all.s):00267             pshu a,b,d,x,y
-9A8D 3636             (            all.s):00268             pshu a,b,d,x,y
-9A8F 3636             (            all.s):00269             pshu a,b,d,x,y
-9A91 3636             (            all.s):00270             pshu a,b,d,x,y
-9A93 3636             (            all.s):00271             pshu a,b,d,x,y
-9A95 3636             (            all.s):00272             pshu a,b,d,x,y
-9A97 3636             (            all.s):00273             pshu a,b,d,x,y
-9A99 3636             (            all.s):00274             pshu a,b,d,x,y
-9A9B 3636             (            all.s):00275             pshu a,b,d,x,y
-9A9D 3636             (            all.s):00276             pshu a,b,d,x,y
-9A9F 3636             (            all.s):00277             pshu a,b,d,x,y
-9AA1 3636             (            all.s):00278             pshu a,b,d,x,y
-9AA3 3636             (            all.s):00279             pshu a,b,d,x,y
-9AA5 3636             (            all.s):00280             pshu a,b,d,x,y
-9AA7 3636             (            all.s):00281             pshu a,b,d,x,y
-9AA9 3630             (            all.s):00282             pshu x,y
-                      (            all.s):00283             ;;
-9AAB 11830000         (            all.s):00284             cmpu #SCREEN + SCREEN_SIZE_BYTES
-9AAF 26B0             (            all.s):00285             bne @loop
+9A56 CE0000           (            all.s):00231             ldu #SCREEN
+                      (            all.s):00232             ;; fill registers with clear color
+9A59 1F89             (            all.s):00233             tfr a,b ;; d = a a
+9A5B 1F8B             (            all.s):00234             tfr a,dp
+9A5D 1F01             (            all.s):00235             tfr d,x
+9A5F 1F02             (            all.s):00236             tfr d,y
+                      (            all.s):00237         
+9A61                  (            all.s):00238         @loop
+                      (            all.s):00239             ;; stack blasts 36 * 7 bytes + 4 bytes = 256 bytes
+9A61 3636             (            all.s):00240             pshu a,b,d,x,y
+9A63 3636             (            all.s):00241             pshu a,b,d,x,y
+9A65 3636             (            all.s):00242             pshu a,b,d,x,y
+9A67 3636             (            all.s):00243             pshu a,b,d,x,y
+9A69 3636             (            all.s):00244             pshu a,b,d,x,y
+9A6B 3636             (            all.s):00245             pshu a,b,d,x,y
+9A6D 3636             (            all.s):00246             pshu a,b,d,x,y
+9A6F 3636             (            all.s):00247             pshu a,b,d,x,y
+9A71 3636             (            all.s):00248             pshu a,b,d,x,y
+9A73 3636             (            all.s):00249             pshu a,b,d,x,y
+9A75 3636             (            all.s):00250             pshu a,b,d,x,y
+9A77 3636             (            all.s):00251             pshu a,b,d,x,y
+9A79 3636             (            all.s):00252             pshu a,b,d,x,y
+9A7B 3636             (            all.s):00253             pshu a,b,d,x,y
+9A7D 3636             (            all.s):00254             pshu a,b,d,x,y
+9A7F 3636             (            all.s):00255             pshu a,b,d,x,y
+9A81 3636             (            all.s):00256             pshu a,b,d,x,y
+9A83 3636             (            all.s):00257             pshu a,b,d,x,y
+9A85 3636             (            all.s):00258             pshu a,b,d,x,y
+9A87 3636             (            all.s):00259             pshu a,b,d,x,y
+9A89 3636             (            all.s):00260             pshu a,b,d,x,y
+9A8B 3636             (            all.s):00261             pshu a,b,d,x,y
+9A8D 3636             (            all.s):00262             pshu a,b,d,x,y
+9A8F 3636             (            all.s):00263             pshu a,b,d,x,y
+9A91 3636             (            all.s):00264             pshu a,b,d,x,y
+9A93 3636             (            all.s):00265             pshu a,b,d,x,y
+9A95 3636             (            all.s):00266             pshu a,b,d,x,y
+9A97 3636             (            all.s):00267             pshu a,b,d,x,y
+9A99 3636             (            all.s):00268             pshu a,b,d,x,y
+9A9B 3636             (            all.s):00269             pshu a,b,d,x,y
+9A9D 3636             (            all.s):00270             pshu a,b,d,x,y
+9A9F 3636             (            all.s):00271             pshu a,b,d,x,y
+9AA1 3636             (            all.s):00272             pshu a,b,d,x,y
+9AA3 3636             (            all.s):00273             pshu a,b,d,x,y
+9AA5 3636             (            all.s):00274             pshu a,b,d,x,y
+9AA7 3636             (            all.s):00275             pshu a,b,d,x,y
+9AA9 3630             (            all.s):00276             pshu x,y
+                      (            all.s):00277             ;;
+9AAB 11830000         (            all.s):00278             cmpu #SCREEN + SCREEN_SIZE_BYTES
+9AAF 26B0             (            all.s):00279             bne @loop
+                      (            all.s):00280         
+9AB1 3540             (            all.s):00281             puls u
+9AB3 39               (            all.s):00282             rts
+                      (            all.s):00283         
+                      (            all.s):00284         
+                      (            all.s):00285         ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
                       (            all.s):00286         
-9AB1 3540             (            all.s):00287             puls u
-9AB3 39               (            all.s):00288             rts
-                      (            all.s):00289         
-                      (            all.s):00290         
-                      (            all.s):00291         ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-                      (            all.s):00292         
-                      (            all.s):00293             include "tasker.s"
+                      (            all.s):00287             include "tasker.s"
                       (         tasker.s):00001         ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
                       (         tasker.s):00002         
                       (         tasker.s):00003         task    STRUCT
@@ -436,37 +430,37 @@
                       (         tasker.s):00126         ;; x -> task to free
 9B33                  (         tasker.s):00127         task_free
 9B33 39               (         tasker.s):00128             rts
-                      (            all.s):00294         
-                      (            all.s):00295         ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-9B34                  (            all.s):00296         reserved 
-9B34                  (            all.s):00297         sw3vec
-9B34                  (            all.s):00298         sw2vec
-9B34                  (            all.s):00299         frqvec
-9B34                  (            all.s):00300         irqvec
-9B34                  (            all.s):00301         swivec
-9B34                  (            all.s):00302         nmivec
-                      (            all.s):00303         
-9B34                  (            all.s):00304         @loop
-9B34 20FE             (            all.s):00305             bra @loop
-                      (            all.s):00306         
-                      (            all.s):00307         ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-9B36                  (            all.s):00308         ustack  rmb $100
-9C36                  (            all.s):00309         ustack_top
-                      (            all.s):00310         
-9C36                  (            all.s):00311         stack   rmb $100
-9D36                  (            all.s):00312         stack_top
-                      (            all.s):00313         
-                      (            all.s):00314         ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-                      (            all.s):00315         
-                      (            all.s):00316                 org  $fff0           
-FFF0 0000             (            all.s):00317                 fdb  $0000 
-FFF2 9B34             (            all.s):00318                 fdb  sw3vec
-FFF4 9B34             (            all.s):00319                 fdb  sw2vec
-FFF6 9B34             (            all.s):00320                 fdb  frqvec
-FFF8 9B34             (            all.s):00321                 fdb  irqvec
-FFFA 9B34             (            all.s):00322                 fdb  swivec
-FFFC 9B34             (            all.s):00323                 fdb  nmivec
-FFFE 9900             (            all.s):00324                 fdb  start
+                      (            all.s):00288         
+                      (            all.s):00289         ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+9B34                  (            all.s):00290         reserved 
+9B34                  (            all.s):00291         sw3vec
+9B34                  (            all.s):00292         sw2vec
+9B34                  (            all.s):00293         frqvec
+9B34                  (            all.s):00294         irqvec
+9B34                  (            all.s):00295         swivec
+9B34                  (            all.s):00296         nmivec
+                      (            all.s):00297         
+9B34                  (            all.s):00298         @loop
+9B34 20FE             (            all.s):00299             bra @loop
+                      (            all.s):00300         
+                      (            all.s):00301         ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+9B36                  (            all.s):00302         ustack  rmb $100
+9C36                  (            all.s):00303         ustack_top
+                      (            all.s):00304         
+9C36                  (            all.s):00305         stack   rmb $100
+9D36                  (            all.s):00306         stack_top
+                      (            all.s):00307         
+                      (            all.s):00308         ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+                      (            all.s):00309         
+                      (            all.s):00310                 org  $fff0           
+FFF0 0000             (            all.s):00311                 fdb  $0000 
+FFF2 9B34             (            all.s):00312                 fdb  sw3vec
+FFF4 9B34             (            all.s):00313                 fdb  sw2vec
+FFF6 9B34             (            all.s):00314                 fdb  frqvec
+FFF8 9B34             (            all.s):00315                 fdb  irqvec
+FFFA 9B34             (            all.s):00316                 fdb  swivec
+FFFC 9B34             (            all.s):00317                 fdb  nmivec
+FFFE 9900             (            all.s):00318                 fdb  start
 
 Symbol Table:
 [ L] @done                            9B17
@@ -494,17 +488,17 @@ Symbol Table:
 [ G] init_x                           0000
 [ G] init_y                           0002
 [ G] irqvec                           9B34
-[ G] lett_a                           99F2
+[ G] lett_a                           9A30
 [ G] MEM_START                        9900
 [ G] nmivec                           9B34
 [ G] num_of_tasks                     0064
-[ G] orig_scr                         9A16
+[ G] orig_scr                         9A2C
 [ G] PALETTE                          9800
 [ G] palette_cycler                   99B8
-[ G] print_6x6                        9A1A
-[ G] print_a                          9A42
+[ G] print_6x6                        9A04
+[ G] print_a                          99F2
 [ G] reserved                         9B34
-[ G] save_s                           9A18
+[ G] save_s                           9A2E
 [ G] SCREEN                           0000
 [ G] screen_clear                     9A54
 [ G] SCREEN_H                         0100

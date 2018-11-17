@@ -1,6 +1,6 @@
 // Handles CPU emulation
 
-use mem::MemoryIO;
+use mem::{ MemoryIO, MemError };
 use cpu::{Regs, RegEnum, Flags, InstructionDecoder};
 use cpu::{AddressLines, Direct, Extended, Immediate, Inherent, Relative, Indexed};
 use cpu::{Clock};
@@ -11,17 +11,12 @@ use cpu::alu;
 use std::cell::RefCell;
 use std::rc::Rc;
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone )]
 pub enum CpuErr {
     UnknownInstruction,
-    Unimplemented,
+    Unimplemented(InstructionDecoder),
     IllegalAddressingMode,
-}
-
-pub trait Host<M: MemoryIO, C : Clock> {
-    fn mem(&mut self) -> &mut M;
-    fn clock(&mut self) -> &Rc<RefCell<C>>;
-    fn regs(&mut self) -> &mut Regs;
+    Memory(MemError),
 }
 // use cpu::alu;
 
@@ -83,7 +78,7 @@ impl<'a, C : 'a + Clock, M : 'a + MemoryIO> Context<'a, C, M> {
     }
 
     fn fetch_byte_as_i16<A : AddressLines>(&mut self) -> Result<i16, CpuErr> {
-        let ret = try!( self.fetch_byte::<A>());
+        let ret = self.fetch_byte::<A>()?;
         Ok(ret as i8 as i16)
     }
 
@@ -96,7 +91,7 @@ impl<'a, C : 'a + Clock, M : 'a + MemoryIO> Context<'a, C, M> {
     }
 
     fn fetch_word_as_i16<A : AddressLines>(&mut self) -> Result<i16, CpuErr> {
-        let ret = try!(self.fetch_word::<A>());
+        let ret = self.fetch_word::<A>()?;
         Ok( ret as i16 )
     }
 
@@ -112,14 +107,9 @@ impl<'a, C : 'a + Clock, M : 'a + MemoryIO> Context<'a, C, M> {
         A::ea(self.mem, self.regs, &mut self.ins)
     }
 
-    // fn op8_2<A : AddressLines>( &mut self, write_mask : u8, func : fn(&mut Flags,u8, u32, u32) -> u8, i0 : u8 ) -> u8{
-    //     let i1 = self.fetch_byte::<A>() as u32;
-    //     func(&mut self.regs.flags, write_mask, i0 as u32, i1)
-    // }
-
     fn op16_2< A : AddressLines>( &mut self,  write_mask : u8, func : fn(&mut Flags,u8, u32, u32) -> u16, i0 : u16 ) -> Result<u16, CpuErr> {
-        let i1 = try!( self.fetch_word::<A>()) as u32;
-        Ok(func(&mut self.regs.flags, write_mask, i0 as u32,i1))
+        let i1 =  self.fetch_word::<A>()?;
+        Ok(func(&mut self.regs.flags, write_mask, i0 as u32,i1 as u32))
     }
 
     fn opd_2< A : AddressLines>( &mut self, write_mask : u8, func : fn(&mut Flags,u8, u32, u32) -> u16 ) -> Result<u16,CpuErr> {
@@ -128,31 +118,31 @@ impl<'a, C : 'a + Clock, M : 'a + MemoryIO> Context<'a, C, M> {
     }
 
     fn modd_2< A : AddressLines>( &mut self,  write_mask : u8, func : fn(&mut Flags,u8, u32, u32) -> u16 ) -> Result<u16,CpuErr> { 
-        let r = try!(self.opd_2::<A>(write_mask, func));
+        let r = self.opd_2::<A>(write_mask, func)?;
         self.regs.set_d(r);
         Ok(r)
     }
 
     fn opa_2< A : AddressLines>( &mut self,  write_mask : u8, func : fn(&mut Flags,u8, u32, u32) -> u8 ) -> Result<u8, CpuErr> {
         let i0 = self.regs.a as u32;
-        let i1 = try!(self.fetch_byte::<A>()) as u32;
-        Ok(func(&mut self.regs.flags, write_mask, i0,i1))
+        let i1 = self.fetch_byte::<A>()?;
+        Ok(func(&mut self.regs.flags, write_mask, i0,i1 as u32))
     }
 
     fn opb_2< A : AddressLines>( &mut self,  write_mask : u8, func : fn(&mut Flags,u8, u32, u32) -> u8 ) -> Result<u8, CpuErr> {
         let i0 = self.regs.b as u32;
-        let i1 = try!(self.fetch_byte::<A>()) as u32;
-        Ok(func(&mut self.regs.flags, write_mask, i0,i1))
+        let i1 = self.fetch_byte::<A>()?;
+        Ok(func(&mut self.regs.flags, write_mask, i0,i1 as u32))
     }
 
     fn moda_2< A : AddressLines>( &mut self,  write_mask : u8, func : fn(&mut Flags,u8, u32, u32) -> u8 ) -> Result<u8, CpuErr> {
-        let r = try!(self.opa_2::<A>(write_mask, func));
+        let r = self.opa_2::<A>(write_mask, func)?;
         self.regs.a = r;
         Ok(r)
     }
 
     fn modb_2< A : AddressLines>( &mut self,  write_mask : u8, func : fn(&mut Flags,u8, u32, u32) -> u8 ) -> Result<u8, CpuErr> {
-        let r = try!(self.opb_2::<A>(write_mask, func));
+        let r = self.opb_2::<A>(write_mask, func)?;
         self.regs.b = r;
         Ok(r)
     }
@@ -180,7 +170,7 @@ impl<'a, C : 'a + Clock, M : 'a + MemoryIO> Context<'a, C, M> {
     }
 
     fn rwmod8< A : AddressLines>(&mut self,  write_mask : u8, func : fn(&mut Flags, u8, u32) -> u8) -> Result<u8, CpuErr> {
-        let ea = try!(self.ea::<A>());
+        let ea = self.ea::<A>()?;
         let v = self.mem.load_byte(ea) as u32;
 
         let r = func(&mut self.regs.flags, write_mask, v );
@@ -191,7 +181,7 @@ impl<'a, C : 'a + Clock, M : 'a + MemoryIO> Context<'a, C, M> {
     }
 
     fn branch< A : AddressLines>(&mut self, v : bool)  -> Result<(),CpuErr> {
-        let offset = try!(self.fetch_byte_as_i16::<A>());
+        let offset = self.fetch_byte_as_i16::<A>()?;
 
         if v {
             self.set_pc_rel(offset)
@@ -200,7 +190,7 @@ impl<'a, C : 'a + Clock, M : 'a + MemoryIO> Context<'a, C, M> {
     }
 
     fn lbranch< A : AddressLines>(&mut self,v : bool)  -> Result<(), CpuErr> {
-        let offset = try!( self.fetch_word_as_i16::<A>() );
+        let offset =  self.fetch_word_as_i16::<A>() ?;
 
         if v {
             self.set_pc_rel(offset)
@@ -215,23 +205,84 @@ impl<'a, C : 'a + Clock, M : 'a + MemoryIO> Context<'a, C, M> {
     }
 
     fn st8< A : AddressLines>(&mut self, v : u8)  -> Result<(), CpuErr> {
-        try!(self.store_byte::<A>(v));
+        self.store_byte::<A>(v)?;
         alu::nz::<u8>(&mut self.regs.flags,Flags::NZ.bits(), v as u32);
         self.regs.flags.set(Flags::V, false);
         Ok(())
     }
 
     fn st16< A : AddressLines>(&mut self, v : u16)  -> Result<(), CpuErr> {
-        try!(self.store_word::<A>(v));
+        self.store_word::<A>(v)?;
         alu::nz::<u16>(&mut self.regs.flags,Flags::NZ.bits(), v as u32);
         self.regs.flags.set(Flags::V, false);
         Ok(())
     }
 }
 
+////////////////////////////////////////////////////////////////////////////////
+// Stakc functions
+
+impl<'a, C : 'a + Clock, M : 'a + MemoryIO> Context<'a, C, M> {
+
+    fn pushu_byte(&mut self, v : u8) -> Result<(), CpuErr> {
+        let u = self.regs.u.wrapping_sub(1);
+        self.mem.store_byte(u,v);
+        self.regs.u = u;
+        Ok(())
+    }
+
+    fn pushu_word(&mut self, v : u16) -> Result<(), CpuErr> {
+        let u = self.regs.u.wrapping_sub(2);
+        self.mem.store_word(u,v);
+        self.regs.u = u ;
+        Ok(())
+    }
+
+    fn popu_byte(&mut self) -> Result<u8, CpuErr> {
+        let r = self.mem.load_byte(self.regs.u);
+        self.regs.u = self.regs.u.wrapping_add(1);
+        Ok(r)
+    }
+
+    fn popu_word(&mut self) -> Result<u16, CpuErr> {
+        let r = self.mem.load_word(self.regs.u);
+        self.regs.u = self.regs.u.wrapping_add(2);
+        Ok(r)
+    }
+
+    fn pushs_byte(&mut self, v : u8) -> Result<(), CpuErr>{
+        let s = self.regs.s.wrapping_sub(1);
+        self.mem.store_byte(s,v);
+        self.regs.s = s;
+        Ok(())
+    }
+
+    fn pushs_word(&mut self, v : u16) -> Result<(), CpuErr> {
+        let s = self.regs.s.wrapping_sub(2);
+        self.mem.store_word(s,v);
+        self.regs.s = s ;
+        Ok(())
+    }
+
+    fn pops_byte(&mut self) -> Result<u8,CpuErr> {
+        let r = self.mem.load_byte(self.regs.s);
+        self.regs.s = self.regs.s.wrapping_add(1);
+        Ok(r)
+    }
+
+    fn pops_word(&mut self) -> Result<u16, CpuErr> {
+        let r = self.mem.load_word(self.regs.s);
+        self.regs.s = self.regs.s.wrapping_add(2);
+        Ok(r)
+    }
+
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
 impl<'a, C : 'a + Clock, M : 'a + MemoryIO> Context<'a, C, M> {
     fn orcc<A : AddressLines>(&mut self) -> Result<(), CpuErr> {
-        let v = try!( self.fetch_byte::<A>());
+        let v =  self.fetch_byte::<A>()?;
         let cc = self.regs.flags.bits();
         self.regs.flags.set_flags(v | cc);
         self.inc_cycles();
@@ -294,13 +345,13 @@ impl<'a, C : 'a + Clock, M : 'a + MemoryIO> Context<'a, C, M> {
     }
 
     fn asr<A : AddressLines>(&mut self)  -> Result<(), CpuErr> {
-        try!(self.rwmod8::<A>( Flags::NZVC.bits(), u8::asr));
+        self.rwmod8::<A>( Flags::NZVC.bits(), u8::asr)?;
         Ok(())
     }
 
     fn tfr<A : AddressLines>(&mut self) -> Result<(), CpuErr> {
         self.add_cycles(4);
-        let operand = try!(self.fetch_byte::<A>());
+        let operand = self.fetch_byte::<A>()?;
         let (a,b) = get_tfr_regs(operand as u8);
         let av = self.regs.get(&a);
         self.regs.set(&b, av);
@@ -365,71 +416,23 @@ impl<'a, C : 'a + Clock, M : 'a + MemoryIO> Context<'a, C, M> {
         self.branch::<A>(cond)
     }
 
-    fn pushu_byte(&mut self, v : u8) {
-        let u = self.regs.u.wrapping_sub(1);
-        self.mem.store_byte(u,v);
-        self.regs.u = u;
-    }
-
-    fn pushu_word(&mut self, v : u16) {
-        let u = self.regs.u.wrapping_sub(2);
-        self.mem.store_word(u,v);
-        self.regs.u = u 
-    }
-
-    fn popu_byte(&mut self) -> u8 {
-        let r = self.mem.load_byte(self.regs.u);
-        self.regs.u = self.regs.u.wrapping_add(1);
-        r
-    }
-
-    fn popu_word(&mut self) -> u16 {
-        let r = self.mem.load_word(self.regs.u);
-        self.regs.u = self.regs.u.wrapping_add(2);
-        r
-    }
-
-    fn pushs_byte(&mut self, v : u8) {
-        let s = self.regs.s.wrapping_sub(1);
-        self.mem.store_byte(s,v);
-        self.regs.s = s;
-    }
-
-    fn pushs_word(&mut self, v : u16) {
-        let s = self.regs.s.wrapping_sub(2);
-        self.mem.store_word(s,v);
-        self.regs.s = s 
-    }
-
-    fn pops_byte(&mut self) -> u8 {
-        let r = self.mem.load_byte(self.regs.s);
-        self.regs.s = self.regs.s.wrapping_add(1);
-        r
-    }
-
-    fn pops_word(&mut self) -> u16 {
-        let r = self.mem.load_word(self.regs.s);
-        self.regs.s = self.regs.s.wrapping_add(2);
-        r
-    }
-
-    fn rts<A : AddressLines>(&mut self)  -> Result<(), CpuErr> {
-        let pc = self.pops_word();
+    fn rts<A : AddressLines>(&mut self) -> Result<(), CpuErr> {
+        let pc = self.pops_word()?;
         self.set_pc(pc);
         Ok(())
     }
 
     fn bsr< A : AddressLines>(&mut self)  -> Result<(), CpuErr> {
-        let offset = try!(self.fetch_byte_as_i16::<A>());
+        let offset = self.fetch_byte_as_i16::<A>()?;
         let next_op = self.get_pc();
-        self.pushs_word( next_op);
+        self.pushs_word( next_op)?;
         self.set_pc_rel(offset);
         Ok(())
     }
 
     fn bvc< A : AddressLines>(&mut self) -> Result<(), CpuErr> {
         let cond = !self.regs.flags.contains(Flags::V);
-        let _ = try!(self.branch::<A>(cond));
+        let _ = self.branch::<A>(cond)?;
         Ok(())
     }
 
@@ -461,64 +464,64 @@ impl<'a, C : 'a + Clock, M : 'a + MemoryIO> Context<'a, C, M> {
     fn andcc<A : AddressLines>(&mut self) -> Result<(), CpuErr> {
         self.inc_cycles();
         let i0 = self.regs.flags.bits() as u32;
-        let i1 = try!(self.fetch_byte::<A>()) as u32;
+        let i1 = self.fetch_byte::<A>()? as u32;
         let new_f = u8::and(&mut self.regs.flags, 0, i0, i1);
         self.regs.flags.set_flags(new_f);
         Ok(())
     }
 
     fn lsl_asl<A : AddressLines>(&mut self)  -> Result<(), CpuErr> {
-        try!(self.rwmod8::<A>( Flags::NZVC.bits(), u8::asl));
+        self.rwmod8::<A>( Flags::NZVC.bits(), u8::asl)?;
         Ok(())
     }
 
     //////////////////////////////////////////////////////////////////////////////// 
 
     fn adda<A : AddressLines>(&mut self)  -> Result<(), CpuErr> {
-        try!(self.moda_2::<A>( Flags::NZVCH.bits(), u8::add));
+        self.moda_2::<A>( Flags::NZVCH.bits(), u8::add)?;
         Ok(())
     }
 
     fn adca<A : AddressLines>(&mut self)  -> Result<(), CpuErr> {
-        try!(self.moda_2::<A>( Flags::NZVCH.bits(), u8::adc));
+        self.moda_2::<A>( Flags::NZVCH.bits(), u8::adc)?;
         Ok(())
     }
 
     fn adcb<A : AddressLines>(&mut self)  -> Result<(), CpuErr> {
-        try!(self.modb_2::<A>( Flags::NZVCH.bits(), u8::adc));
+        self.modb_2::<A>( Flags::NZVCH.bits(), u8::adc)?;
         Ok(())
     }
 
 
     fn addb<A : AddressLines>(&mut self)  -> Result<(), CpuErr> {
-        try!(self.modb_2::<A>( Flags::NZVCH.bits(), u8::add));
+        self.modb_2::<A>( Flags::NZVCH.bits(), u8::add)?;
         Ok(())
     }
 
     fn addd<A : AddressLines>(&mut self)  -> Result<(), CpuErr> {
         self.inc_cycles();
-        try!(self.modd_2::<A>(Flags::NZVC.bits(), u16::add));
+        self.modd_2::<A>(Flags::NZVC.bits(), u16::add)?;
         Ok(())
     }
 
     //////////////////////////////////////////////////////////////////////////////// 
     fn anda<A : AddressLines>(&mut self)  -> Result<(), CpuErr> {
-        try!(self.moda_2::<A>( Flags::NZV.bits(), u8::and));
+        self.moda_2::<A>( Flags::NZV.bits(), u8::and)?;
         Ok(())
     }
 
     fn andb<A : AddressLines>(&mut self)  -> Result<(), CpuErr> {
-        try!(self.modb_2::<A>( Flags::NZV.bits(), u8::and));
+        self.modb_2::<A>( Flags::NZV.bits(), u8::and)?;
         Ok(())
     }
 
     fn bita<A : AddressLines>(&mut self)  -> Result<(), CpuErr> {
-        try!(self.opa_2::<A>(Flags::NZ.bits(), u8::and));
+        self.opa_2::<A>(Flags::NZ.bits(), u8::and)?;
         Ok(())
     }
 
     fn bitb<A : AddressLines>(&mut self)  -> Result<(), CpuErr> {
-        try!(self.opb_2::<A>(Flags::NZ.bits(), u8::and));
+        self.opb_2::<A>(Flags::NZ.bits(), u8::and)?;
         Ok(())
     }
 
@@ -537,14 +540,14 @@ impl<'a, C : 'a + Clock, M : 'a + MemoryIO> Context<'a, C, M> {
     }
 
     fn clr<A : AddressLines>(&mut self)  -> Result<(), CpuErr> {
-        try!(self.store_byte::<A>(0));
+        self.store_byte::<A>(0)?;
         self.post_clear();
         Ok(())
     }
 
     //////////////////////////////////////////////////////////////////////////////// 
     fn cmpa<A : AddressLines>(&mut self)  -> Result<(), CpuErr> {
-        try!(self.opa_2::<A>(Flags::NZVC.bits(), u8::sub));
+        self.opa_2::<A>(Flags::NZVC.bits(), u8::sub)?;
         Ok(())
     }
 
@@ -718,7 +721,7 @@ impl<'a, C : 'a + Clock, M : 'a + MemoryIO> Context<'a, C, M> {
     fn jsr<A : AddressLines>(&mut self)  -> Result<(), CpuErr> {
         let dest = try!(self.ea::<A>());
         let next_op = self.get_pc();
-        self.pushs_word(next_op);
+        try!(self.pushs_word(next_op));
         self.set_pc(dest);
         Ok(())
     }
@@ -728,7 +731,7 @@ impl<'a, C : 'a + Clock, M : 'a + MemoryIO> Context<'a, C, M> {
     fn lbsr<A : AddressLines>(&mut self)  -> Result<(), CpuErr> {
         let offset = try!(self.fetch_word_as_i16::<A>());
         let next_op = self.get_pc();
-        self.pushs_word(next_op);
+        try!(self.pushs_word(next_op));
         self.set_pc_rel(offset);
         Ok(())
     }
@@ -875,177 +878,177 @@ impl<'a, C : 'a + Clock, M : 'a + MemoryIO> Context<'a, C, M> {
 
         if is_set(0x80) {
             let i0 = self.get_pc();
-            self.pushs_word( i0);
+            try!(self.pushs_word( i0));
         }
 
         if is_set( 0x40 ) {
             let i0 = self.regs.u;
-            self.pushs_word( i0);
+            try!(self.pushs_word( i0));
         }
 
         if is_set( 0x20 ) {
             let i0 = self.regs.y;
-            self.pushs_word( i0);
+            try!(self.pushs_word( i0));
         }
 
         if is_set( 0x10 ) {
             let i0 = self.regs.x;
-            self.pushs_word( i0);
+            try!(self.pushs_word( i0));
         }
 
         if is_set( 0x08 ) {
             let i0 = self.regs.dp;
-            self.pushs_byte( i0);
+            try!(self.pushs_byte( i0));
         }
 
         if is_set( 0x04 ) {
             let i0 = self.regs.b;
-            self.pushs_byte( i0);
+            try!(self.pushs_byte( i0));
         }
 
         if is_set( 0x02 ) {
             let i0 = self.regs.a;
-            self.pushs_byte( i0);
+            try!(self.pushs_byte( i0));
         }
 
         if is_set( 0x01 ) {
             let i0 = self.regs.flags.bits();
-            self.pushs_byte( i0);
+            try!(self.pushs_byte( i0));
         }
         Ok(())
     }
 
     fn pshu<A : AddressLines>(&mut self)  -> Result<(), CpuErr> {
 
-        let op = try!(self.fetch_byte::<A>());
+        let op = self.fetch_byte::<A>()?;
 
         let is_set = |m : u8| (op & m) == m;
 
         if is_set(0x80) {
             let i0 = self.get_pc();
-            self.pushu_word( i0);
+            self.pushu_word( i0)?;
         }
 
         if is_set( 0x40 ) {
             let i0 = self.regs.s;
-            self.pushu_word( i0);
+            self.pushu_word( i0)?;
         }
 
         if is_set( 0x20 ) {
             let i0 = self.regs.y;
-            self.pushu_word( i0);
+            self.pushu_word( i0)?;
         }
 
         if is_set( 0x10 ) {
             let i0 = self.regs.x;
-            self.pushu_word( i0);
+            self.pushu_word( i0)?;
         }
 
         if is_set( 0x08 ) {
             let i0 = self.regs.dp;
-            self.pushu_byte( i0);
+            self.pushu_byte( i0)?;
         }
 
         if is_set( 0x04 ) {
             let i0 = self.regs.b;
-            self.pushu_byte( i0);
+            self.pushu_byte( i0)?;
         }
 
         if is_set( 0x02 ) {
             let i0 = self.regs.a;
-            self.pushu_byte( i0);
+            self.pushu_byte( i0)?;
         }
 
         if is_set( 0x01 ) {
             let i0 = self.regs.flags.bits();
-            self.pushu_byte( i0);
+            self.pushu_byte( i0)?;
         }
         Ok(())
     }
 
     fn puls<A : AddressLines>(&mut self)  -> Result<(), CpuErr> {
-        let op = try!(self.fetch_byte::<A>());
+        let op = self.fetch_byte::<A>()?;
 
         if ( op & 0x1 ) == 0x1  {
-            let i0 = self.pops_byte();
+            let i0 = self.pops_byte()?;
             self.regs.flags.set_flags(i0);
         }
 
         if ( op & 0x2 ) == 0x2  {
-            let i0 = self.pops_byte();
+            let i0 = self.pops_byte()?;
             self.regs.a = i0;
         }
 
         if ( op & 0x4 ) == 0x4  {
-            let i0 = self.pops_byte();
+            let i0 = self.pops_byte()?;
             self.regs.b = i0;
         }
         if ( op & 0x8 ) == 0x8  {
-            let i0 = self.pops_byte();
+            let i0 = self.pops_byte()?;
             self.regs.dp = i0;
         }
 
         if ( op & 0x10 ) == 0x10  {
-            let i0 = self.pops_word();
+            let i0 = self.pops_word()?;
             self.regs.x = i0;
         }
 
         if ( op & 0x20 ) == 0x20  {
-            let i0 = self.pops_word();
+            let i0 = self.pops_word()?;
             self.regs.y = i0;
         }
 
         if ( op & 0x40 ) == 0x40  {
-            let i0 = self.pops_word();
+            let i0 = self.pops_word()?;
             self.regs.u = i0;
         }
 
         if (op & 0x80) == 0x80 {
-            let i0 = self.pops_word();
+            let i0 = self.pops_word()?;
             self.set_pc(i0);
         }
         Ok(())
     }
     fn pulu<A : AddressLines>(&mut self)  -> Result<(), CpuErr> {
-        let op = try!(self.fetch_byte::<A>());
+        let op = self.fetch_byte::<A>()?;
 
         if ( op & 0x1 ) == 0x1  {
-            let i0 = self.popu_byte();
+            let i0 = self.popu_byte()?;
             self.regs.flags.set_flags(i0);
         }
 
         if ( op & 0x2 ) == 0x2  {
-            let i0 = self.popu_byte();
+            let i0 = self.popu_byte()?;
             self.regs.a = i0;
         }
 
         if ( op & 0x4 ) == 0x4  {
-            let i0 = self.popu_byte();
+            let i0 = self.popu_byte()?;
             self.regs.b = i0;
         }
         if ( op & 0x8 ) == 0x8  {
-            let i0 = self.popu_byte();
+            let i0 = self.popu_byte()?;
             self.regs.dp = i0;
         }
 
         if ( op & 0x10 ) == 0x10  {
-            let i0 = self.popu_word();
+            let i0 = self.popu_word()?;
             self.regs.x = i0;
         }
 
         if ( op & 0x20 ) == 0x20  {
-            let i0 = self.popu_word();
+            let i0 = self.popu_word()?;
             self.regs.y = i0;
         }
 
         if ( op & 0x40 ) == 0x40  {
-            let i0 = self.popu_word();
+            let i0 = self.popu_word()?;
             self.regs.s = i0;
         }
 
         if (op & 0x80) == 0x80 {
-            let i0 = self.popu_word();
-            self.regs.pc = i0;
+            let i0 = self.popu_word()?;
+            self.set_pc(i0);
         }
         Ok(())
     }
@@ -1065,27 +1068,27 @@ impl<'a, C : 'a + Clock, M : 'a + MemoryIO> Context<'a, C, M> {
     ////////////////////////////////////////////////////////////////////////////////
 
     fn leax<A : AddressLines>(&mut self)  -> Result<(), CpuErr> {
-        let ea = try!(self.ea::<A>());
+        let ea = self.ea::<A>()?;
         self.regs.flags.set(Flags::Z, ea == 0);
         self.regs.x = ea;
         Ok(())
     }
 
     fn leay<A : AddressLines>(&mut self)  -> Result<(), CpuErr> {
-        let ea = try!(self.ea::<A>());
+        let ea = self.ea::<A>()?;
         self.regs.flags.set(Flags::Z, ea == 0);
         self.regs.y = ea;;
         Ok(())
     }
 
     fn leas<A : AddressLines>(&mut self)  -> Result<(), CpuErr> {
-        let ea = try!(self.ea::<A>());
+        let ea = self.ea::<A>()?;
         self.regs.s = ea;;
         Ok(())
     }
 
     fn leau<A : AddressLines>(&mut self)  -> Result<(), CpuErr> {
-        let ea = try!(self.ea::<A>());
+        let ea = self.ea::<A>()?;
         self.regs.u = ea;;
         Ok(())
     }
@@ -1093,7 +1096,7 @@ impl<'a, C : 'a + Clock, M : 'a + MemoryIO> Context<'a, C, M> {
     ////////////////////////////////////////////////////////////////////////////////
 
     fn neg<A : AddressLines>(&mut self)  -> Result<(), CpuErr> {
-        try!(self.rwmod8::<A>( Flags::NZVC.bits(), u8::neg));
+        self.rwmod8::<A>( Flags::NZVC.bits(), u8::neg)?;
         Ok(())
     }
 
@@ -1115,7 +1118,7 @@ impl<'a, C : 'a + Clock, M : 'a + MemoryIO> Context<'a, C, M> {
 
     ////////////////////////////////////////////////////////////////////////////////
     fn rol<A : AddressLines>(&mut self)  -> Result<(), CpuErr> {
-        try!(self.rwmod8::<A>( Flags::NZVC.bits(), u8::rol));
+        self.rwmod8::<A>( Flags::NZVC.bits(), u8::rol)?;
         Ok(())
     }
 
@@ -1131,7 +1134,7 @@ impl<'a, C : 'a + Clock, M : 'a + MemoryIO> Context<'a, C, M> {
 
     ////////////////////////////////////////////////////////////////////////////////
     fn ror<A : AddressLines>(&mut self)  -> Result<(), CpuErr> {
-        try!(self.rwmod8::<A>( Flags::NZC.bits(), u8::ror));
+        self.rwmod8::<A>( Flags::NZC.bits(), u8::ror)?;
         Ok(())
     }
 
@@ -1146,21 +1149,21 @@ impl<'a, C : 'a + Clock, M : 'a + MemoryIO> Context<'a, C, M> {
 
     ////////////////////////////////////////////////////////////////////////////////
     fn sbca<A : AddressLines>(&mut self)  -> Result<(), CpuErr> {
-        try!(self.moda_2::<A>(Flags::NZVC.bits(), u8::sbc));
+        self.moda_2::<A>(Flags::NZVC.bits(), u8::sbc)?;
         Ok(())
     }
 
     fn sbcb<A : AddressLines>(&mut self)  -> Result<(), CpuErr> {
-        try!(self.modb_2::<A>(Flags::NZVC.bits(), u8::sbc));
+        self.modb_2::<A>(Flags::NZVC.bits(), u8::sbc)?;
         Ok(())
 
     }
     fn suba<A : AddressLines>(&mut self)  -> Result<(), CpuErr> {
-        try!(self.moda_2::<A>(Flags::NZVC.bits(), u8::sub));
+        self.moda_2::<A>(Flags::NZVC.bits(), u8::sub)?;
         Ok(())
     }
     fn subb<A : AddressLines>(&mut self)  -> Result<(), CpuErr> {
-        try!(self.modb_2::<A>(Flags::NZVC.bits(), u8::sub));
+        self.modb_2::<A>(Flags::NZVC.bits(), u8::sub)?;
         Ok(())
     }
 
@@ -1176,7 +1179,7 @@ impl<'a, C : 'a + Clock, M : 'a + MemoryIO> Context<'a, C, M> {
     }
 
     fn tst<A : AddressLines>(&mut self)  -> Result<(), CpuErr> {
-        try!(self.rwmod8::<A>( Flags::NZV.bits(), u8::tst));
+        self.rwmod8::<A>( Flags::NZV.bits(), u8::tst)?;
         Ok(())
     }
 
@@ -1199,11 +1202,11 @@ impl<'a, C : 'a + Clock, M : 'a + MemoryIO> Context<'a, C, M> {
 
         macro_rules! push8 {
             ($val:expr) => (
-                { let i0 = $val; self.pushs_byte(i0) })}
+                { let i0 = $val; self.pushs_byte(i0 )? })}
 
         macro_rules! push16 {
             ($val:expr) => (
-                { let i0 = $val; self.pushs_word(i0) })}
+                { let i0 = $val; self.pushs_word(i0)? })}
 
         self.regs.flags |= flags;
 
@@ -1237,25 +1240,25 @@ impl<'a, C : 'a + Clock, M : 'a + MemoryIO> Context<'a, C, M> {
 
     fn subd<A : AddressLines>(&mut self)  -> Result<(), CpuErr> {
         let i0 = self.regs.get_d();
-        let r = try!(self.op16_2::<A>(Flags::NZVC.bits(), u16::sub, i0));
+        let r = self.op16_2::<A>(Flags::NZVC.bits(), u16::sub, i0)?;
         self.regs.set_d(r);
         Ok(())
     }
 
     fn jmp<A : AddressLines>(&mut self)  -> Result<(), CpuErr> {
-        let a = try!(self.ea::<A>());
+        let a = self.ea::<A>()?;
         self.set_pc(a);
         Ok(())
     }
 
     fn rti<A : AddressLines>(&mut self)  -> Result<(), CpuErr> {
         macro_rules! pop8 {
-            () => { self.pops_byte() };
+            () => { try!(self.pops_byte()) };
 
             ($val:expr) => ( { let i0 =  pop8!(); $val = i0 })}
 
         macro_rules! pop16 {
-            () => { self.pops_word() };
+            () => { try!( self.pops_word() ) };
             ($val:expr) => ( { let i0 = pop16!(); $val = i0 })}
 
         let cc = pop8!();
@@ -1279,11 +1282,11 @@ impl<'a, C : 'a + Clock, M : 'a + MemoryIO> Context<'a, C, M> {
     }
 
     fn cwai< A : AddressLines>(&mut self)  -> Result<(), CpuErr> {
-        Err(CpuErr::Unimplemented)
+        Err(CpuErr::Unimplemented(self.ins.clone()))
     }
 
     fn reset< A : AddressLines>(&mut self)  -> Result<(), CpuErr> {
-        Err(CpuErr::Unimplemented)
+        Err(CpuErr::Unimplemented(self.ins.clone()))
     }
 
     fn sync< A : AddressLines>(&mut self)  -> Result<(), CpuErr> {
@@ -1291,7 +1294,7 @@ impl<'a, C : 'a + Clock, M : 'a + MemoryIO> Context<'a, C, M> {
     }
 
     fn unimplemented(&mut self) -> Result<(), CpuErr> {
-        Err(CpuErr::Unimplemented)
+        Err(CpuErr::Unimplemented(self.ins.clone()))
     }
 }
 
@@ -1308,7 +1311,6 @@ impl<'a, C : 'a + Clock, M : 'a + MemoryIO> Context<'a, C, M> {
 }
 
 pub fn reset<M: MemoryIO>(regs : &mut Regs, mem : &mut M) {
-
     *regs = Regs {
         pc : mem.load_word(0xfffe),
         flags : Flags::I | Flags::F,
@@ -1316,28 +1318,18 @@ pub fn reset<M: MemoryIO>(regs : &mut Regs, mem : &mut M) {
     };
 }
 
-
 pub fn step<M: MemoryIO, C : Clock>(regs : &mut Regs, mem : &mut M, ref_clock : &Rc<RefCell<C>>) -> Result<InstructionDecoder, CpuErr> {
-
-    let old_pc = regs.pc;
 
     let mut ctx = Context::new(mem,regs,ref_clock);
 
     macro_rules! handle_op {
         ($addr:ident, $action:ident) => ({ ctx.$action::<$addr>() }) }
 
-    let rez  = op_table!(ctx.fetch_instruction(), { ctx.unimplemented() });
+    op_table!(ctx.fetch_instruction(), { ctx.unimplemented() })?;
 
-    if let Err(err) = rez {
-        ctx.regs.pc = old_pc;
+    ctx.regs.pc =  ctx.ins.next_addr;
 
-        Err(err)
-
-    } else {
-        ctx.regs.pc =  ctx.ins.next_addr;
-
-        Ok(ctx.ins.clone())
-    }
+    Ok(ctx.ins.clone())
 }
 
 

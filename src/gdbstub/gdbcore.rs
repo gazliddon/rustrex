@@ -5,7 +5,6 @@ use gdbstub::reply::{Reply, Endian};
 use gdbstub::Sigs;
 
 ////////////////////////////////////////////////////////////////////////////////
-
 enum PacketResult {
     Ok(Vec<u8>),
     BadChecksum(Vec<u8>),
@@ -13,6 +12,8 @@ enum PacketResult {
     Break,
     NoPacket,
 }
+
+static mut PNUM : u32 = 0;
 
 pub trait DebuggerHost {
     fn do_break(&mut self);
@@ -87,7 +88,6 @@ impl GdbRemote {
             }
 
             PacketResult::EndOfStream => {
-                // Session over
                 Err(())
             }
 
@@ -99,14 +99,15 @@ impl GdbRemote {
 
     /// Attempt to return a single GDB packet.
     fn next_packet(&mut self) -> PacketResult {
-
         let mut buf = [0;1];
 
         if let Ok(_) = self.remote.peek(&mut buf)  {
+
             if buf[0] == 0x03 {
                 let _ = self.remote.read_exact(&mut buf);
                 return PacketResult::Break;
-            }
+            } 
+
         } else {
             return PacketResult::NoPacket;
         }
@@ -120,12 +121,10 @@ impl GdbRemote {
         };
 
         let mut state = State::WaitForStart;
-
         let mut packet = Vec::new();
         let mut csum = 0u8;
 
         for r in (&self.remote).bytes() {
-
             let byte =
                 match r {
                     Ok(b)  => b,
@@ -190,7 +189,6 @@ impl GdbRemote {
         }
 
         warn!("GDB remote end of stream");
-
         PacketResult::EndOfStream
     }
 
@@ -224,6 +222,8 @@ impl GdbRemote {
         use std::str;
 
         let _text = str::from_utf8(args).unwrap();
+
+        // empty reply we support nothing
 
         self.send_empty_reply()
 
@@ -269,8 +269,11 @@ impl GdbRemote {
 
         let to_check = "zZPp";
 
-        if to_check.find(command).is_some() {
-            info!("raw cmd {}", packet_str);
+        if to_check.find(command).is_some()  {
+            unsafe {
+                info!("packet {} : raw cmd {}", PNUM, packet_str);
+                PNUM = PNUM + 1;
+            }
         }
 
         let res = match command {
@@ -307,7 +310,6 @@ impl GdbRemote {
 
         // Check for errors
         try!(res);
-
         Ok(())
     }
 
@@ -452,15 +454,7 @@ impl GdbRemote {
             return self.send_error();
         };
 
-        let (btype, addr, kind) = try!(parse_breakpoint(args));
-
-        // Only kind "4" makes sense for us: 32bits standard MIPS mode
-        // breakpoint. The MIPS-specific kinds are defined here:
-        // https://sourceware.org/gdb/onlinedocs/gdb/MIPS-Breakpoint-Kinds.html
-        if kind != b'4' {
-            // Same question as above, should I signal an error?
-            return self.send_error();
-        }
+        let (btype, addr, _kind) = try!(parse_breakpoint(args));
 
         match btype {
             b'0' => host.add_breakpoint(addr as u16),
@@ -478,16 +472,11 @@ impl GdbRemote {
                       host: &mut DebuggerHost,
                       args: &[u8]) -> GdbResult {
 
-        let (btype, addr_big, kind) = try!(parse_breakpoint(args));
+        let (btype, addr_big, _kind) = try!(parse_breakpoint(args));
 
         info!("del_breakpoint {}", args_as_string(args));
 
         let addr = addr_big as u16;
-
-        // Only 32bits standard MIPS mode breakpoint supported
-        if kind != b'4' {
-            return self.send_error();
-        }
 
         match btype {
             b'0' => host.del_breakpoint(addr),

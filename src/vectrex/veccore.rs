@@ -159,25 +159,6 @@ impl<C : Clock> MemoryIO for VecMem<C> {
     }
 }
 
-
-
-
-impl cpu::Host<VecMem<StandardClock>, StandardClock> for Vectrex {
-
-    fn mem(&mut self) -> &mut VecMem<StandardClock> {
-        &mut self.vec_mem
-    }
-
-    fn clock(&mut self) -> &Rc<RefCell< StandardClock >> {
-        panic!("")
-    }
-
-    fn regs(&mut self) -> &mut Regs {
-        &mut self.regs
-    }
-}
-
-
 pub struct Vectrex {
     regs        : Regs,
     rc_clock    : Rc<RefCell<StandardClock>>,

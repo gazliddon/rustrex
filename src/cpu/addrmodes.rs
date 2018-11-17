@@ -25,7 +25,7 @@ pub trait AddressLines {
     }
 
     fn fetch_byte_as_i16<M: MemoryIO>(mem : &mut M, regs : &mut Regs, ins : &mut InstructionDecoder) -> Result<i16, CpuErr> {
-        let byte = try!(Self::fetch_byte(mem,regs,ins)) as i8;
+        let byte = Self::fetch_byte(mem,regs,ins)? as i8;
         Ok(byte as i16)
     }
 
@@ -57,24 +57,24 @@ impl AddressLines for Direct {
 
     fn fetch_byte<M: MemoryIO>( mem : &mut M, regs : &mut Regs, ins : &mut InstructionDecoder) -> Result<u8,CpuErr> {
         ins.add_cycles(2);
-        let ea= try!(Self::ea(mem,regs,ins));
+        let ea= Self::ea(mem,regs,ins)?;
         Ok(mem.load_byte(ea))
     }
 
     fn fetch_word<M: MemoryIO>( mem : &mut M, regs : &mut Regs, ins : &mut InstructionDecoder) -> Result<u16,CpuErr> {
         ins.add_cycles(3);
-        let ea = try!(Self::ea(mem,regs,ins));
+        let ea = Self::ea(mem,regs,ins)?;
         Ok(mem.load_word(ea))
     }
 
     fn store_byte<M: MemoryIO>(mem : &mut M, regs : &mut Regs, ins : &mut InstructionDecoder, val : u8 ) -> Result<u16,CpuErr> {
-        let ea = try!(Self::ea(mem, regs, ins));
+        let ea = Self::ea(mem, regs, ins)?;
         mem.store_byte(ea,val);
         Ok(ea)
     }
 
     fn store_word<M: MemoryIO>(mem : &mut M, regs : &mut Regs, ins : &mut InstructionDecoder, val : u16 )  -> Result<u16,CpuErr> {
-        let ea = try!(Self::ea(mem,regs,ins));
+        let ea = Self::ea(mem,regs,ins)?;
         mem.store_word(ea, val);
         Ok(ea)
     }
@@ -100,26 +100,26 @@ impl AddressLines for Extended {
     }
 
     fn fetch_byte<M: MemoryIO>( mem : &mut M, regs : &mut Regs, ins : &mut InstructionDecoder) -> Result<u8,CpuErr> {
-        let addr = try!(Self::ea(mem,regs,ins));
+        let addr = Self::ea(mem,regs,ins)?;
         ins.add_cycles(1);
         Ok( mem.load_byte(addr ))
     }
 
     fn fetch_word<M: MemoryIO>(mem : &mut M, regs : &mut Regs, ins : &mut InstructionDecoder) -> Result<u16,CpuErr> {
-        let addr = try!(Self::ea(mem,regs,ins));
+        let addr = Self::ea(mem,regs,ins)?;
         ins.add_cycles(2);
         Ok(mem.load_word(addr))
     }
 
     fn store_byte<M: MemoryIO>(mem : &mut M, regs : &mut Regs, ins : &mut InstructionDecoder, val : u8 ) -> Result<u16,CpuErr> {
-        let addr = try!(Self::ea(mem,regs,ins));
+        let addr = Self::ea(mem,regs,ins)?;
         ins.add_cycles(1);
         mem.store_byte(addr, val);
         Ok(addr)
     }
 
     fn store_word<M: MemoryIO>(mem : &mut M, regs : &mut Regs, ins : &mut InstructionDecoder, val : u16 ) -> Result<u16,CpuErr> {
-        let addr = try!(Self::ea(mem,regs,ins));
+        let addr = Self::ea(mem,regs,ins)?;
         ins.add_cycles(2);
         mem.store_word(addr, val);
         Ok(addr)
@@ -281,7 +281,7 @@ impl AddressLines for Indexed {
     fn ea<M: MemoryIO>(mem : &mut M, regs : &mut Regs, ins : &mut InstructionDecoder) -> Result<u16,CpuErr> {
         ins.inc_cycles();
 
-        let (ea,index_mode) = try!(Indexed::get_index_mode::<M>(mem,regs, ins));
+        let (ea,index_mode) = Indexed::get_index_mode::<M>(mem,regs, ins)?;
 
         let ea = if index_mode.is_indirect() {
             ins.add_cycles(3);
@@ -298,24 +298,24 @@ impl AddressLines for Indexed {
     }
 
     fn fetch_byte<M: MemoryIO>(mem : &mut M, regs : &mut Regs, ins : &mut InstructionDecoder) -> Result<u8,CpuErr> {
-        let ea = try!(Self::ea(mem , regs , ins )); 
-        Ok( mem.load_byte(ea) )
+        let ea = Self::ea(mem , regs , ins )?; 
+        Ok(mem.load_byte(ea))
     }
 
     fn fetch_word<M: MemoryIO>(mem : &mut M, regs : &mut Regs, ins : &mut InstructionDecoder) -> Result<u16,CpuErr> {
         ins.inc_cycles();
-        let ea = try!(Self::ea(mem , regs , ins ));
+        let ea = Self::ea(mem , regs , ins )?;
         Ok( mem.load_word(ea ))
     }
 
     fn store_byte<M: MemoryIO>(mem : &mut M, regs : &mut Regs, ins : &mut InstructionDecoder, val : u8 ) -> Result<u16,CpuErr> {
-        let ea = try!(Self::ea(mem , regs , ins ));
+        let ea = Self::ea(mem , regs , ins )?;
         mem.store_byte(ea, val);
         Ok(ea)
     }
 
     fn store_word<M: MemoryIO>(mem : &mut M, regs : &mut Regs, ins : &mut InstructionDecoder, val : u16 ) -> Result<u16,CpuErr> {
-        let ea = try!(Self::ea(mem , regs , ins ));
+        let ea = Self::ea(mem , regs , ins )?;
         mem.store_word(ea, val);
         Ok(ea)
     }

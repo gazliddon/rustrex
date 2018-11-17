@@ -20,6 +20,8 @@ IO
 */
 use cpu;
 
+use filewatcher::FileWatcher;
+
 use clap::{ArgMatches};
 use cpu::{Regs, StandardClock};
 
@@ -57,14 +59,16 @@ pub enum SimEvent {
     RomChanged,
     MaxCycles,
     Reset,
+    ToggleVerbose,
 }
+
+////////////////////////////////////////////////////////////////////////////////
 // Extend breakpoint to be initialisable from gdb bp descriptions
 
 impl BreakPoint {
 
     pub fn from_gdb_type( bp_type : gdbstub::BreakPointTypes, addr : u16 ) -> Self {
         use gdbstub::BreakPointTypes::*;
-
         let my_type = match bp_type {
             Read  => BreakPointTypes::READ,
             Write => BreakPointTypes::WRITE,
@@ -78,41 +82,12 @@ impl BreakPoint {
 ////////////////////////////////////////////////////////////////////////////////
 
 
-use notify::{RecommendedWatcher, Watcher, RecursiveMode, DebouncedEvent};
-use std::sync::mpsc::{ channel, Receiver };
-use std::time::Duration;
 
 const W : usize = 304;
 const H : usize = 256;
 const DIMS : (u32, u32) = (W as u32, H as u32);
 const SCR_BYTES : usize = W * H * 3; 
 
-struct FileWatcher {
-    file : String,
-    watcher : RecommendedWatcher,
-    rx : Receiver<DebouncedEvent>,
-}
-
-impl FileWatcher {
-    pub fn new(file : &str) -> Self {
-        let (tx, rx)  = channel();
-
-        let mut watcher: RecommendedWatcher = Watcher::new(tx, Duration::from_secs(2)).unwrap();
-        watcher.watch(file, RecursiveMode::Recursive).unwrap();
-
-        Self { file : file.to_string(), watcher, rx }
-
-    }
-    pub fn has_changed(&mut self) -> bool {
-        let msg = self.rx.try_recv();
-
-        if !msg.is_err() {
-            true
-        } else {
-            false
-        }
-    }
-}
 
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -209,7 +184,6 @@ impl SimpleMem {
 }
 
 impl MemoryIO for SimpleMem {
-
     fn upload(&mut self, addr : u16, _data : &[u8]) {
         let mut addr = addr;
 
@@ -247,6 +221,7 @@ impl MemoryIO for SimpleMem {
     }
 }
 
+
 fn pop_u8<'a, I>(vals: &mut I) -> u8
 where
 I: Iterator<Item = &'a u8>,
@@ -274,6 +249,7 @@ pub struct Simple {
     dirty        : bool,
     gdb          : ThreadedGdb,
     break_points : BreakPoints,
+    verbose      : bool,
 }
 
 impl Simple {
@@ -288,8 +264,10 @@ impl Simple {
 
         let break_points = BreakPoints::new();
 
+        let verbose = false;
+
         let ret = Simple {
-            mem, regs, rc_clock, win, gdb, break_points,
+            mem, regs, rc_clock, win, gdb, break_points, verbose,
             file    : None,
             watcher : None,
             events  : vec![],
@@ -300,26 +278,41 @@ impl Simple {
     }
 
     pub fn step(&mut self) -> Option<SimEvent> {
-        let res = cpu::step(&mut self.regs, &mut self.mem, &self.rc_clock);
 
-        let ret =  match res {
-            Ok(i) => {
-                if i.op_code == 0x13 {
-                    Some(SimEvent::HitSync)
-                } else {
-                    None
+        let exec_break = self.break_points.has_exec_breakpoint(self.regs.pc);
+
+        if exec_break {
+            self.add_event(SimEvent::Halt(Sigs::SIGTRAP));
+            Some(SimEvent::Halt(Sigs::SIGTRAP))
+
+        } else {
+
+            if self.verbose {
+                info!("dissassembly here : {:02x}", self.regs.pc);
+            }
+
+
+            let res = cpu::step(&mut self.regs, &mut self.mem, &self.rc_clock);
+
+            let ret =  match res {
+                Ok(i) => {
+                    if i.op_code == 0x13 {
+                        Some(SimEvent::HitSync)
+                    } else {
+                        None
+                    }
                 }
-            }
-            Err(_cpu_err) => {
-                Some(SimEvent::Halt(Sigs::SIGILL))
-            }
-        };
+                Err(_cpu_err) => {
+                    Some(SimEvent::Halt(Sigs::SIGILL))
+                }
+            };
 
-        if let Some(ref ev) = ret {
-            self.add_event(ev.clone());
-        };
+            if let Some(ref ev) = ret {
+                self.add_event(ev.clone());
+            };
 
-        ret
+            ret
+        }
     }
 
     pub fn reset(&mut self) {
@@ -374,7 +367,6 @@ impl Simple {
         // run for n instructions OR
         // stop on an event
         // Could be an error or whatever
-
         for _ in 0..max_instructions {
 
             let ret = self.step();
@@ -398,6 +390,7 @@ impl Simple {
                 Action::Reset    => Some(SimEvent::Reset),
                 Action::Quit     => Some(SimEvent::Quit),
                 Action::Pause    => Some(SimEvent::Pause),
+                Action::ToggleVerbose => Some(SimEvent::ToggleVerbose),
                 Action::Continue => None
             };
             if let Some(event) = sim_event {
@@ -407,8 +400,6 @@ impl Simple {
     }
 
     pub fn handle_debugger(&mut self) {
-
-
         loop {
             if let Some(msg) = self.gdb.poll() {
                 match msg {
@@ -466,7 +457,7 @@ impl Simple {
                     },
 
                     Message::Resume => {
-                        self.add_event(SimEvent::Debugger(msg))
+                        self.add_event(SimEvent::Debugger(msg));
                     }
 
                     Message::BreakPoint(bp_type, addr) => {
@@ -584,6 +575,11 @@ impl Simple {
                 match event {
                     RomChanged => self.rom_changed(),
                     HitSync =>  self.update_texture(),
+                    ToggleVerbose => {
+                        let v = self.verbose;
+                        self.verbose = ! v;
+
+                    }
                     _ => (),
                 };
 

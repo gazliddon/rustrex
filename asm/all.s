@@ -31,8 +31,8 @@ start      lda #$55
             ;;
             ldx #0
             bsr draw_box
-            ;;
             jsr print_a
+            ;;
             ;;
             sync
             nop
@@ -112,11 +112,6 @@ draw_box
     puls u
     rts
 
-    
-
-    
-
-
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 ;; x -> palette entry
@@ -171,30 +166,13 @@ copy_pal
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; u -> data
 ;; x -> screen
-lett_a
-    fdb 0x00
-    fdb 0xf0
-    fdb 0xf0
-    fdb 0xf0
-    fdb 0xf0
-    fdb 0x00
-
-    fdb 0x00
-    fdb 0x00
-    fdb 0x00
-    fdb 0xff
-    fdb 0x00
-    fdb 0xff
-
-    fdb 0x00
-    fdb 0xf0
-    fdb 0xf0
-    fdb 0xff
-    fdb 0x00
-    fdb 0x0f
-
-orig_scr   rmb 2
-save_s     rmb 2
+print_a
+    sts save_s
+    ldx #SCREEN+0x800+6*3
+    ldu #lett_a
+    lds save_s
+    rts
+    jmp print_6x6
 
 print_6x6
     sts save_s
@@ -217,14 +195,32 @@ print_6x6
 
     lds save_s
     rts
+orig_scr   rmb 2
+save_s     rmb 2
 
-print_a
-    sts save_s
-    ldx #SCREEN+0x800+6*3
-    ldu #lett_a
-    lds save_s
-    rts
-    jmp print_6x6
+lett_a
+    fdb 0x00
+    fdb 0xf0
+    fdb 0xf0
+    fdb 0xf0
+    fdb 0xf0
+    fdb 0x00
+
+    fdb 0x00
+    fdb 0x00
+    fdb 0x00
+    fdb 0xff
+    fdb 0x00
+    fdb 0xff
+
+    fdb 0x00
+    fdb 0xf0
+    fdb 0xf0
+    fdb 0xff
+    fdb 0x00
+    fdb 0x0f
+
+
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; clear_scren
