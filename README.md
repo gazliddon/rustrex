@@ -5,7 +5,7 @@ Early days, lots to do
 ## Goals
 * Multi-platform
 * Peformant
-* Idiotmatic Rust
+* Idiomatic Rust
 * Accurate
 * Reduce need for running code on Vectrex hardware
 
