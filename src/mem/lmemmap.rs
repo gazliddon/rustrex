@@ -1,4 +1,4 @@
-use mem::{MemMap, MemoryIO};
+use crate::mem::{MemMap, MemoryIO};
 use std::cell::RefCell;
 use std::fmt;
 use sha1::Sha1;

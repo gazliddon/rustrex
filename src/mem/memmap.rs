@@ -1,5 +1,5 @@
 // use mem::Memory;
-use mem::{ MemoryIO };
+use crate::mem::{ MemoryIO };
 use std::fmt;
 use sha1::Sha1;
 

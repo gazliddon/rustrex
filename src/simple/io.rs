@@ -14,7 +14,7 @@ IO
     9831  switches 2
 */
 
-use mem::*;
+use crate::mem::*;
 
 const IO_BASE   : u16   = 0x9800;
 const IO_RASTER : u16   = 0x9830;

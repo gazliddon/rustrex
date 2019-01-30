@@ -1,4 +1,4 @@
-use mem::MemoryIO;
+use crate::mem::MemoryIO;
 
 #[derive(Debug,Clone,Default)]
 pub struct InstructionDecoder {

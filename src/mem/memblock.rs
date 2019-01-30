@@ -1,5 +1,5 @@
 use std::vec::Vec;
-use mem::{ MemoryIO, MemMap, MemMapIO };
+use crate::mem::{ MemoryIO, MemMap, MemMapIO };
 use sha1::Sha1;
 
 pub struct MemBlock {

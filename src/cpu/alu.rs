@@ -1,4 +1,4 @@
-use cpu::Flags;
+use crate::cpu::Flags;
 
 extern crate num;
 use std;

@@ -1,5 +1,5 @@
-use mem::MemoryIO;
-use cpu::{ Regs, InstructionDecoder, IndexedFlags, IndexModes, CpuErr};
+use crate::mem::MemoryIO;
+use crate::cpu::{ Regs, InstructionDecoder, IndexedFlags, IndexModes, CpuErr};
 
 pub trait AddressLines {
 

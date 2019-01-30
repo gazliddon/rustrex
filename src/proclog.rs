@@ -1,4 +1,4 @@
-use cpu::{ Regs, Flags };
+use crate::cpu::{ Regs, Flags };
 
 use std::io::BufReader;
 use std::io::BufRead;
@@ -6,8 +6,8 @@ use std::fs::File;
 
 use regex::Regex;
 
-use mem::{MemoryIO};
-use diss::Disassembler;
+use crate::mem::{MemoryIO};
+use crate::diss::Disassembler;
 use std::fmt;
 
 #[derive(Debug, Clone, Default)]

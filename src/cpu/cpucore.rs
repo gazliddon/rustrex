@@ -1,12 +1,11 @@
 // Handles CPU emulation
 
-use mem::{ MemoryIO, MemError };
-use cpu::{Regs, RegEnum, Flags, InstructionDecoder};
-use cpu::{AddressLines, Direct, Extended, Immediate, Inherent, Relative, Indexed};
-use cpu::{Clock};
+use crate::mem::{ MemoryIO, MemError };
+use crate::cpu::{Regs, RegEnum, Flags, InstructionDecoder};
+use crate::cpu::{AddressLines, Direct, Extended, Immediate, Inherent, Relative, Indexed};
+use crate::cpu::{Clock, alu};
 
-use cpu::alu::{GazAlu};
-use cpu::alu;
+use crate::cpu::alu::{GazAlu};
 
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -552,38 +551,38 @@ impl<'a, C : 'a + Clock, M : 'a + MemoryIO> Context<'a, C, M> {
     }
 
     fn cmpb<A : AddressLines>(&mut self)  -> Result<(), CpuErr> {
-        try!(self.opb_2::<A>(Flags::NZVC.bits(), u8::sub));
+        self.opb_2::<A>(Flags::NZVC.bits(), u8::sub)?;
         Ok(())
     }
 
     fn cmpd< A : AddressLines>(&mut self)  -> Result<(), CpuErr> {
         let i0 = self.regs.get_d();
-        try!(self.op16_2::<A>(Flags::NZVC.bits(), u16::sub, i0));
+        self.op16_2::<A>(Flags::NZVC.bits(), u16::sub, i0)?;
         Ok(())
     }
 
     fn cmpu< A : AddressLines>(&mut self)  -> Result<(), CpuErr> {
         let i0 = self.regs.u;
-        try!(self.op16_2::<A>( Flags::NZVC.bits(), u16::sub, i0));
+        self.op16_2::<A>( Flags::NZVC.bits(), u16::sub, i0)?;
         Ok(())
     }
 
 
     fn cmps< A : AddressLines>(&mut self)  -> Result<(), CpuErr> {
         let i0 = self.regs.s;
-        try!(self.op16_2::<A>( Flags::NZVC.bits(), u16::sub, i0));
+        self.op16_2::<A>( Flags::NZVC.bits(), u16::sub, i0)?;
         Ok(())
     }
 
     fn cmpx< A : AddressLines>(&mut self)  -> Result<(), CpuErr> {
         let i0 = self.regs.x;
-        try!(self.op16_2::<A>( Flags::NZVC.bits(), u16::sub, i0));
+        self.op16_2::<A>( Flags::NZVC.bits(), u16::sub, i0)?;
         Ok(())
     }
 
     fn cmpy< A : AddressLines>(&mut self)  -> Result<(), CpuErr> {
         let i0 = self.regs.y;
-        try!(self.op16_2::<A>( Flags::NZVC.bits(), u16::sub, i0));
+        self.op16_2::<A>( Flags::NZVC.bits(), u16::sub, i0)?;
         Ok(())
     }
 
@@ -599,7 +598,7 @@ impl<'a, C : 'a + Clock, M : 'a + MemoryIO> Context<'a, C, M> {
     }
 
     fn com< A : AddressLines>(&mut self)  -> Result<(), CpuErr> {
-        try!(self.rwmod8::<A>( Flags::NZVC.bits(), u8::com));
+        self.rwmod8::<A>( Flags::NZVC.bits(), u8::com)?;
         Ok(())
     }
 
@@ -615,7 +614,7 @@ impl<'a, C : 'a + Clock, M : 'a + MemoryIO> Context<'a, C, M> {
     }
 
     fn dec< A : AddressLines>(&mut self)  -> Result<(), CpuErr> {
-        try!(self.rwmod8::<A>( Flags::NZV.bits(), u8::dec));
+        self.rwmod8::<A>( Flags::NZV.bits(), u8::dec)?;
         Ok(())
     }
 
@@ -629,7 +628,7 @@ impl<'a, C : 'a + Clock, M : 'a + MemoryIO> Context<'a, C, M> {
         Ok(())
     }
     fn inc< A : AddressLines>(&mut self)  -> Result<(), CpuErr> {
-        try!(self.rwmod8::<A>( Flags::NZV.bits(), u8::inc));
+        self.rwmod8::<A>( Flags::NZV.bits(), u8::inc)?;
         Ok(())
     }
 
@@ -646,28 +645,28 @@ impl<'a, C : 'a + Clock, M : 'a + MemoryIO> Context<'a, C, M> {
     }
 
     fn lsr< A : AddressLines>(&mut self)  -> Result<(), CpuErr> {
-        try!(self.rwmod8::<A>( Flags::NZC.bits(), u8::lsr));
+        self.rwmod8::<A>( Flags::NZC.bits(), u8::lsr)?;
         Ok(())
     }
 
     //////////////////////////////////////////////////////////////////////////////// 
     fn eora< A : AddressLines>(&mut self)  -> Result<(), CpuErr> {
-        try!(self.moda_2::<A>( Flags::NZV.bits(), u8::eor));
+        self.moda_2::<A>( Flags::NZV.bits(), u8::eor)?;
         Ok(())
     }
     fn eorb< A : AddressLines>(&mut self)  -> Result<(), CpuErr> {
-        try!(self.modb_2::<A>( Flags::NZV.bits(), u8::eor));
+        self.modb_2::<A>( Flags::NZV.bits(), u8::eor)?;
         Ok(())
     }
 
     //////////////////////////////////////////////////////////////////////////////// 
     fn ora< A : AddressLines>(&mut self)  -> Result<(), CpuErr> {
-        try!(self.moda_2::<A>( Flags::NZV.bits(), u8::or));
+        self.moda_2::<A>( Flags::NZV.bits(), u8::or)?;
         Ok(())
     }
 
     fn orb< A : AddressLines>(&mut self)  -> Result<(), CpuErr> {
-        try!(self.modb_2::<A>( Flags::NZV.bits(), u8::or));
+        self.modb_2::<A>( Flags::NZV.bits(), u8::or)?;
         Ok(())
     }
 
@@ -709,7 +708,7 @@ impl<'a, C : 'a + Clock, M : 'a + MemoryIO> Context<'a, C, M> {
 
     //////////////////////////////////////////////////////////////////////////////// 
     fn exg<A : AddressLines>(&mut self)  -> Result<(), CpuErr> {
-        let operand = try!(self.fetch_byte::<A>()); 
+        let operand = self.fetch_byte::<A>()?;
         let (a,b) = get_tfr_regs(operand as u8);
         let av = self.regs.get(&a);
         let bv = self.regs.get(&b);
@@ -719,9 +718,9 @@ impl<'a, C : 'a + Clock, M : 'a + MemoryIO> Context<'a, C, M> {
     }
 
     fn jsr<A : AddressLines>(&mut self)  -> Result<(), CpuErr> {
-        let dest = try!(self.ea::<A>());
+        let dest = self.ea::<A>()?;
         let next_op = self.get_pc();
-        try!(self.pushs_word(next_op));
+        self.pushs_word(next_op)?;
         self.set_pc(dest);
         Ok(())
     }
@@ -729,9 +728,9 @@ impl<'a, C : 'a + Clock, M : 'a + MemoryIO> Context<'a, C, M> {
     // {{{ Long Branches
 
     fn lbsr<A : AddressLines>(&mut self)  -> Result<(), CpuErr> {
-        let offset = try!(self.fetch_word_as_i16::<A>());
+        let offset = self.fetch_word_as_i16::<A>()?;
         let next_op = self.get_pc();
-        try!(self.pushs_word(next_op));
+        self.pushs_word(next_op)?;
         self.set_pc_rel(offset);
         Ok(())
     }
@@ -813,56 +812,56 @@ impl<'a, C : 'a + Clock, M : 'a + MemoryIO> Context<'a, C, M> {
     ////////////////////////////////////////////////////////////////////////////////
     // {{{ Register loads
     fn load_reg_byte<A : AddressLines>(&mut self)  -> Result<u8, CpuErr> {
-        let v = try!(self.fetch_byte::<A>());
+        let v = self.fetch_byte::<A>()?;
         alu::nz::<u8>(&mut self.regs.flags, Flags::NZ.bits(), v as u32);
         self.regs.flags.set(Flags::V, false);
         Ok(v)
     }
     fn load_reg_word<A : AddressLines>(&mut self)  -> Result<u16,CpuErr> {
-        let v = try!(self.fetch_word::<A>());
+        let v = self.fetch_word::<A>()?;
         alu::nz::<u16>(&mut self.regs.flags, Flags::NZ.bits(), v as u32);
         self.regs.flags.set(Flags::V, false);
         Ok(v)
     }
 
     fn lda<A : AddressLines>(&mut self)  -> Result<(), CpuErr> {
-        let i0 = try!(self.load_reg_byte::<A>());
+        let i0 = self.load_reg_byte::<A>()?;
         self.regs.a = i0;
         Ok(())
     }
 
     fn ldb<A : AddressLines>(&mut self)  -> Result<(), CpuErr> {
-        let i0 = try!(self.load_reg_byte::<A>());
+        let i0 = self.load_reg_byte::<A>()?;
         self.regs.b = i0;
         Ok(())
     }
 
     fn ldd<A : AddressLines>(&mut self)  -> Result<(), CpuErr> {
-        let i0 = try!(self.load_reg_word::<A>());
+        let i0 = self.load_reg_word::<A>()?;
         self.regs.set_d(i0);
         Ok(())
     }
 
     fn ldx<A : AddressLines>(&mut self)  -> Result<(), CpuErr> {
-        let i0 = try!(self.load_reg_word::<A>());
+        let i0 = self.load_reg_word::<A>()?;
         self.regs.x = i0;
         Ok(())
     }
 
     fn ldy<A : AddressLines>(&mut self)  -> Result<(), CpuErr> {
-        let i0 = try!(self.load_reg_word::<A>());
+        let i0 = self.load_reg_word::<A>()?;
         self.regs.y = i0;
         Ok(())
     }
 
     fn lds<A : AddressLines>(&mut self)  -> Result<(), CpuErr> {
-        let i0 = try!(self.load_reg_word::<A>());
+        let i0 = self.load_reg_word::<A>()?;
         self.regs.s = i0;
         Ok(())
     }
 
     fn ldu<A : AddressLines>(&mut self)  -> Result<(), CpuErr> {
-        let i0 = try!(self.load_reg_word::<A>());
+        let i0 = self.load_reg_word::<A>()?;
         self.regs.u = i0;
         Ok(())
     }
@@ -872,48 +871,48 @@ impl<'a, C : 'a + Clock, M : 'a + MemoryIO> Context<'a, C, M> {
 
     fn pshs<A : AddressLines>(&mut self)  -> Result<(), CpuErr> {
 
-        let op = try!(self.fetch_byte::<A>());
+        let op = self.fetch_byte::<A>()?;
 
         let is_set = |m : u8| (op & m) == m;
 
         if is_set(0x80) {
             let i0 = self.get_pc();
-            try!(self.pushs_word( i0));
+            self.pushs_word( i0)?;
         }
 
         if is_set( 0x40 ) {
             let i0 = self.regs.u;
-            try!(self.pushs_word( i0));
+            self.pushs_word( i0)?;
         }
 
         if is_set( 0x20 ) {
             let i0 = self.regs.y;
-            try!(self.pushs_word( i0));
+            self.pushs_word( i0)?;
         }
 
         if is_set( 0x10 ) {
             let i0 = self.regs.x;
-            try!(self.pushs_word( i0));
+            self.pushs_word( i0)?;
         }
 
         if is_set( 0x08 ) {
             let i0 = self.regs.dp;
-            try!(self.pushs_byte( i0));
+            self.pushs_byte( i0)?;
         }
 
         if is_set( 0x04 ) {
             let i0 = self.regs.b;
-            try!(self.pushs_byte( i0));
+            self.pushs_byte( i0)?;
         }
 
         if is_set( 0x02 ) {
             let i0 = self.regs.a;
-            try!(self.pushs_byte( i0));
+            self.pushs_byte( i0)?;
         }
 
         if is_set( 0x01 ) {
             let i0 = self.regs.flags.bits();
-            try!(self.pushs_byte( i0));
+            self.pushs_byte( i0)?;
         }
         Ok(())
     }
@@ -1253,12 +1252,12 @@ impl<'a, C : 'a + Clock, M : 'a + MemoryIO> Context<'a, C, M> {
 
     fn rti<A : AddressLines>(&mut self)  -> Result<(), CpuErr> {
         macro_rules! pop8 {
-            () => { try!(self.pops_byte()) };
+            () => { self.pops_byte()? };
 
             ($val:expr) => ( { let i0 =  pop8!(); $val = i0 })}
 
         macro_rules! pop16 {
-            () => { try!( self.pops_word() ) };
+            () => { self.pops_word()? };
             ($val:expr) => ( { let i0 = pop16!(); $val = i0 })}
 
         let cc = pop8!();

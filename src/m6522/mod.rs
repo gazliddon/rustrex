@@ -1,9 +1,9 @@
-use mem::{ MemoryIO };
+use crate::mem::{ MemoryIO };
 use sha1::Sha1;
 
 use std::cell::RefCell;
 use std::rc::Rc;
-use cpu::Clock;
+use crate::cpu::Clock;
 
 ////////////////////////////////////////////////////////////////////////////////
 trait Bits {

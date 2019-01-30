@@ -50,7 +50,7 @@ mod watcher;
 mod state;
 mod filewatcher;
 
-use tests::{GregTest, JsonTest, Tester};
+use crate::tests::{GregTest, JsonTest, Tester};
 use clap::{Arg, App, SubCommand, ArgMatches};
 
 fn do_test<T : Tester>(matches : &ArgMatches) -> T{

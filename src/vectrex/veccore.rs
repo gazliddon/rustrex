@@ -3,17 +3,18 @@
 use clap::{ArgMatches};
 use std::cell::RefCell;
 use std::rc::Rc;
-use gdbstub;
 
-use diss::Disassembler;
+use crate::gdbstub;
+use crate::diss::Disassembler;
+use crate::mem::*;
+use crate::cpu::{Regs, StandardClock, Clock, InstructionDecoder};
+use crate::cpu;
 
-use mem::*;
-use cpu::{Regs, StandardClock, Clock, InstructionDecoder};
-use cpu;
+use crate::m6522::M6522;
+use crate::vectrex::window;
+use crate::vectrex::dac;
 
-use m6522::M6522;
-use vectrex::window;
-use vectrex::dac;
+use crate::vectrex::dac::Dac;
 
 
 
@@ -58,7 +59,7 @@ impl<C: Clock> VecMem<C> {
         let cart_rom  = MemBlock::new("cart", true, 0, 16 * 1024);
         let ram       = MemBlock::new("ram", false, 0xc800, 1024);
 
-        let dac       = dac::Dac {};
+        let dac       = Dac {};
 
         let addr_to_region = {
 

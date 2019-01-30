@@ -2,7 +2,7 @@
 name = "rustrex"
 version = "0.1.0"
 authors = ["Gaz Liddon Retina <gaz@gazaxian.com>"]
-
+edition = "2018"
 
 [profile.dev]
 opt-level = 0

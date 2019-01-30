@@ -1,4 +1,4 @@
-use cpu::{Regs, Flags};
+use crate::cpu::{Regs, Flags};
 
 use std::fmt;
 

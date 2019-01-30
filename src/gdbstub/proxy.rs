@@ -2,7 +2,7 @@ use std::net::{TcpListener};
 use std::sync::mpsc;
 use std::thread;
 
-use gdbstub::{ DebuggerHost, GdbRemote, Reply, Sigs};
+use crate::gdbstub::{ DebuggerHost, GdbRemote, Reply, Sigs};
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum BreakPointTypes {

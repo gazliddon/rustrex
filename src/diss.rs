@@ -1,6 +1,6 @@
-use mem::MemoryIO;
+use crate::mem::MemoryIO;
 
-use cpu::{RegEnum, IndexedFlags, IndexModes, InstructionDecoder, get_tfr_regs};
+use crate::cpu::{RegEnum, IndexedFlags, IndexModes, InstructionDecoder, get_tfr_regs};
 
 pub trait SymTab {
     fn get_symbol(&self, val : u16) -> Option<String>;

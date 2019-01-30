@@ -1,4 +1,4 @@
-use cpu::RegEnum;
+use crate::cpu::RegEnum;
 
 
 #[derive(Debug)]

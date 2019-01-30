@@ -18,29 +18,27 @@ IO
     9831  switches 2
 
 */
-use cpu;
+use crate::cpu;
 
-use filewatcher::FileWatcher;
+use crate::filewatcher::FileWatcher;
 
 use clap::{ArgMatches};
-use cpu::{Regs, StandardClock};
+use crate::cpu::{Regs, StandardClock};
 
-use mem::*;
+use crate::mem::*;
 
-use simple::Io;
+use crate::simple::Io;
 
-use window;
 
 use std::rc::Rc;
 use std::cell::RefCell;
 
-use gdbstub::{ ThreadedGdb, Message, Sigs};
-use gdbstub;
+use crate::gdbstub::{ ThreadedGdb, Message, Sigs};
 
-use utils;
-use state;
+use crate::utils;
+use crate::state;
 
-use breakpoints::{BreakPoint, BreakPoints, BreakPointTypes};
+use crate::breakpoints::{BreakPoint, BreakPoints, BreakPointTypes};
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 enum SimState {
@@ -67,8 +65,8 @@ pub enum SimEvent {
 
 impl BreakPoint {
 
-    pub fn from_gdb_type( bp_type : gdbstub::BreakPointTypes, addr : u16 ) -> Self {
-        use gdbstub::BreakPointTypes::*;
+    pub fn from_gdb_type( bp_type : crate::gdbstub::BreakPointTypes, addr : u16 ) -> Self {
+        use crate::breakpoints::BreakPointTypes::*;
         let my_type = match bp_type {
             Read  => BreakPointTypes::READ,
             Write => BreakPointTypes::WRITE,
@@ -245,7 +243,7 @@ pub struct Simple {
     file         : Option<String>,
     watcher      : Option<FileWatcher>,
     events       : Vec<SimEvent>,
-    win          : window::Window,
+    win          : crate::window::Window,
     dirty        : bool,
     gdb          : ThreadedGdb,
     break_points : BreakPoints,
@@ -258,7 +256,7 @@ impl Simple {
 
         let mem = SimpleMem::new();
         let regs = Regs::new();
-        let win = window::Window::new("my lovely window", DIMS);
+        let win = crate::window::Window::new("my lovely window", DIMS);
 
         let gdb = ThreadedGdb::new();
 
@@ -383,7 +381,7 @@ impl Simple {
     }
 
     pub fn handle_window(&mut self) {
-        use window::Action;
+        use crate::window::Action;
 
         for ev in self.win.update() {
             let sim_event = match ev {

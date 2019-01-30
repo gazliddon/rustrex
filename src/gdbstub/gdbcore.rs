@@ -1,8 +1,8 @@
 use std::net::{TcpListener, Shutdown,TcpStream};
 use std::io::{Read, Write};
-use gdbstub::reply::{Reply, Endian};
+use crate::gdbstub::reply::{Reply, Endian};
 
-use gdbstub::Sigs;
+use crate::gdbstub::Sigs;
 
 ////////////////////////////////////////////////////////////////////////////////
 enum PacketResult {
@@ -72,7 +72,7 @@ impl GdbRemote {
         match self.next_packet() {
 
             PacketResult::Ok(packet) => {
-                try!(self.ack());
+                self.ack()?;
                 self.handle_packet(host,  &packet)
             }
 
@@ -82,7 +82,7 @@ impl GdbRemote {
             }
 
             PacketResult::Break =>  {
-                try!(self.ack());
+                self.ack()?;
                 host.do_break();
                 self.send_trap()
             }
@@ -213,7 +213,7 @@ impl GdbRemote {
     }
 
     fn disconnect(&mut self) -> GdbResult {
-        try!(self.send_ok());
+        self.send_ok()?;
         self.remote.shutdown(Shutdown::Both).unwrap();
         Ok(())
     }
@@ -239,7 +239,7 @@ impl GdbRemote {
     }
 
     fn get_reg(&mut self, host : &mut DebuggerHost, args: &[u8]) -> GdbResult {
-        let reg = try!(parse_get_reg(args));
+        let reg = parse_get_reg(args)?;
         let val = host.get_reg(reg);
 
         let mut reply = Reply::new(&self.endian);
@@ -249,7 +249,7 @@ impl GdbRemote {
     }
 
     fn set_reg(&mut self, host : &mut DebuggerHost, args: &[u8]) -> GdbResult {
-        let (reg, val) = try!(parse_set_reg(args));
+        let (reg, val) = parse_set_reg(args)?;
         host.set_reg(reg,val);
         self.send_ok()
 
@@ -309,7 +309,7 @@ impl GdbRemote {
         };
 
         // Check for errors
-        try!(res);
+        res?;
         Ok(())
     }
 
@@ -353,7 +353,7 @@ impl GdbRemote {
     }
 
     fn write_memory(&mut self, _host : &mut DebuggerHost, args: &[u8]) -> GdbResult {
-        let (addr, data) = try!(parse_write_mem(args));
+        let (addr, data) = parse_write_mem(args)?;
 
         let addr = addr as u16;
 
@@ -371,7 +371,7 @@ impl GdbRemote {
 
         let mut reply = Reply::new(&self.endian);
 
-        let (addr, len) = try!(parse_addr_len(args));
+        let (addr, len) = parse_addr_len(args)?;
 
         if len == 0 {
             // Should we reply with an empty string here? Probably
@@ -395,7 +395,7 @@ impl GdbRemote {
 
         if !args.is_empty() {
             // If an address is provided we restart from there
-            let addr = try!(parse_hex(args));
+            let addr = parse_hex(args)?;
             host.force_pc(addr as u16);
         }
 
@@ -412,7 +412,7 @@ impl GdbRemote {
 
     fn write_registers(&mut self, host : &mut DebuggerHost, args: &[u8]) -> GdbResult {
 
-        let data = try!(parse_data(args));
+        let data = parse_data(args)?;
 
         host.write_registers(&data);
 
@@ -454,7 +454,7 @@ impl GdbRemote {
             return self.send_error();
         };
 
-        let (btype, addr, _kind) = try!(parse_breakpoint(args));
+        let (btype, addr, _kind) = parse_breakpoint(args)?;
 
         match btype {
             b'0' => host.add_breakpoint(addr as u16),
@@ -472,7 +472,7 @@ impl GdbRemote {
                       host: &mut DebuggerHost,
                       args: &[u8]) -> GdbResult {
 
-        let (btype, addr_big, _kind) = try!(parse_breakpoint(args));
+        let (btype, addr_big, _kind) = parse_breakpoint(args)?;
 
         info!("del_breakpoint {}", args_as_string(args));
 
@@ -548,8 +548,8 @@ fn parse_data(_hex: &[u8]) -> Result<Vec<u8>, ()> {
 
     for (l, h) in _hex.iter().tuples() {
 
-        let hn = try!(ascii_hex_err(*l));
-        let ln = try!(ascii_hex_err(*h));
+        let hn = ascii_hex_err(*l)?;
+        let ln = ascii_hex_err(*h)?;
         res.push(ln | hn << 4);
     }
 
@@ -579,8 +579,8 @@ fn parse_addr_len(args: &[u8]) -> Result<(u32, u32), ()> {
     }
 
     // Parse address
-    let addr = try!(parse_hex(addr));
-    let len = try!(parse_hex(len));
+    let addr = parse_hex(addr)?;
+    let len = parse_hex(len)?;
 
     Ok((addr, len))
 }
@@ -595,9 +595,9 @@ fn parse_write_mem(args: &[u8]) -> Result<(u32, Vec<u8>), ()> {
 
     if command.len() != 2 { return Err(()) }
 
-    let addr = try!(parse_hex(args[0]));
-    let len = try!(parse_hex(command[0]));
-    let bytes = try!(parse_data(command[1]));
+    let addr = parse_hex(args[0])?;
+    let len = parse_hex(command[0])?;
+    let bytes = parse_data(command[1])?;
 
     if len as usize != bytes.len() {
         Err(())
@@ -617,14 +617,14 @@ fn parse_set_reg(args: &[u8]) -> Result<(usize, u16), ()> {
         return Err(());
     }
 
-    let reg_num = try!(parse_hex(args[0]));
-    let reg_val = try!(parse_hex(args[1]));
+    let reg_num = parse_hex(args[0])?;
+    let reg_val = parse_hex(args[1])?;
 
     Ok((reg_num as usize, reg_val as u16))
 }
 
 fn parse_get_reg(args: &[u8]) -> Result<usize, ()> {
-    let reg_num = try!(parse_hex(args));
+    let reg_num = parse_hex(args)?;
     Ok(reg_num as usize)
 }
 
@@ -655,7 +655,7 @@ fn parse_breakpoint(args: &[u8]) -> Result<(u8, u32, u8), ()> {
     let btype = btype[0];
     let kind = kind[0];
 
-    let addr = try!(parse_hex(addr));
+    let addr = parse_hex(addr)?;
 
     Ok((btype, addr, kind))
 }

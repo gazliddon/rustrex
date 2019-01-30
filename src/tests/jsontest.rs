@@ -1,15 +1,15 @@
-use mem::{MemoryIO, LoggingMemMap, LogEntry, MemMap};
-use cpu::{Regs, StandardClock};
-use diss::Disassembler;
+use crate::mem::{MemoryIO, LoggingMemMap, LogEntry, MemMap};
+use crate::cpu::{Regs, StandardClock};
+use crate::diss::Disassembler;
 use clap::{ArgMatches};
 
-use cpu::step;
+use crate::cpu::step;
 
 use std::cell::RefCell;
 use std::rc::Rc;
 
-use tests::tester;
-use proclog::{Step};
+use crate::tests::tester;
+use crate::proclog::{Step};
 use separator::Separatable;
 
 // use utils;
@@ -37,7 +37,7 @@ struct RunLog {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-use timer::{Timer, RunTime};
+use crate::timer::{Timer, RunTime};
 
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -50,7 +50,7 @@ impl RunLog {
 
         let mut m = MemMap::new();
 
-        use utils::{load_file};
+        use crate::utils::{load_file};
 
         for mb in &self.memory {
             m.add_mem_block("NO NAME", mb.writeable, mb.base, mb.size)
