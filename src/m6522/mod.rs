@@ -168,18 +168,18 @@ impl Timer {
     }
 
     pub fn write_hi(&mut self, val : u8) {
-        let data = ( self.counter & 0xff ) | (val as u16) << 8;
+        let data = ( self.counter & 0xff ) | u16::from(val) << 8;
         self.latch = data;
         self.counter = data;
         self.reset_int_flag()
     }
 
     pub fn write_latch_lo(&mut self, val : u8) {
-        self.latch = ( self.latch & 0xff00 ) | (val as u16);
+        self.latch = ( self.latch & 0xff00 ) | u16::from(val );
     }
 
     pub fn write_latch_hi(&mut self, val : u8) {
-        self.latch = ( self.latch & 0xff00 ) | (val as u16);
+        self.latch = ( self.latch & 0xff00 ) | u16::from(val );
         self.reset_int_flag()
     }
 
@@ -302,7 +302,7 @@ impl <C : Clock> M6522 <C> {
 
     pub fn new(start : u16, size : u16, rc_clock : &Rc<RefCell<C>>) -> Self {
 
-        let last_byte = (size as u32 + start as u32) - 1;
+        let last_byte = (u32::from(size) + u32::from(start)) - 1;
 
         assert!(last_byte < 0x1_0000);
 

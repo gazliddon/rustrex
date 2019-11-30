@@ -4,11 +4,11 @@ use std::fmt;
 use sha1::Sha1;
 
 pub trait MemMapIO {
-    fn add_memory(&mut self, mem : Box<MemoryIO> ) ;
+    fn add_memory(&mut self, mem : Box<dyn MemoryIO> ) ;
 }
 
 pub struct MemMap {
-    all_memory: Vec< Box<MemoryIO>>,
+    all_memory: Vec< Box<dyn MemoryIO>>,
     name : String,
 }
 
@@ -86,7 +86,7 @@ impl MemMap {
 }
 
 impl MemMapIO for MemMap {
-    fn add_memory(&mut self, mem : Box<MemoryIO> ) {
+    fn add_memory(&mut self, mem : Box<dyn MemoryIO> ) {
         self.all_memory.push(mem)
     }
 }

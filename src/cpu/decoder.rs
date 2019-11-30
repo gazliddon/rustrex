@@ -44,7 +44,7 @@ impl InstructionDecoder {
     }
 
     pub fn fetch_byte_as_i16<M : MemoryIO>(&mut self, mem: &mut M) -> i16 {
-        self.fetch_byte_as_i8(mem) as i16 
+        i16::from(self.fetch_byte_as_i8(mem))
     }
 
 
@@ -57,12 +57,12 @@ impl InstructionDecoder {
     pub fn fetch_instruction<M: MemoryIO>(&mut self, mem: &mut M) -> u16 {
         self.cycles = 2;
 
-        let a = self.fetch_byte(mem) as u16;
+        let a = u16::from(self.fetch_byte(mem));
 
         self.op_code = match a {
             0x10 | 0x11 => {
                 self.inc_cycles();
-                (a << 8) + self.fetch_byte(mem) as u16
+                (a << 8) + u16::from(self.fetch_byte(mem))
             }
             _ => a
         };

@@ -26,7 +26,7 @@ pub trait AddressLines {
 
     fn fetch_byte_as_i16<M: MemoryIO>(mem : &mut M, regs : &mut Regs, ins : &mut InstructionDecoder) -> Result<i16, CpuErr> {
         let byte = Self::fetch_byte(mem,regs,ins)? as i8;
-        Ok(byte as i16)
+        Ok(i16::from(byte))
     }
 
     fn name() -> String;
@@ -47,7 +47,7 @@ pub struct Direct { }
 impl AddressLines for Direct {
 
     fn ea<M: MemoryIO>(mem : &mut M, regs : &mut Regs, ins : &mut InstructionDecoder) -> Result<u16,CpuErr> {
-        let index = ins.fetch_byte(mem) as u16;
+        let index = u16::from(ins.fetch_byte(mem));
         Ok(regs.get_dp_ptr().wrapping_add(index))
     }
 
@@ -217,13 +217,13 @@ impl Indexed {
 
             IndexModes::RAddB(r) => { 
                 // format!("B,{:?}", r) 
-                let add_r = regs.b as u16;
+                let add_r = u16::from(regs.b);
                 Ok((  regs.get(&r).wrapping_add(add_r), index_mode  ))
             },
 
             IndexModes::RAddA(r) => {
                 // format!("A,{:?}", r) 
-                let add_r = regs.a as u16;
+                let add_r = u16::from(regs.a);
                 Ok((  regs.get(&r).wrapping_add(add_r), index_mode  ))
             },
 

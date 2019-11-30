@@ -6,11 +6,10 @@ pub struct State<S : PartialEq + Clone > {
 
 impl<S : PartialEq + Clone > State <S> {
     pub fn new(state : &S) -> Self {
-        let ret = Self {
+        Self {
             state : state.clone(),
             last_state : None,
-        };
-        ret
+        }
     }
 
     pub fn set(&mut self, new_state : &S) {

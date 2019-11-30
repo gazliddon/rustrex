@@ -20,12 +20,7 @@ impl FileWatcher {
 
     pub fn has_changed(&mut self) -> bool {
         let msg = self.rx.try_recv();
-
-        if !msg.is_err() {
-            true
-        } else {
-            false
-        }
+        msg.is_ok()
     }
 }
 

@@ -1,6 +1,5 @@
 use crate::cpu::RegEnum;
 
-
 #[derive(Debug)]
 pub enum IndexModes {
 
@@ -37,8 +36,8 @@ bitflags! {
 
 impl IndexedFlags {
 
-    fn get_offset(&self) -> u16 {
-        let mut v = ( self.bits & IndexedFlags::OFFSET.bits() ) as u16;
+    fn get_offset(self) -> u16 {
+        let mut v = u16::from( self.bits & IndexedFlags::OFFSET.bits() );
 
         if self.contains(Self::OFFSET_SIGN) {
             v |= 0xfff0
@@ -52,19 +51,19 @@ impl IndexedFlags {
         }
     }
 
-    pub fn is_ea(&self) -> bool {
+    pub fn is_ea(self) -> bool {
         self.bits == IndexedFlags::IS_EA.bits()
     }
 
-    pub fn is_indirect(&self) -> bool {
+    pub fn is_indirect(self) -> bool {
         self.contains(Self::IND | Self::NOT_IMM)
     }
 
-    fn not_imm(&self) -> bool {
+    fn not_imm(self) -> bool {
         self.contains(Self::NOT_IMM)
     }
 
-    fn get_reg(&self) -> RegEnum {
+    fn get_reg(self) -> RegEnum {
         match ( self.bits & (IndexedFlags::R.bits()) ) >> 5{
             0 => RegEnum::X,
             1 => RegEnum::Y,
@@ -73,7 +72,7 @@ impl IndexedFlags {
         }
     }
 
-    pub fn get_index_type(&self) -> IndexModes {
+    pub fn get_index_type(self) -> IndexModes {
 
         let r = self.get_reg();
 

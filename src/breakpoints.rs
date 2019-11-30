@@ -64,7 +64,7 @@ impl BreakPoints {
     }
 
     pub fn add(&mut self, b : &BreakPoint ) {
-        if let Some(_) = self.find(b) {
+        if self.find(b).is_some() {
             self.remove(b)
         }
 

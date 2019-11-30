@@ -67,7 +67,7 @@ impl GdbRemote {
 
     // Serve a single remote request
     pub fn serve(&mut self,
-                 host: &mut DebuggerHost) -> GdbResult {
+                 host: &mut dyn DebuggerHost) -> GdbResult {
 
         match self.next_packet() {
 
@@ -101,7 +101,7 @@ impl GdbRemote {
     fn next_packet(&mut self) -> PacketResult {
         let mut buf = [0;1];
 
-        if let Ok(_) = self.remote.peek(&mut buf)  {
+        if self.remote.peek(&mut buf).is_ok()  {
 
             if buf[0] == 0x03 {
                 let _ = self.remote.read_exact(&mut buf);
@@ -238,7 +238,7 @@ impl GdbRemote {
             // }
     }
 
-    fn get_reg(&mut self, host : &mut DebuggerHost, args: &[u8]) -> GdbResult {
+    fn get_reg(&mut self, host : &mut dyn DebuggerHost, args: &[u8]) -> GdbResult {
         let reg = parse_get_reg(args)?;
         let val = host.get_reg(reg);
 
@@ -248,7 +248,7 @@ impl GdbRemote {
         self.send_reply(reply)
     }
 
-    fn set_reg(&mut self, host : &mut DebuggerHost, args: &[u8]) -> GdbResult {
+    fn set_reg(&mut self, host : &mut dyn DebuggerHost, args: &[u8]) -> GdbResult {
         let (reg, val) = parse_set_reg(args)?;
         host.set_reg(reg,val);
         self.send_ok()
@@ -256,7 +256,7 @@ impl GdbRemote {
     }
 
     fn handle_packet(&mut self,
-                     host: &mut DebuggerHost,
+                     host: &mut dyn DebuggerHost,
                      packet: &[u8]) -> GdbResult {
 
         use std::str;
@@ -272,7 +272,7 @@ impl GdbRemote {
         if to_check.find(command).is_some()  {
             unsafe {
                 info!("packet {} : raw cmd {}", PNUM, packet_str);
-                PNUM = PNUM + 1;
+                PNUM += PNUM;
             }
         }
 
@@ -352,7 +352,7 @@ impl GdbRemote {
         self.send_string(b"OK")
     }
 
-    fn write_memory(&mut self, _host : &mut DebuggerHost, args: &[u8]) -> GdbResult {
+    fn write_memory(&mut self, _host : &mut dyn DebuggerHost, args: &[u8]) -> GdbResult {
         let (addr, data) = parse_write_mem(args)?;
 
         let addr = addr as u16;
@@ -367,7 +367,7 @@ impl GdbRemote {
 
     /// Read a region of memory. The packet format should be
     /// `ADDR,LEN`, both in hexadecimal
-    fn read_memory(&mut self, host : &mut DebuggerHost, args: &[u8]) -> GdbResult {
+    fn read_memory(&mut self, host : &mut dyn DebuggerHost, args: &[u8]) -> GdbResult {
 
         let mut reply = Reply::new(&self.endian);
 
@@ -390,7 +390,7 @@ impl GdbRemote {
 
     /// Continue execution
     fn resume(&mut self,
-              host: &mut DebuggerHost,
+              host: &mut dyn DebuggerHost,
               args: &[u8]) -> GdbResult {
 
         if !args.is_empty() {
@@ -404,13 +404,13 @@ impl GdbRemote {
         self.send_sig(sig)
     }
 
-    fn read_registers(&mut self, host : & mut DebuggerHost) -> GdbResult {
+    fn read_registers(&mut self, host : & mut dyn DebuggerHost) -> GdbResult {
         let mut reply = Reply::new(&self.endian);
         host.read_registers(&mut reply);
         self.send_reply(reply)
     }
 
-    fn write_registers(&mut self, host : &mut DebuggerHost, args: &[u8]) -> GdbResult {
+    fn write_registers(&mut self, host : &mut dyn DebuggerHost, args: &[u8]) -> GdbResult {
 
         let data = parse_data(args)?;
 
@@ -422,7 +422,7 @@ impl GdbRemote {
     // Step works exactly like continue except that we're only
     // supposed to execute a single instruction.
     fn step(&mut self,
-            host: &mut DebuggerHost,
+            host: &mut dyn DebuggerHost,
             _args: &[u8]) -> GdbResult {
         let result = host.set_step();
         self.send_sig(result)
@@ -439,7 +439,7 @@ impl GdbRemote {
 
     // Add a breakpoint or watchpoint
     fn add_breakpoint(&mut self,
-                      host: &mut DebuggerHost,
+                      host: &mut dyn DebuggerHost,
                       args: &[u8]) -> GdbResult {
 
         info!("add_breakpoint {}", args_as_string(args));
@@ -469,7 +469,7 @@ impl GdbRemote {
 
     // Delete a breakpoint or watchpoint
     fn del_breakpoint(&mut self,
-                      host: &mut DebuggerHost,
+                      host: &mut dyn DebuggerHost,
                       args: &[u8]) -> GdbResult {
 
         let (btype, addr_big, _kind) = parse_breakpoint(args)?;
@@ -528,7 +528,7 @@ fn parse_hex(hex: &[u8]) -> Result<u32, ()> {
 
         v |=
             match ascii_hex(b) {
-                Some(h) => h as u32,
+                Some(h) => u32::from(h),
                 // Bad hex
                 None => return Err(()),
             };

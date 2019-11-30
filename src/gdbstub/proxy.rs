@@ -84,15 +84,10 @@ impl DebuggerProxy {
             info!("Client confirmed connection");
 
             loop {
-                let ret  = gdb.serve(self);
-
-                match ret {
-                    Err(err) => {
-                        warn!("Connection error {:?}", err);
+                if let Err(err)  = gdb.serve(self) {
+                    warn!("Connection error {:?}", err);
                         break;
-                    },
-                    _ => ()
-                };
+                }
             }
 
             self.send_wait_ack(Message::Disconnected);

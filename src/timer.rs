@@ -37,7 +37,7 @@ impl RunTime {
     }
 
     pub fn nanos(&self) -> f64 {
-        self.dur.subsec_nanos() as f64
+        f64::from(self.dur.subsec_nanos())
     }
 
     pub fn secs(&self) -> f64 {

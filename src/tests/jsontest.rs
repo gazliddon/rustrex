@@ -84,7 +84,7 @@ fn load_json(json_file : &str, loader : fn(&str) -> RunLog) -> (RunTime, RunLog)
     (dur, run_log)
 }
 
-fn time_func<T>( func : &Fn() -> T) -> (RunTime, T) {
+fn time_func<T>( func : &dyn Fn() -> T) -> (RunTime, T) {
     let mut timer = Timer::new();
     let ret =  func();
     (timer.get(), ret)
@@ -267,13 +267,14 @@ fn report(runtime : &RunTime, ins : usize)  {
     let ins_per_second = ins as f64 / secs;
 
     let cycles_per_instruction = 4;
+    let cycles_per_instructionf = f64::from(cycles_per_instruction);
 
     println!("instructions: {}", ins.separated_string());
     println!("secs:         {:.4}", secs);
 
     println!("{} instructions per second", ( ins_per_second as u32 ).separated_string());
     println!("{:0.02}mhz (est avg {} cycler per instruction)"
-             , (ins_per_second * ( cycles_per_instruction as f64 )) / 1_000_000.0
+             , (ins_per_second * cycles_per_instructionf) / 1_000_000.0
              , cycles_per_instruction
             );
 }

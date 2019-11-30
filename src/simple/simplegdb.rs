@@ -69,15 +69,13 @@ impl GdbConnection {
     //     }
     // }
 
-    pub fn update(&mut self, host : &mut gdbstub::DebuggerHost) -> (ConnState, ConnEvent) {
+    pub fn update(&mut self, host : &mut dyn gdbstub::DebuggerHost) -> (ConnState, ConnEvent) {
 
         use self::ConnState::*;
 
-        let state = self.state.clone();
-
         let mut event =  ConnEvent::HasNoEvent;
 
-        match state {
+        match self.state {
 
             Start => {
                 self.state = Waiting;
@@ -96,7 +94,7 @@ impl GdbConnection {
             Waiting => {
                 let is_gdb = self.rx.try_recv();
 
-                if !is_gdb.is_err() {
+                if is_gdb.is_ok() {
                     self.state = Connected;
                     event = ConnEvent::HasConnected;
                     self.gdb = Some(is_gdb.unwrap());
@@ -111,13 +109,10 @@ impl GdbConnection {
                     ret = remote.serve(host);
                 }
 
-                match ret {
-                    Err(_) => { 
-                        info!("gdb disconnected");
-                        event = ConnEvent::HasDisconnected;
-                        self.state = Start;
-                    },
-                    _ => (),
+                if ret.is_err() {
+                    info!("gdb disconnected");
+                    event = ConnEvent::HasDisconnected;
+                    self.state = Start;
                 }
             }
 

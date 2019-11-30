@@ -15,27 +15,27 @@ pub struct LogEntry {
 impl LogEntry {
     fn write_byte(addr : u16, val : u8) -> LogEntry {
         LogEntry {
-            addr: addr,
+            addr,
             write: true,
-            val : val as u16,
+            val : u16::from(val),
             word : false,
         }
     }
 
     fn read_byte(addr : u16, val : u8) -> LogEntry {
         LogEntry {
-            addr: addr,
+            addr,
             write: false,
-            val : val as u16,
+            val : u16::from(val),
             word : false,
         }
     }
 
     fn write_word(addr : u16, val : u16) -> LogEntry {
         LogEntry {
-            addr: addr,
+            addr,
             write: true,
-            val : val,
+            val,
             word : true,
         }
 
@@ -43,9 +43,9 @@ impl LogEntry {
 
     fn read_word(addr : u16, val : u16) -> LogEntry {
         LogEntry {
-            addr: addr,
+            addr,
             write: false,
-            val : val,
+            val,
             word : true,
         }
 

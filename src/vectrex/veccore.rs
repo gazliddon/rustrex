@@ -27,8 +27,8 @@ enum MemRegion {
     VIA,
 }
 
-static FAST_ROM: &'static [u8] = include_bytes!("../../resources/fastrom.dat");
-static SYS_ROM: &'static [u8]  = include_bytes!("../../resources/rom.dat");
+static FAST_ROM: &[u8] = include_bytes!("../../resources/fastrom.dat");
+static SYS_ROM: &[u8]  = include_bytes!("../../resources/rom.dat");
 
 // Contains memory and memmapped perihpherals
 // decodes memory map
@@ -65,7 +65,7 @@ impl<C: Clock> VecMem<C> {
 
             use self::MemRegion::*;
 
-            let mems : &[(MemRegion, &MemoryIO )] = &[
+            let mems : &[(MemRegion, &dyn MemoryIO )] = &[
                 (Rom, &sys_rom ),
                 (Cart, &cart_rom ), 
                 (Ram, &ram ),
@@ -81,7 +81,7 @@ impl<C: Clock> VecMem<C> {
         }
     }
 
-    fn get_region(&self, _addr : u16) -> &MemoryIO {
+    fn get_region(&self, _addr : u16) -> &dyn MemoryIO {
         let region = self.addr_to_region[_addr as usize];
 
         use self::MemRegion::*;
@@ -95,7 +95,7 @@ impl<C: Clock> VecMem<C> {
         }
     }
 
-    fn get_region_mut(&mut self, _addr : u16) -> &mut MemoryIO {
+    fn get_region_mut(&mut self, _addr : u16) -> &mut dyn MemoryIO {
         let region = self.addr_to_region[_addr as usize];
 
         use self::MemRegion::*;
@@ -168,7 +168,7 @@ pub struct Vectrex {
     gdb_enabled : bool,
 }
 
-fn mk_data_mem(addr : u16 ,name : &str, data : &[u8], writeable : bool ) -> Box<MemoryIO> {
+fn mk_data_mem(addr : u16 ,name : &str, data : &[u8], writeable : bool ) -> Box<dyn MemoryIO> {
     Box::new(MemBlock::from_data(addr, name, data, writeable))
 }
 

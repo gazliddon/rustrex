@@ -77,16 +77,13 @@ impl MemoryIO for Io {
         panic!("TBD")
     }
 
+
     fn load_byte(&mut self, addr:u16) -> u8 {
 
         if Io::is_palette(addr) {
             self.palette[addr.wrapping_sub(IO_BASE) as usize]
         } else if addr == IO_RASTER {
             0xff
-        } else if addr == IO_SW_1 {
-            0
-        } else if addr == IO_SW_2 {
-            0
         } else {
             0
         }

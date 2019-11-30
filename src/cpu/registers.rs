@@ -37,15 +37,15 @@ impl Regs {
 
     pub fn get(&self, r: &RegEnum) -> u16 {
         match *r {
-            RegEnum::A => self.a as u16,
-            RegEnum::B => self.b as u16,
+            RegEnum::A => u16::from(self.a),
+            RegEnum::B => u16::from(self.b),
             RegEnum::X => self.x,
             RegEnum::Y => self.y,
             RegEnum::U => self.u,
             RegEnum::S => self.s,
             RegEnum::D => self.get_d(),
-            RegEnum::DP => self.dp as u16,
-            RegEnum::CC => self.flags.bits() as u16,
+            RegEnum::DP => u16::from(self.dp),
+            RegEnum::CC => u16::from(self.flags.bits()),
             RegEnum::PC => self.pc,
         } 
     }
@@ -75,11 +75,11 @@ impl Regs {
     }
 
     pub fn get_dp_ptr(&self) -> u16 {
-        (self.dp as u16) << 8
+        (u16::from(self.dp)) << 8
     }
 
     pub fn get_d(&self) -> u16 {
-        ( ( self.a as u16 ) << 8 ) | self.b as u16 
+        ( u16::from( self.a ) << 8 ) | u16::from(self.b)
     }
 
     pub fn set_d(&mut self, d : u16) {

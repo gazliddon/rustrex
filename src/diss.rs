@@ -54,13 +54,13 @@ impl Disassembler {
 
         let v = diss.fetch_byte(mem);
         let def_str  = format!("${:02X}", v);
-        self.expand(v as u16, &def_str, text, mem, diss)
+        self.expand(u16::from(v), &def_str, text, mem, diss)
     }
 
     fn text_from_word_op<M : MemoryIO>(&mut self, text : &'static str, mem: &mut M, diss : &mut InstructionDecoder) { 
         let v = diss.fetch_word(mem);
         let def_str  = format!("${:04X}", v);
-        self.expand(v as u16, &def_str, text, mem, diss)
+        self.expand(v, &def_str, text, mem, diss)
     }
 }
 
@@ -388,7 +388,7 @@ impl Disassembler {
 
     }
 
-    pub fn diss<M: MemoryIO>(&mut self, mem : &mut M, addr : u16, _syms : Option<&SymTab> ) -> (InstructionDecoder, String) {
+    pub fn diss<M: MemoryIO>(&mut self, mem : &mut M, addr : u16, _syms : Option<&dyn SymTab> ) -> (InstructionDecoder, String) {
         self.text = "".to_string();
 
         let mut diss = InstructionDecoder::new(addr);

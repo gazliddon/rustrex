@@ -66,11 +66,11 @@ pub enum SimEvent {
 impl BreakPoint {
 
     pub fn from_gdb_type( bp_type : crate::gdbstub::BreakPointTypes, addr : u16 ) -> Self {
-        use crate::breakpoints::BreakPointTypes::*;
+        use crate::gdbstub;
         let my_type = match bp_type {
-            Read  => BreakPointTypes::READ,
-            Write => BreakPointTypes::WRITE,
-            Exec  => BreakPointTypes::EXEC,
+            gdbstub::BreakPointTypes::Read  => BreakPointTypes::READ,
+            gdbstub::BreakPointTypes::Write => BreakPointTypes::WRITE,
+            gdbstub::BreakPointTypes::Exec  => BreakPointTypes::EXEC,
         };
 
         Self::new(my_type, addr)
@@ -141,7 +141,7 @@ impl SimpleMem {
 
             use self::MemRegion::*;
 
-            let mems : &[(MemRegion, &MemoryIO )] = &[
+            let mems : &[(MemRegion, &dyn MemoryIO )] = &[
                 (IO, &io),
                 (Screen, &screen ),
                 (Ram, &ram ), ];
@@ -154,7 +154,7 @@ impl SimpleMem {
         }
     }
 
-    fn get_region(&self, _addr : u16) -> &MemoryIO {
+    fn get_region(&self, _addr : u16) -> &dyn MemoryIO {
         let region = self.addr_to_region[_addr as usize];
 
         use self::MemRegion::*;
@@ -167,7 +167,7 @@ impl SimpleMem {
         }
     }
 
-    fn get_region_mut(&mut self, _addr : u16) -> &mut MemoryIO {
+    fn get_region_mut(&mut self, _addr : u16) -> &mut dyn MemoryIO {
         let region = self.addr_to_region[_addr as usize];
         use self::MemRegion::*;
 
@@ -231,8 +231,8 @@ fn pop_u16<'a, I>(vals: &mut I) -> u16
 where
 I: Iterator<Item = &'a u8>,
 {
-    let h = *vals.next().unwrap() as u16;
-    let l = *vals.next().unwrap() as u16;
+    let h = u16::from(*vals.next().unwrap());
+    let l = u16::from(*vals.next().unwrap());
     l | (h << 8)
 }
 
@@ -264,15 +264,13 @@ impl Simple {
 
         let verbose = false;
 
-        let ret = Simple {
+        Simple {
             mem, regs, rc_clock, win, gdb, break_points, verbose,
             file    : None,
             watcher : None,
             events  : vec![],
             dirty   : false,
-        };
-
-        ret
+        }
     }
 
     pub fn step(&mut self) -> Option<SimEvent> {
@@ -398,152 +396,148 @@ impl Simple {
     }
 
     pub fn handle_debugger(&mut self) {
-        loop {
-            if let Some(msg) = self.gdb.poll() {
-                match msg {
-                    Message::Disconnected | Message::Connected | Message::DoBreak  => {
-                        self.add_event(SimEvent::Debugger(msg));
-                        self.gdb.ack()
-                    },
+        while let Some(msg) = self.gdb.poll() {
+            match msg {
+                Message::Disconnected | Message::Connected | Message::DoBreak  => {
+                    self.add_event(SimEvent::Debugger(msg));
+                    self.gdb.ack()
+                },
 
-                    Message::Step => {
-                        warn!("Should send back correct sig for step mode");
-                        self.add_event(SimEvent::Debugger(msg));
-                        self.gdb.ack()
-                    }
-
-                    Message::SetReg(register_number, v16) => {
-
-                        let regs = &mut self.regs;
-
-                        let v8 = v16 as u8;
-
-                        match register_number {
-                            0 => { regs.flags.set_flags(v8) }
-                            1 => { regs.a = v8; }
-                            2 => { regs.b = v8; }
-                            3 => { regs.dp = v8;}
-                            4 => { regs.x = v16 }
-                            5 => { regs.y = v16 }
-                            6 => { regs.s = v16 }
-                            7 => { regs.u = v16 }
-                            8 => { regs.pc = v16}
-                            _ => { warn!("illgal reg num {} for set_reg", register_number) }
-                        };
-
-                        self.gdb.ack()
-                    },
-
-                    Message::GetReg(register_number) => {
-
-                        let regs = &mut self.regs;
-
-                        let val = match register_number {
-                            0 => { regs.flags.bits() as u16}
-                            1 => { regs.a as u16}
-                            2 => { regs.b as u16}
-                            3 => { regs.dp as u16}
-                            4 => { regs.x }
-                            5 => { regs.y }
-                            6 => { regs.s }
-                            7 => { regs.u }
-                            8 => { regs.pc }
-                            _ => { warn!("illgal reg num {} for get_reg", register_number ); 0 }
-                        };
-
-                        self.gdb.reply(Message::SetReg(register_number, val))
-                    },
-
-                    Message::Resume => {
-                        self.add_event(SimEvent::Debugger(msg));
-                    }
-
-                    Message::BreakPoint(bp_type, addr) => {
-                        let break_point = BreakPoint::from_gdb_type(bp_type, addr);
-                        self.break_points.add(&break_point);
-                        self.gdb.ack()
-                    }
-
-                    Message::DeleteBreakPoint(bp_type, addr) => {
-                        let break_point = BreakPoint::from_gdb_type(bp_type, addr);
-                        self.break_points.remove(&break_point);
-                        self.gdb.ack()
-                    }
-
-                    Message::ForcePc(addr) => {
-                        self.regs.pc = addr;
-                        self.gdb.ack();
-                    }
-
-                    Message::Examine(addr) => {
-                        let reply =  Message::Write( addr, self.mem.inspect_byte(addr));
-                        self.gdb.reply(reply);
-                    }
-
-                    Message::WriteRegisters(data) => {
-
-                        let mut _it = data.iter();
-
-                        macro_rules! take8 {
-                            () => { _it.next().unwrap().clone() }
-                        }
-
-                        macro_rules! take16 {
-                            () => ({
-                                let h = take8!() as u16;
-                                let l = take8!() as u16;
-                                h << 8 | l
-                            })
-                        }
-
-                        let regs = &mut self.regs;
-
-                        regs.flags.set_flags(take8!());
-                        regs.a = take8!();
-                        regs.b = take8!();
-                        regs.dp = take8!();
-                        regs.x = take16!();
-                        regs.y = take16!();
-                        regs.s = take16!();
-                        regs.u = take16!();
-                        regs.pc = take16!();
-
-                        info!("received registers and pc = ${:04x}", regs.pc);
-
-                        self.gdb.ack();
-                    }
-
-                    Message::ReadRegisters => {
-                        let regs = &self.regs;
-
-                        let cc = regs.flags.bits();
-
-                        let ret : Vec<u8> = vec![
-                            cc, regs.a, regs.b, regs.dp,
-
-                            (regs.x >> 8) as u8,
-                            regs.x as u8,
-
-                            (regs.y >> 8) as u8,
-                            regs.y as u8,
-
-                            (regs.u >> 8) as u8,
-                            regs.u as u8,
-
-                            (regs.s >> 8) as u8,
-                            regs.s as u8,
-
-                            (regs.pc >> 8) as u8,
-                            regs.pc as u8,
-                        ];
-
-                        self.gdb.reply(Message::WriteRegisters(ret));
-                    }
-
-                    _ => info!("unimplemented msg {:?}", msg),
+                Message::Step => {
+                    warn!("Should send back correct sig for step mode");
+                    self.add_event(SimEvent::Debugger(msg));
+                    self.gdb.ack()
                 }
-            } else {
-                break
+
+                Message::SetReg(register_number, v16) => {
+
+                    let regs = &mut self.regs;
+
+                    let v8 = v16 as u8;
+
+                    match register_number {
+                        0 => { regs.flags.set_flags(v8) }
+                        1 => { regs.a = v8; }
+                        2 => { regs.b = v8; }
+                        3 => { regs.dp = v8;}
+                        4 => { regs.x = v16 }
+                        5 => { regs.y = v16 }
+                        6 => { regs.s = v16 }
+                        7 => { regs.u = v16 }
+                        8 => { regs.pc = v16}
+                        _ => { warn!("illgal reg num {} for set_reg", register_number) }
+                    };
+
+                    self.gdb.ack()
+                },
+
+                Message::GetReg(register_number) => {
+
+                    let regs = &mut self.regs;
+
+                    let val = match register_number {
+                        0 => { u16::from(regs.flags.bits()) },
+                        1 => { u16::from(regs.a) }
+                        2 => { u16::from(regs.b) }
+                        3 => { u16::from(regs.dp) }
+                        4 => { regs.x }
+                        5 => { regs.y }
+                        6 => { regs.s }
+                        7 => { regs.u }
+                        8 => { regs.pc }
+                        _ => { warn!("illgal reg num {} for get_reg", register_number ); 0 }
+                    };
+
+                    self.gdb.reply(Message::SetReg(register_number, val))
+                },
+
+                Message::Resume => {
+                    self.add_event(SimEvent::Debugger(msg));
+                }
+
+                Message::BreakPoint(bp_type, addr) => {
+                    let break_point = BreakPoint::from_gdb_type(bp_type, addr);
+                    self.break_points.add(&break_point);
+                    self.gdb.ack()
+                }
+
+                Message::DeleteBreakPoint(bp_type, addr) => {
+                    let break_point = BreakPoint::from_gdb_type(bp_type, addr);
+                    self.break_points.remove(&break_point);
+                    self.gdb.ack()
+                }
+
+                Message::ForcePc(addr) => {
+                    self.regs.pc = addr;
+                    self.gdb.ack();
+                }
+
+                Message::Examine(addr) => {
+                    let reply =  Message::Write( addr, self.mem.inspect_byte(addr));
+                    self.gdb.reply(reply);
+                }
+
+                Message::WriteRegisters(data) => {
+
+                    let mut _it = data.iter();
+
+                    macro_rules! take8 {
+                        () => { _it.next().unwrap().clone() }
+                    }
+
+                    macro_rules! take16 {
+                        () => ({
+                            let h = take8!() as u16;
+                            let l = take8!() as u16;
+                            h << 8 | l
+                        })
+                    }
+
+                    let regs = &mut self.regs;
+
+                    regs.flags.set_flags(take8!());
+                    regs.a = take8!();
+                    regs.b = take8!();
+                    regs.dp = take8!();
+                    regs.x = take16!();
+                    regs.y = take16!();
+                    regs.s = take16!();
+                    regs.u = take16!();
+                    regs.pc = take16!();
+
+                    info!("received registers and pc = ${:04x}", regs.pc);
+
+                    self.gdb.ack();
+                }
+
+                Message::ReadRegisters => {
+                    let regs = &self.regs;
+
+                    let cc = regs.flags.bits();
+
+                    let ret : Vec<u8> = vec![
+                        cc, regs.a, regs.b, regs.dp,
+
+                        (regs.x >> 8) as u8,
+                        regs.x as u8,
+
+                        (regs.y >> 8) as u8,
+                        regs.y as u8,
+
+                        (regs.u >> 8) as u8,
+                        regs.u as u8,
+
+                        (regs.s >> 8) as u8,
+                        regs.s as u8,
+
+                        (regs.pc >> 8) as u8,
+                        regs.pc as u8,
+                    ];
+
+                    self.gdb.reply(Message::WriteRegisters(ret));
+                }
+
+                _ => info!("unimplemented msg {:?}", msg),
             }
         }
     }
@@ -611,7 +605,7 @@ impl Simple {
                             Debugger(msg) => {
                                 match msg {
                                     Message::Resume => state.set(&SimState::Running),
-                                    Message::Step => {self.step(); ()}
+                                    Message::Step => {self.step();}
                                     Message::Disconnected => state.set(&SimState::Running),
                                     _ => warn!("Unhandled debugger msg {:?} in state {:?}", msg, state.get())
                                 }

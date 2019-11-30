@@ -11,7 +11,7 @@ pub enum MemError {
     BreakPointWrite(u16),
 }
 
-pub fn build_addr_to_region<E : Copy>(illegal : E, mem_tab :  &[(E, &MemoryIO )]) -> [E; 0x1_0000] {
+pub fn build_addr_to_region<E : Copy>(illegal : E, mem_tab :  &[(E, &dyn MemoryIO )]) -> [E; 0x1_0000] {
 
     let mut ret = [illegal; 0x1_0000];
 
@@ -28,13 +28,12 @@ pub fn build_addr_to_region<E : Copy>(illegal : E, mem_tab :  &[(E, &MemoryIO )]
 
 fn to_mem_range( address : u16, size :u16 ) -> Range<u32> {
     use std::cmp::min;
-    let last_mem = address as u32 + size as u32;
-
-    ( address as u32 .. min(0x1_0000, last_mem) )
+    let last_mem = u32::from(address) + u32::from(size);
+    ( u32::from(address) .. min(0x1_0000, last_mem) )
 }
 
 pub fn as_word(lo : u8, hi : u8) -> u16 {
-    lo as u16 | (hi as u16) << 8
+    u16::from(lo) | ( u16::from(hi) << 8 )
 }
 
 pub fn as_bytes(val : u16) -> (u8,u8) {

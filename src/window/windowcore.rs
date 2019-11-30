@@ -34,7 +34,7 @@ pub fn run_loop<F>(mut callback: F) where F: FnMut() -> Action {
         accumulator += now - previous_clock;
         previous_clock = now;
 
-        let fixed_time_stamp = Duration::new(0, 16666667);
+        let fixed_time_stamp = Duration::new(0, 16_666_667);
 
         while accumulator >= fixed_time_stamp {
             accumulator -= fixed_time_stamp;
@@ -97,12 +97,16 @@ impl Window {
 
         use glium::glutin::{WindowBuilder};
         use glium::texture::{Texture2d, UncompressedFloatFormat, MipmapsOption };
-        use glium::Program;
+        // use glium::Program;
+
+        use glium::glutin::dpi::LogicalSize;
+
+        let dims_ls = LogicalSize::new(f64::from(w*2 ), f64::from( h*2 ));
 
         let events_loop = EventsLoop::new();
 
         let window = WindowBuilder::new()
-            .with_dimensions(w * 2, h * 2)
+            .with_dimensions(dims_ls)
             .with_title(name);
 
         let context = ContextBuilder::new().with_vsync(true);
@@ -140,7 +144,7 @@ impl Window {
             display, vertex_buffer, program, events_loop,
             index_buffer, opengl_texture, 
             count : 0.0f32,
-            dims  : dims,
+            dims,
         }
     }
     pub fn draw(&mut self) {
@@ -181,7 +185,7 @@ impl Window {
 
         self.count += 1.0f32 / 60.0f32;
 
-        let display = &mut self.display;
+        // let display = &mut self.display;
 
         let events_loop = &mut self.events_loop;
 
@@ -194,9 +198,10 @@ impl Window {
 
                     match event {
                         Event::WindowEvent { event, window_id } =>
-                            if window_id == display.gl_window().id() {
+                            // if window_id == display.gl_window().id()
+                            {
                                 match event {
-                                    WindowEvent::Closed => action = Action::Quit,
+                                    // WindowEvent::Closed => action = Action::Quit,
                                     WindowEvent::KeyboardInput { input, .. } => {
                                         if let ElementState::Pressed = input.state {
                                             action = match input.virtual_keycode {

@@ -23,19 +23,16 @@ impl MemBlock {
         }
 
         MemBlock {
-            size: size,
-            base: base,
-            read_only: read_only,
-            data: data,
+            size, base, read_only, data,
             name: name.to_string(),
-            last_mem: last_mem,
+            last_mem,
         }
     }
 
     pub fn from_data(addr : u16 ,name : &str, data : &[u8], writeable : bool ) -> MemBlock {
         let len = data.len() as u32;
 
-        let last_byte = ( addr as u32 + len ) -1;
+        let last_byte = ( u32::from(addr) + len ) -1;
 
         if last_byte >= 0x1_0000 {
             println!("len: {:04x} base: {:04x} last: {:04x}", len ,addr, last_byte);

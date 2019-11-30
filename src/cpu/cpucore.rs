@@ -108,7 +108,10 @@ impl<'a, C : 'a + Clock, M : 'a + MemoryIO> Context<'a, C, M> {
 
     fn op16_2< A : AddressLines>( &mut self,  write_mask : u8, func : fn(&mut Flags,u8, u32, u32) -> u16, i0 : u16 ) -> Result<u16, CpuErr> {
         let i1 =  self.fetch_word::<A>()?;
-        Ok(func(&mut self.regs.flags, write_mask, i0 as u32,i1 as u32))
+        Ok(func(&mut self.regs.flags,
+                write_mask,
+                u32::from(i0),
+                u32::from(i1)))
     }
 
     fn opd_2< A : AddressLines>( &mut self, write_mask : u8, func : fn(&mut Flags,u8, u32, u32) -> u16 ) -> Result<u16,CpuErr> {
@@ -123,15 +126,15 @@ impl<'a, C : 'a + Clock, M : 'a + MemoryIO> Context<'a, C, M> {
     }
 
     fn opa_2< A : AddressLines>( &mut self,  write_mask : u8, func : fn(&mut Flags,u8, u32, u32) -> u8 ) -> Result<u8, CpuErr> {
-        let i0 = self.regs.a as u32;
+        let i0 = self.regs.a;
         let i1 = self.fetch_byte::<A>()?;
-        Ok(func(&mut self.regs.flags, write_mask, i0,i1 as u32))
+        Ok(func(&mut self.regs.flags, write_mask,u32::from(i0),u32::from(i1)))
     }
 
     fn opb_2< A : AddressLines>( &mut self,  write_mask : u8, func : fn(&mut Flags,u8, u32, u32) -> u8 ) -> Result<u8, CpuErr> {
-        let i0 = self.regs.b as u32;
+        let i0 = self.regs.b;
         let i1 = self.fetch_byte::<A>()?;
-        Ok(func(&mut self.regs.flags, write_mask, i0,i1 as u32))
+        Ok(func(&mut self.regs.flags, write_mask,u32::from(i0),u32::from(i1)))
     }
 
     fn moda_2< A : AddressLines>( &mut self,  write_mask : u8, func : fn(&mut Flags,u8, u32, u32) -> u8 ) -> Result<u8, CpuErr> {
@@ -147,13 +150,13 @@ impl<'a, C : 'a + Clock, M : 'a + MemoryIO> Context<'a, C, M> {
     }
 
     fn opa( &mut self,  write_mask : u8, func : fn(&mut Flags,u8, u32) -> u8 ) -> u8 {
-        let i0 = self.regs.a as u32;
-        func(&mut self.regs.flags, write_mask, i0)
+        let i0 = self.regs.a;
+        func(&mut self.regs.flags, write_mask, u32::from(i0))
     }
 
     fn opb( &mut self,  write_mask : u8, func : fn(&mut Flags,u8, u32) -> u8 ) -> u8 {
-        let i0 = self.regs.b as u32;
-        func(&mut self.regs.flags, write_mask, i0)
+        let i0 = self.regs.b;
+        func(&mut self.regs.flags, write_mask, u32::from(i0))
     }
 
     fn moda( &mut self,  write_mask : u8, func : fn(&mut Flags,u8, u32) -> u8 ) -> u8 {
@@ -170,7 +173,7 @@ impl<'a, C : 'a + Clock, M : 'a + MemoryIO> Context<'a, C, M> {
 
     fn rwmod8< A : AddressLines>(&mut self,  write_mask : u8, func : fn(&mut Flags, u8, u32) -> u8) -> Result<u8, CpuErr> {
         let ea = self.ea::<A>()?;
-        let v = self.mem.load_byte(ea) as u32;
+        let v = u32::from(self.mem.load_byte(ea));
 
         let r = func(&mut self.regs.flags, write_mask, v );
 
@@ -195,7 +198,7 @@ impl<'a, C : 'a + Clock, M : 'a + MemoryIO> Context<'a, C, M> {
             self.set_pc_rel(offset)
         }
 
-        Ok({})
+        Ok(())
     }
 
     fn post_clear(&mut self) {
@@ -205,14 +208,14 @@ impl<'a, C : 'a + Clock, M : 'a + MemoryIO> Context<'a, C, M> {
 
     fn st8< A : AddressLines>(&mut self, v : u8)  -> Result<(), CpuErr> {
         self.store_byte::<A>(v)?;
-        alu::nz::<u8>(&mut self.regs.flags,Flags::NZ.bits(), v as u32);
+        alu::nz::<u8>(&mut self.regs.flags,Flags::NZ.bits(), u32::from(v));
         self.regs.flags.set(Flags::V, false);
         Ok(())
     }
 
     fn st16< A : AddressLines>(&mut self, v : u16)  -> Result<(), CpuErr> {
         self.store_word::<A>(v)?;
-        alu::nz::<u16>(&mut self.regs.flags,Flags::NZ.bits(), v as u32);
+        alu::nz::<u16>(&mut self.regs.flags,Flags::NZ.bits(), u32::from(v ));
         self.regs.flags.set(Flags::V, false);
         Ok(())
     }
@@ -360,7 +363,7 @@ impl<'a, C : 'a + Clock, M : 'a + MemoryIO> Context<'a, C, M> {
     fn abx<A : AddressLines>(&mut self)  -> Result<(), CpuErr> {
         self.add_cycles(1);
         let x = self.regs.x;
-        self.regs.x = x.wrapping_add(self.regs.b as u16);
+        self.regs.x = x.wrapping_add(u16::from(self.regs.b));
         Ok(())
     }
 
@@ -431,8 +434,7 @@ impl<'a, C : 'a + Clock, M : 'a + MemoryIO> Context<'a, C, M> {
 
     fn bvc< A : AddressLines>(&mut self) -> Result<(), CpuErr> {
         let cond = !self.regs.flags.contains(Flags::V);
-        let _ = self.branch::<A>(cond)?;
-        Ok(())
+        self.branch::<A>(cond)
     }
 
     fn bne< A : AddressLines>(&mut self)  -> Result<(), CpuErr> {
@@ -462,9 +464,9 @@ impl<'a, C : 'a + Clock, M : 'a + MemoryIO> Context<'a, C, M> {
 
     fn andcc<A : AddressLines>(&mut self) -> Result<(), CpuErr> {
         self.inc_cycles();
-        let i0 = self.regs.flags.bits() as u32;
-        let i1 = self.fetch_byte::<A>()? as u32;
-        let new_f = u8::and(&mut self.regs.flags, 0, i0, i1);
+        let i0 = self.regs.flags.bits();
+        let i1 = self.fetch_byte::<A>()?;
+        let new_f = u8::and(&mut self.regs.flags, 0, u32::from(i0), u32::from(i1));
         self.regs.flags.set_flags(new_f);
         Ok(())
     }
@@ -674,7 +676,7 @@ impl<'a, C : 'a + Clock, M : 'a + MemoryIO> Context<'a, C, M> {
     //////////////////////////////////////////////////////////////////////////////// 
     fn daa<A : AddressLines>(&mut self)  -> Result<(), CpuErr> {
         // fuck sakes
-        let a = self.regs.a as u32;
+        let a = u32::from(self.regs.a);
 
         let msn = a & 0xf0;
         let lsn = a & 0xf0;
@@ -813,13 +815,13 @@ impl<'a, C : 'a + Clock, M : 'a + MemoryIO> Context<'a, C, M> {
     // {{{ Register loads
     fn load_reg_byte<A : AddressLines>(&mut self)  -> Result<u8, CpuErr> {
         let v = self.fetch_byte::<A>()?;
-        alu::nz::<u8>(&mut self.regs.flags, Flags::NZ.bits(), v as u32);
+        alu::nz::<u8>(&mut self.regs.flags, Flags::NZ.bits(), u32::from(v));
         self.regs.flags.set(Flags::V, false);
         Ok(v)
     }
     fn load_reg_word<A : AddressLines>(&mut self)  -> Result<u16,CpuErr> {
         let v = self.fetch_word::<A>()?;
-        alu::nz::<u16>(&mut self.regs.flags, Flags::NZ.bits(), v as u32);
+        alu::nz::<u16>(&mut self.regs.flags, Flags::NZ.bits(), u32::from(v));
         self.regs.flags.set(Flags::V, false);
         Ok(v)
     }
@@ -1055,10 +1057,10 @@ impl<'a, C : 'a + Clock, M : 'a + MemoryIO> Context<'a, C, M> {
 
     fn mul<A : AddressLines>(&mut self)  -> Result<(), CpuErr> {
 
-        let i0 = self.regs.a as u32;
-        let i1 = self.regs.b as u32;
+        let i0 = self.regs.a;
+        let i1 = self.regs.b;
 
-        let r = u16::mul(&mut self.regs.flags, Flags::NZC.bits(), i0, i1);
+        let r = u16::mul(&mut self.regs.flags, Flags::NZC.bits(), u32::from(i0), u32::from(i1));
 
         self.regs.set_d(r);
         Ok(())
@@ -1190,9 +1192,9 @@ impl<'a, C : 'a + Clock, M : 'a + MemoryIO> Context<'a, C, M> {
             self.regs.a = 0;
         }
 
-        let d = self.regs.get_d() as u32;
+        let d = self.regs.get_d();
 
-        alu::nz::<u16>(&mut self.regs.flags,Flags::NZ.bits(),d);
+        alu::nz::<u16>(&mut self.regs.flags,Flags::NZ.bits(),u32::from(d));
         Ok(())
     }
 
